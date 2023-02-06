@@ -218,7 +218,7 @@ namespace Dwarf32 {
     DW_FORM_sec_offset,     // lineptr...
     DW_FORM_exprloc,        // exprloc
     DW_FORM_flag_present,   // flag
-    DW_FORM_ref_sig8        // reference
+    DW_FORM_ref_sig8 = 0x20,// reference
   };
 
   enum Accessibility {
