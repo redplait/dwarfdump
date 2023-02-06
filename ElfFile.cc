@@ -319,9 +319,10 @@ bool ElfFile::LoadAbbrevTags(uint32_t abbrev_offset) {
 #define CASE_REGISTER_NEW_TAG(tag_type, element_type)                         \
   case Dwarf32::Tag::tag_type:                                                \
     tree_builder_.AddElement(TreeBuilder::ElementType::element_type, tag_id); \
+    return true; \
     break;
 
-void ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
+bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
   switch (tag) {
     CASE_REGISTER_NEW_TAG(DW_TAG_array_type, array_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_class_type, class_type)
@@ -338,13 +339,16 @@ void ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
     default:
       tree_builder_.AddNone();
   }
+  return false;
 }
 
 bool ElfFile::LogDwarfInfo(Dwarf32::Tag tag, Dwarf32::Attribute attribute, 
                 uint64_t tag_id, Dwarf32::Form form, const unsigned char* &info, 
-                size_t& info_bytes, const void* unit_base) {
+                size_t& info_bytes, const void* unit_base) {           
   switch(attribute) {
-
+    case Dwarf32::Attribute::DW_AT_sibling:
+      m_next = FormDataValue(form, info, info_bytes);
+     return true;
     // Name
     case Dwarf32::Attribute::DW_AT_name:
     case Dwarf32::Attribute::DW_AT_linkage_name: {
@@ -399,6 +403,7 @@ bool ElfFile::GetAllClasses() {
 
   while (info_bytes > 0) {
     // Load the compilation unit information
+    const unsigned char* cu_start = info;
     const Dwarf32::CompilationUnitHdr* unit_hdr =
         reinterpret_cast<const Dwarf32::CompilationUnitHdr*>(info);
     DBG_PRINTF("unit_length         = 0x%x\n", unit_hdr->unit_length);
@@ -437,11 +442,12 @@ bool ElfFile::GetAllClasses() {
       TagSection* section = &it_section->second;
       const unsigned char* abbrev = section->ptr;
       size_t abbrev_bytes = debug_abbrev_size_ - (abbrev - debug_abbrev_);
-
-      RegisterNewTag(section->type, tag_id);
+      m_stype = section->type;
+      bool regged = RegisterNewTag(m_stype, tag_id);
+      m_next = 0;
 
       if ( g_opt_d )
-        fprintf(g_outf, "%d GetAllClasses %lx size %lx\n", m_level, tag_id, abbrev_bytes);
+        fprintf(g_outf, "%d GetAllClasses %lx size %lx regged %d\n", m_level, tag_id, abbrev_bytes, regged);
 
       // For all attributes
       while (*abbrev) 
@@ -453,15 +459,32 @@ bool ElfFile::GetAllClasses() {
 
         DBG_PRINTF(".info+%lx\t %02x %02x\n", info-debug_info_, 
                                                 abbrev_attribute, abbrev_form);
-        bool logged = LogDwarfInfo(section->type, abbrev_attribute, 
+        bool logged = LogDwarfInfo(m_stype, abbrev_attribute, 
           tag_id, abbrev_form, info, info_bytes, unit_hdr);
         if (!logged) {
           DBG_PRINTF("abbrev_form %X\n", abbrev_form);
           ElfFile::PassData(abbrev_form, info, info_bytes);
         }
       }
+      if ( !regged && m_level && m_next )
+      {
+        const unsigned char* info2 = cu_start + m_next;
+        if ( g_opt_d)
+          fprintf(g_outf, "%lX m_next %lX - %lX\n", info - debug_info_, m_next, info2 - debug_info_);
+        if ( info2 > info )
+        {
+          info_bytes -= info2 - info;
+          info = info2;
+          if ( !info_bytes )
+            break;
+          else
+            goto skip_level;
+        }
+      }
       if ( section->has_children )
         m_level++;
+skip_level:
+       ;
     }
   }
 
