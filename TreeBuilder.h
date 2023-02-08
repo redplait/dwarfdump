@@ -25,7 +25,7 @@ public:
     const_type
   };
   void AddNone();
-  void AddElement(ElementType element_type, uint64_t tag_id);
+  void AddElement(ElementType element_type, uint64_t tag_id, int level);
   void SetElementName(const char* name);
   void SetElementSize(uint64_t size);
   void SetElementOffset(uint64_t offset);
@@ -45,12 +45,21 @@ private:
 
   class Element {
   public:
-    Element(ElementType type, uint64_t id) : type_(type), id_(id), 
-      name_(nullptr), size_(0), type_id_(0), offset_(0), count_(0) {}
+    Element(ElementType type, uint64_t id, int level) : 
+      type_(type), 
+      id_(id),
+      level_(level),
+      name_(nullptr), 
+      size_(0), 
+      type_id_(0), 
+      offset_(0), 
+      count_(0) 
+    {}
     const char* TypeName();
     std::string GenerateJson();
     ElementType type_;
     uint64_t id_;
+    int level_;
     const char* name_;
     size_t size_;
     uint64_t type_id_;

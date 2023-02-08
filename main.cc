@@ -1,7 +1,7 @@
 #include <getopt.h>
 #include "ElfFile.h"
 
-extern int g_opt_d;
+extern int g_opt_d, g_opt_l, g_opt_v;
 extern FILE *g_outf;
 
 void usage(const char *prog)
@@ -9,7 +9,9 @@ void usage(const char *prog)
   printf("%s usage: [options] elf-file\n", prog);
   printf("Options:\n");
   printf("-d - dump debug info\n");
+  printf("-l - add levels\n");
   printf("-o out-file\n");
+  printf("-v - verbose mode\n");
   exit(6);
 }
 
@@ -19,12 +21,16 @@ int main(int argc, char* argv[])
   // read options
   while(1)
   {
-    int c = getopt(argc, argv, "do:");
+    int c = getopt(argc, argv, "dlvo:");
     if ( c == -1 )
       break;
     switch(c)
     {
       case 'd': g_opt_d = 1;
+        break;
+      case 'l': g_opt_l = 1;
+        break;
+      case 'v': g_opt_v = 1;
         break;
       case 'o':
          if ( fp )

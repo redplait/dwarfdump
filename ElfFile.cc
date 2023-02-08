@@ -4,7 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-int g_opt_d = 0;
+int g_opt_d = 0,
+    g_opt_l = 0,
+    g_opt_v = 0;
 FILE *g_outf = NULL;
 
 ElfFile::ElfFile(std::string filepath, bool& success) :
@@ -318,7 +320,7 @@ bool ElfFile::LoadAbbrevTags(uint32_t abbrev_offset) {
 
 #define CASE_REGISTER_NEW_TAG(tag_type, element_type)                         \
   case Dwarf32::Tag::tag_type:                                                \
-    tree_builder_.AddElement(TreeBuilder::ElementType::element_type, tag_id); \
+    tree_builder_.AddElement(TreeBuilder::ElementType::element_type, tag_id, m_level); \
     return true; \
     break;
 

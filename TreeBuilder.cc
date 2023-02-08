@@ -1,5 +1,7 @@
 #include "TreeBuilder.h"
 
+extern int g_opt_l;
+
 TreeBuilder::TreeBuilder() = default;
 TreeBuilder::~TreeBuilder() = default;
 
@@ -21,7 +23,7 @@ void TreeBuilder::AddNone() {
   current_element_type_ = ElementType::none; 
 }
 
-void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id) {
+void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int level) {
   switch(element_type) {
     case ElementType::member:       // Member
       if (current_element_type_ == ElementType::none) {
@@ -31,7 +33,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id) {
         fprintf(stderr, "Can't add a member if the element list is empty\n");
         return;
       }
-      elements_.back().members_.push_back(Element(element_type, tag_id));
+      elements_.back().members_.push_back(Element(element_type, tag_id, level));
       break;
     case ElementType::inheritance:    // Parent
       if (current_element_type_ == ElementType::none) {
@@ -46,7 +48,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id) {
     case ElementType::subrange_type:  // Subrange
       break;                          // Just update the current element type
     default:
-      elements_.push_back(Element(element_type, tag_id));
+      elements_.push_back(Element(element_type, tag_id, level));
   }
 
   current_element_type_ = element_type; 
@@ -222,6 +224,9 @@ std::string TreeBuilder::Element::GenerateJson() {
     }
     if (name_) {
       result += "\"name\":\""+EscapeJsonString(name_)+"\",";
+    }
+    if ( level_ && g_opt_l ) {
+      result += "\"level\":\""+std::to_string(level_)+"\",";
     }
     result += "\"offset\":"+std::to_string(offset_);
 
