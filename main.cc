@@ -56,9 +56,9 @@ int main(int argc, char* argv[])
   // setup g_outf
   g_outf = (fp == NULL) ? stdout : fp;
 
+  fprintf(g_outf, "{");
   file.GetAllClasses();
-  std::string json = file.json();
-  fprintf(g_outf, "%s\n", json.c_str());
+  fprintf(g_outf, "}\n");
 
   if ( fp != NULL )
     fclose(fp);

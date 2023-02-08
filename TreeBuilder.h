@@ -2,6 +2,7 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <stack>
 
 class TreeBuilder {
 public:
@@ -24,6 +25,9 @@ public:
     base_type,
     const_type
   };
+  void ProcessUnit(int last = 0);
+  int add2stack();
+  void pop_stack();
   void AddNone();
   void AddElement(ElementType element_type, uint64_t tag_id, int level);
   void SetElementName(const char* name);
@@ -69,5 +73,6 @@ private:
     std::vector<Parent> parents_;
   };
 
+  std::stack<Element *> m_stack;
   std::vector<Element> elements_;
 };

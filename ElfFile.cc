@@ -404,6 +404,8 @@ bool ElfFile::GetAllClasses() {
   size_t info_bytes = debug_info_size_;
 
   while (info_bytes > 0) {
+    // process previous compilation unit
+    tree_builder_.ProcessUnit();
     // Load the compilation unit information
     const unsigned char* cu_start = info;
     const Dwarf32::CompilationUnitHdr* unit_hdr =
@@ -431,7 +433,10 @@ bool ElfFile::GetAllClasses() {
       DBG_PRINTF(".info+%lx\t Info Number %X\n", info-debug_info_, info_number);
       if (!info_number) { // reserved
         if ( m_level )
+        {
           m_level--;
+          tree_builder_.pop_stack();
+        }
         continue;
       }
 
@@ -484,13 +489,18 @@ bool ElfFile::GetAllClasses() {
         }
       }
       if ( section->has_children )
+      {
         m_level++;
+        tree_builder_.add2stack();
+      }
 skip_level:
        ;
     }
   }
+  // process last compilation unit
+  tree_builder_.ProcessUnit(1);
 
-  return false;
+  return true;
 }
 
 

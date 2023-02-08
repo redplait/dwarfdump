@@ -1,26 +1,64 @@
 #include "TreeBuilder.h"
 
 extern int g_opt_l;
+extern FILE *g_outf;
 
 TreeBuilder::TreeBuilder() = default;
 TreeBuilder::~TreeBuilder() = default;
 
 std::string TreeBuilder::GenerateJson() {
   std::string result;
-  result += "{";
+  if ( elements_.empty() )
+    return result;
   for (size_t i = 0; i < elements_.size(); i++) {
     result += elements_[i].GenerateJson();
-    if (i+1 < elements_.size()) { // not the last one
-      result += "\n,";
-    }
+    result += ",\n";
   }
-  result += "}";
 
   return result;
 }
 
+// called on each processed compilation unit
+void TreeBuilder::ProcessUnit(int last)
+{
+  if ( !m_stack.empty() )
+  {
+    // fprintf(stderr, "ProcessUnit: stack is not empty\n");
+    m_stack = {};
+  }
+  auto json = GenerateJson();
+  // if this was last unit - cut final comma
+  if ( last )
+  {
+    json.pop_back();
+    json.pop_back();
+  }
+  if ( !json.empty() )
+    fprintf(g_outf, "%s", json.c_str());
+  elements_.clear();
+}
+
 void TreeBuilder::AddNone() {
   current_element_type_ = ElementType::none; 
+}
+
+int TreeBuilder::add2stack()
+{
+  if (!elements_.size()) {
+    // fprintf(stderr, "Can't add a member if the element list is empty\n");
+    return 0;
+  }
+  m_stack.push( &elements_.back() );
+  return 1;
+}
+
+void TreeBuilder::pop_stack()
+{
+  if ( m_stack.empty() ) {
+    // fprintf(stderr, "stack is empty\n");
+    return;
+  }
+  m_stack.pop();
 }
 
 void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int level) {
@@ -29,11 +67,15 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       if (current_element_type_ == ElementType::none) {
         return;
       }
+      if ( m_stack.empty() ) {
+        fprintf(stderr, "Can't add a member when stack is empty\n");
+        return;
+      }
       if (!elements_.size()) {
         fprintf(stderr, "Can't add a member if the element list is empty\n");
         return;
       }
-      elements_.back().members_.push_back(Element(element_type, tag_id, level));
+      m_stack.top()->members_.push_back(Element(element_type, tag_id, level));
       break;
     case ElementType::inheritance:    // Parent
       if (current_element_type_ == ElementType::none) {
@@ -43,7 +85,11 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         fprintf(stderr, "Can't add a parent if the element list is empty\n");
         return;
       }
-      elements_.back().parents_.push_back({tag_id, 0});
+      if ( m_stack.empty() ) {
+        fprintf(stderr, "Can't add a parent when stack is empty\n");
+        return;
+      }
+      m_stack.top()->parents_.push_back({tag_id, 0});
       break;
     case ElementType::subrange_type:  // Subrange
       break;                          // Just update the current element type
@@ -64,12 +110,16 @@ void TreeBuilder::SetElementName(const char* name) {
   }
 
   if (current_element_type_ == ElementType::member) {
-    if (!elements_.back().members_.size()) {
+    if ( m_stack.empty() ) {
+      fprintf(stderr, "Can't set the member name when stack is empty\n");
+      return;
+    }
+    if (!m_stack.top()->members_.size()) {
       fprintf(stderr, "Can't set the member name if the members list is empty\n");
       return;
     }
 
-    elements_.back().members_.back().name_ = name;
+    m_stack.top()->members_.back().name_ = name;
     return;
   }
 
@@ -87,13 +137,17 @@ void TreeBuilder::SetElementSize(uint64_t size) {
   }
 
   if (current_element_type_ == ElementType::member) {
-    if (!elements_.back().members_.size()) {
+    if ( m_stack.empty() ) {
+      fprintf(stderr, "Can't set an member size when stack is empty\n");
+      return;
+    }
+    if (!m_stack.top()->members_.size()) {
       fprintf(stderr, "Can't set the member size if the members list is "
         "empty\n");
       return;
     }
 
-    elements_.back().members_.back().size_ = size;
+    m_stack.top()->members_.back().size_ = size;
     return;
   }
 
@@ -112,20 +166,26 @@ void TreeBuilder::SetElementOffset(uint64_t offset) {
 
   switch (current_element_type_) {
     case ElementType::member:
-      if (!elements_.back().members_.size()) {
-        fprintf(stderr, "Can't set the member offset if the members list is "
-          "empty\n");
+      if ( m_stack.empty() ) {
+        fprintf(stderr, "Can't set the member offset when stack is empty\n");
+        return;
+      }
+      if (!m_stack.top()->members_.size()) {
+        fprintf(stderr, "Can't set the member offset if the members list is empty\n");
         break;
       }
-      elements_.back().members_.back().offset_ = offset;
+      m_stack.top()->members_.back().offset_ = offset;
       break;
     case ElementType::inheritance:
-      if (!elements_.back().parents_.size()) {
-        fprintf(stderr, "Can't set the parent offset if the parents list is "
-          "empty\n");
+      if ( m_stack.empty() ) {
+        fprintf(stderr, "Can't set the parent offset when stack is empty\n");
+        return;
+      }
+      if (!m_stack.top()->parents_.size()) {
+        fprintf(stderr, "Can't set the parent offset if the parents list is empty\n");
         break;
       }
-      elements_.back().parents_.back().offset = offset;
+      m_stack.top()->parents_.back().offset = offset;
       break;
     default:
       break;
@@ -143,20 +203,26 @@ void TreeBuilder::SetElementType(uint64_t type_id) {
 
   switch (current_element_type_) {
     case ElementType::member:
-      if (!elements_.back().members_.size()) {
-        fprintf(stderr, "Can't set the member type if the members list is "
-          "empty\n");
+      if ( m_stack.empty() ) {
+        fprintf(stderr, "Can't set the member type when stack is empty\n");
+        return;
+      }
+      if (!m_stack.top()->members_.size()) {
+        fprintf(stderr, "Can't set the member type if the members list is empty\n");
         break;
       }
-      elements_.back().members_.back().type_id_ = type_id;
+      m_stack.top()->members_.back().type_id_ = type_id;
       break;
     case ElementType::inheritance:
-      if (!elements_.back().parents_.size()) {
-        fprintf(stderr, "Can't set the parent type if the parents list is "
-          "empty\n");
+      if ( m_stack.empty() ) {
+        fprintf(stderr, "Can't set the parent type when stack is empty\n");
+        return;
+      }
+      if (!m_stack.top()->parents_.size()) {
+        fprintf(stderr, "Can't set the parent type if the parents list is empty\n");
         break;
       }
-      elements_.back().parents_.back().id = type_id;
+      m_stack.top()->parents_.back().id = type_id;
       break;
     case ElementType::subrange_type:
       break; // do nothing
