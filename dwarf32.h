@@ -22,7 +22,7 @@ namespace Dwarf32 {
     DW_TAG_member = 0x0d,
     DW_TAG_pointer_type = 0x0f,
     DW_TAG_reference_type = 0x10,
-    DW_TAG_compile_uniintt = 0x11,
+    DW_TAG_compile_unit = 0x11,
     DW_TAG_string_type = 0x12,
     DW_TAG_structure_type = 0x13,
     DW_TAG_subroutine_type = 0x15,

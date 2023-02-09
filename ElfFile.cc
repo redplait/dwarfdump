@@ -344,7 +344,7 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
   return false;
 }
 
-bool ElfFile::LogDwarfInfo(Dwarf32::Tag tag, Dwarf32::Attribute attribute, 
+bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute, 
                 uint64_t tag_id, Dwarf32::Form form, const unsigned char* &info, 
                 size_t& info_bytes, const void* unit_base) {           
   switch(attribute) {
@@ -352,7 +352,26 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Tag tag, Dwarf32::Attribute attribute,
       m_next = FormDataValue(form, info, info_bytes);
      return true;
     // Name
+    case Dwarf32::Attribute::DW_AT_producer:
+      if ( m_stype == Dwarf32::Tag::DW_TAG_compile_unit )
+      {
+        tree_builder_.cu_producer = FormStringValue(form, info, info_bytes);
+        return true;  
+      }
+      break;
+    case Dwarf32::Attribute::DW_AT_comp_dir:
+      if ( m_stype == Dwarf32::Tag::DW_TAG_compile_unit )
+      {
+        tree_builder_.cu_comp_dir = FormStringValue(form, info, info_bytes);
+        return true;  
+      }
+      break;
     case Dwarf32::Attribute::DW_AT_name:
+      if ( m_stype == Dwarf32::Tag::DW_TAG_compile_unit )
+      {
+        tree_builder_.cu_name = FormStringValue(form, info, info_bytes);
+        return true;  
+      }
     case Dwarf32::Attribute::DW_AT_linkage_name: {
       const char* name = FormStringValue(form, info, info_bytes);
       tree_builder_.SetElementName(name);
@@ -466,7 +485,7 @@ bool ElfFile::GetAllClasses() {
 
         DBG_PRINTF(".info+%lx\t %02x %02x\n", info-debug_info_, 
                                                 abbrev_attribute, abbrev_form);
-        bool logged = LogDwarfInfo(m_stype, abbrev_attribute, 
+        bool logged = LogDwarfInfo(abbrev_attribute, 
           tag_id, abbrev_form, info, info_bytes, unit_hdr);
         if (!logged) {
           DBG_PRINTF("abbrev_form %X\n", abbrev_form);

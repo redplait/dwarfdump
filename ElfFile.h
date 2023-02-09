@@ -26,7 +26,7 @@ private:
       const unsigned char* &info, size_t& bytes_available);
   bool LoadAbbrevTags(uint32_t abbrev_offset);
   bool RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id);
-  bool LogDwarfInfo(Dwarf32::Tag tag, Dwarf32::Attribute attribute, 
+  bool LogDwarfInfo(Dwarf32::Attribute attribute, 
     uint64_t tag_id, Dwarf32::Form form, const unsigned char* &info, 
     size_t& info_bytes, const void* unit_base);
 

@@ -1,6 +1,6 @@
 #include "TreeBuilder.h"
 
-extern int g_opt_l;
+extern int g_opt_l, g_opt_v;
 extern FILE *g_outf;
 
 TreeBuilder::TreeBuilder() = default;
@@ -26,6 +26,15 @@ void TreeBuilder::ProcessUnit(int last)
     // fprintf(stderr, "ProcessUnit: stack is not empty\n");
     m_stack = {};
   }
+  if ( g_opt_v && !elements_.empty() )
+  {
+    if ( cu_name )
+      fprintf(g_outf, "\n// Name: %s\n", cu_name);
+    if ( cu_comp_dir )
+      fprintf(g_outf, "// CompDir: %s\n", cu_comp_dir);
+    if ( cu_producer )
+      fprintf(g_outf, "// Producer: %s\n", cu_producer);
+  }
   auto json = GenerateJson();
   // if this was last unit - cut final comma
   if ( last )
@@ -36,6 +45,7 @@ void TreeBuilder::ProcessUnit(int last)
   if ( !json.empty() )
     fprintf(g_outf, "%s", json.c_str());
   elements_.clear();
+  cu_name = cu_comp_dir = cu_producer = NULL;
 }
 
 void TreeBuilder::AddNone() {

@@ -35,12 +35,17 @@ public:
   void SetElementOffset(uint64_t offset);
   void SetElementType(uint64_t type_id);
   void SetElementCount(uint64_t count);
-
+  // compilation unit data
+  const char *cu_name;
+  const char *cu_comp_dir;
+  const char *cu_producer;
 private:
   static std::string EscapeJsonString(const char* str);
 
   ElementType current_element_type_;
   ElementType previous_element_type_;
+
+  typedef std::pair<ElementType, const char*> UniqName;
 
   struct Parent {
     uint64_t id;
@@ -72,7 +77,9 @@ private:
     std::vector<Element> members_;
     std::vector<Parent> parents_;
   };
-
+  // per compilation unit data
   std::stack<Element *> m_stack;
   std::vector<Element> elements_;
+  // already dumped types
+  std::map<UniqName, uint64_t> m_dumped_db;
 };
