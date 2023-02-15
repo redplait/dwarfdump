@@ -11,11 +11,57 @@ std::string TreeBuilder::GenerateJson() {
   if ( elements_.empty() )
     return result;
   for (size_t i = 0; i < elements_.size(); i++) {
-    result += elements_[i].GenerateJson();
+    result += elements_[i].GenerateJson(this);
     result += ",\n";
   }
 
   return result;
+}
+
+// add dumped types to m_dumped_db
+int TreeBuilder::merge_dumped()
+{
+  if ( elements_.empty() )
+    return 0;
+  int res = 0;
+  for ( auto &e: elements_ )
+  {
+    if ( !e.name_ )
+      continue; // and type must be named
+//  fprintf(g_outf, "dumped type %d with name %s level %d\n", e.type_, e.name_, e.level_);
+    if ( e.level_ > 1 )
+      continue; // we heed only high-level types definitions
+    UniqName key { e.type_, e.name_};
+    auto added = m_dumped_db.find(key);
+    if ( added != m_dumped_db.end() )
+      continue; // this type already in m_dumped_db
+    m_dumped_db[key] = e.id_;
+    res++; 
+  }
+  return res;
+}
+
+int TreeBuilder::check_dumped_type(const char *name)
+{
+  UniqName key { current_element_type_, name };
+  const auto ci = m_dumped_db.find(key);
+  if ( ci == m_dumped_db.cend() )
+    return 0;
+// fprintf(g_outf, "found type %d with name %s\n", key.first, key.second);    
+  // put fake type into m_replaced
+  dumped_type dt { current_element_type_, name, ci->second };
+  m_replaced[elements_.back().id_] = dt;
+  // remove current element
+  elements_.pop_back();
+  return 1;
+}
+
+uint64_t TreeBuilder::get_replaced_type(uint64_t id) const
+{
+  const auto ci = m_replaced.find(id);
+  if ( ci == m_replaced.cend() )
+    return id;
+  return ci->second.id;
 }
 
 // called on each processed compilation unit
@@ -44,7 +90,10 @@ void TreeBuilder::ProcessUnit(int last)
   }
   if ( !json.empty() )
     fprintf(g_outf, "%s", json.c_str());
+
+  merge_dumped();
   elements_.clear();
+  m_replaced.clear();
   cu_name = cu_comp_dir = cu_producer = NULL;
 }
 
@@ -288,7 +337,7 @@ const char* TreeBuilder::Element::TypeName() {
   }
 }
 
-std::string TreeBuilder::Element::GenerateJson() {
+std::string TreeBuilder::Element::GenerateJson(TreeBuilder *tb) {
   std::string result;
 
   // A member is a special case
@@ -296,7 +345,7 @@ std::string TreeBuilder::Element::GenerateJson() {
     result = "{";
 
     if (type_id_) {
-      result += "\"type_id\":\""+std::to_string(type_id_)+"\",";
+      result += "\"type_id\":\""+std::to_string(tb->get_replaced_type(type_id_))+"\",";
     }
     if (name_) {
       result += "\"name\":\""+EscapeJsonString(name_)+"\",";
@@ -328,7 +377,7 @@ std::string TreeBuilder::Element::GenerateJson() {
   if (parents_.size() > 0) {
     result += "\"parents\":[";
     for (size_t i = 0; i < parents_.size(); i++) {
-      result += "{\"id\":\""+std::to_string(parents_[i].id)+"\",";
+      result += "{\"id\":\""+std::to_string(tb->get_replaced_type(parents_[i].id))+"\",";
       result += "\"offset\":"+std::to_string(parents_[i].offset)+"}";
       if (i+1 < parents_.size()) {
         result += ",";
@@ -339,7 +388,7 @@ std::string TreeBuilder::Element::GenerateJson() {
   if (members_.size() > 0) {
     result += "\"members\":[";
     for (size_t i = 0; i < members_.size(); i++) {
-      result += members_[i].GenerateJson();
+      result += members_[i].GenerateJson(tb);
       if (i+1 < members_.size()) {
         result += ",";
       }

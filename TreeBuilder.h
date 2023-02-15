@@ -35,17 +35,26 @@ public:
   void SetElementOffset(uint64_t offset);
   void SetElementType(uint64_t type_id);
   void SetElementCount(uint64_t count);
+
+  uint64_t get_replaced_type(uint64_t) const;
+  int check_dumped_type(const char *);
   // compilation unit data
   const char *cu_name;
   const char *cu_comp_dir;
   const char *cu_producer;
 private:
   static std::string EscapeJsonString(const char* str);
+  int merge_dumped();
 
   ElementType current_element_type_;
   ElementType previous_element_type_;
 
   typedef std::pair<ElementType, const char*> UniqName;
+  struct dumped_type {
+    ElementType type_;
+    const char *name_;
+    uint64_t id;
+  };
 
   struct Parent {
     uint64_t id;
@@ -65,7 +74,7 @@ private:
       count_(0) 
     {}
     const char* TypeName();
-    std::string GenerateJson();
+    std::string GenerateJson(TreeBuilder *tb);
     ElementType type_;
     uint64_t id_;
     int level_;
@@ -80,6 +89,8 @@ private:
   // per compilation unit data
   std::stack<Element *> m_stack;
   std::vector<Element> elements_;
+  std::map<uint64_t, dumped_type> m_replaced;
+
   // already dumped types
   std::map<UniqName, uint64_t> m_dumped_db;
 };

@@ -50,6 +50,7 @@ private:
   Dwarf32::Tag m_stype;
   int64_t m_next; // value of DW_AT_sibling
   int m_level;
+  bool m_regged;
 
   TreeBuilder tree_builder_;
 };

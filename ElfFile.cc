@@ -374,6 +374,11 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       }
     case Dwarf32::Attribute::DW_AT_linkage_name: {
       const char* name = FormStringValue(form, info, info_bytes);
+      if ( tree_builder_.check_dumped_type(name) )
+      {
+        m_regged = false;
+        return true;
+      }
       tree_builder_.SetElementName(name);
       return true;
     }
@@ -381,7 +386,8 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     // Size
     case Dwarf32::Attribute::DW_AT_byte_size: {
       uint64_t byte_size = FormDataValue(form, info, info_bytes);
-      tree_builder_.SetElementSize(byte_size);
+      if ( m_regged )
+        tree_builder_.SetElementSize(byte_size);
       return true;
     }
 
@@ -400,14 +406,16 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         // absolute
         id += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
       }
-      tree_builder_.SetElementType(id);
+      if ( m_regged )
+        tree_builder_.SetElementType(id);
       return true;
     }
 
     // Count
     case Dwarf32::Attribute::DW_AT_count: {
       uint64_t count = FormDataValue(form, info, info_bytes);
-      tree_builder_.SetElementCount(count);
+      if ( m_regged )
+        tree_builder_.SetElementCount(count);
       return true;
     }
 
@@ -469,11 +477,11 @@ bool ElfFile::GetAllClasses() {
       const unsigned char* abbrev = section->ptr;
       size_t abbrev_bytes = debug_abbrev_size_ - (abbrev - debug_abbrev_);
       m_stype = section->type;
-      bool regged = RegisterNewTag(m_stype, tag_id);
+      m_regged = RegisterNewTag(m_stype, tag_id);
       m_next = 0;
 
       if ( g_opt_d )
-        fprintf(g_outf, "%d GetAllClasses %lx size %lx regged %d\n", m_level, tag_id, abbrev_bytes, regged);
+        fprintf(g_outf, "%d GetAllClasses %lx size %lx regged %d\n", m_level, tag_id, abbrev_bytes,m_regged);
 
       // For all attributes
       while (*abbrev) 
@@ -492,7 +500,7 @@ bool ElfFile::GetAllClasses() {
           ElfFile::PassData(abbrev_form, info, info_bytes);
         }
       }
-      if ( !regged && m_level && m_next )
+      if ( !m_regged /* && m_level */ && m_next )
       {
         const unsigned char* info2 = cu_start + m_next;
         if ( g_opt_d)
