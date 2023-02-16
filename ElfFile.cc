@@ -340,6 +340,8 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
     CASE_REGISTER_NEW_TAG(DW_TAG_subrange_type, subrange_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_base_type, base_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_const_type, const_type)
+    CASE_REGISTER_NEW_TAG(DW_TAG_subroutine_type, subroutine_type)
+    CASE_REGISTER_NEW_TAG(DW_TAG_formal_parameter, formal_param)
     default:
       tree_builder_.AddNone();
   }

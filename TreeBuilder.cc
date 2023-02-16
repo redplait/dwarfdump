@@ -153,6 +153,22 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
     // Subrange
     case ElementType::subrange_type:
       break;                          // Just update the current element type
+    // formal parameter
+    case ElementType::formal_param:
+      if (current_element_type_ == ElementType::none) {
+        return;
+      }  
+      if (!elements_.size()) {
+        fprintf(stderr, "Can't add a formal parameter if the element list is empty\n");
+        return;
+      }
+      if ( m_stack.empty() ) {
+        fprintf(stderr, "Can't add a formal parameter when stack is empty\n");
+        return;
+      }
+      m_stack.top()->params_.push_back({NULL, 0});
+      break;
+
     // part of enum - check that parent is 
     case ElementType::enumerator:
       if (current_element_type_ == ElementType::none) {
@@ -185,6 +201,20 @@ void TreeBuilder::SetElementName(const char* name) {
     return;
   }
 
+  if ( current_element_type_ == ElementType::formal_param )
+  {
+    if ( m_stack.empty() ) {
+      fprintf(stderr, "Can't set the formal param name when stack is empty\n");
+      return;
+    }
+    if (!m_stack.top()->params_.size()) {
+      fprintf(stderr, "Can't set the formal param name if the params list is empty\n");
+      return;
+    }
+
+    m_stack.top()->params_.back().name = name;
+    return;    
+  }
   if ( current_element_type_ == ElementType::enumerator )
   {
     if ( m_stack.empty() ) {
@@ -315,6 +345,17 @@ void TreeBuilder::SetElementType(uint64_t type_id) {
       }
       m_stack.top()->parents_.back().id = type_id;
       break;
+    case ElementType::formal_param:
+      if ( m_stack.empty() ) {
+        fprintf(stderr, "Can't set the formal param type when stack is empty\n");
+        return;
+      }
+      if (!m_stack.top()->params_.size()) {
+        fprintf(stderr, "Can't set the formal param type if the members list is empty\n");
+        break;
+      }
+      m_stack.top()->params_.back().id = type_id;
+      break;
     case ElementType::subrange_type:
       break; // do nothing
     default:
@@ -380,6 +421,7 @@ const char* TreeBuilder::Element::TypeName() {
     case ElementType::inheritance: return "inheritance";
     case ElementType::base_type: return "base";
     case ElementType::const_type: return "const";
+    case ElementType::subroutine_type: return "function_type";
     default: return "unk";
   }
 }
@@ -427,6 +469,21 @@ std::string TreeBuilder::Element::GenerateJson(TreeBuilder *tb) {
       result += "{\"id\":\""+std::to_string(tb->get_replaced_type(parents_[i].id))+"\",";
       result += "\"offset\":"+std::to_string(parents_[i].offset)+"}";
       if (i+1 < parents_.size()) {
+        result += ",";
+      }
+    }
+    result += "],";
+  }
+  if ( params_.size() > 0 )
+  {
+    result += "\"params\":[";
+    for (size_t i = 0; i < params_.size(); i++) {
+      if ( params_[i].name )
+        result += "{\"name\":\""+EscapeJsonString(params_[i].name)+"\",";
+      else
+        result += "{";
+      result += "\"type_id\":"+std::to_string(params_[i].id)+"}";
+      if (i+1 < params_.size()) {
         result += ",";
       }
     }

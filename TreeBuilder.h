@@ -24,7 +24,9 @@ public:
     inheritance,
     subrange_type,
     base_type,
-    const_type
+    const_type,
+    subroutine_type,
+    formal_param,
   };
   void ProcessUnit(int last = 0);
   int add2stack();
@@ -68,6 +70,11 @@ private:
     uint64_t value;
   };
 
+  struct FormalParam {
+    const char *name;
+    uint64_t id;
+  };
+
   class Element {
   public:
     Element(ElementType type, uint64_t id, int level) : 
@@ -93,6 +100,7 @@ private:
     std::vector<Element> members_;
     std::vector<Parent> parents_;
     std::vector<EnumItem> enums_;
+    std::vector<FormalParam> params_;
   };
   // per compilation unit data
   std::stack<Element *> m_stack;
