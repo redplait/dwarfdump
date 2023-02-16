@@ -15,6 +15,7 @@ public:
     array_type,
     class_type,
     enumerator_type,
+    enumerator,
     member,
     pointer_type,
     structure_type,
@@ -35,6 +36,7 @@ public:
   void SetElementOffset(uint64_t offset);
   void SetElementType(uint64_t type_id);
   void SetElementCount(uint64_t count);
+  void SetConstValue(uint64_t count);
 
   uint64_t get_replaced_type(uint64_t) const;
   int check_dumped_type(const char *);
@@ -61,6 +63,11 @@ private:
     size_t offset;
   };
 
+  struct EnumItem {
+    const char *name;
+    uint64_t value;
+  };
+
   class Element {
   public:
     Element(ElementType type, uint64_t id, int level) : 
@@ -85,6 +92,7 @@ private:
     uint64_t count_;
     std::vector<Element> members_;
     std::vector<Parent> parents_;
+    std::vector<EnumItem> enums_;
   };
   // per compilation unit data
   std::stack<Element *> m_stack;

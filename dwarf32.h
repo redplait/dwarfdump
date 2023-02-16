@@ -219,6 +219,8 @@ namespace Dwarf32 {
     DW_FORM_exprloc,        // exprloc
     DW_FORM_flag_present,   // flag
     DW_FORM_ref_sig8 = 0x20,// reference
+    // DWARF 5
+    DW_FORM_addrx = 0x1b,
   };
 
   enum Accessibility {

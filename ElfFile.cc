@@ -5,6 +5,7 @@
 #include <string.h>
 
 int g_opt_d = 0,
+    g_opt_j = 0,
     g_opt_l = 0,
     g_opt_v = 0;
 FILE *g_outf = NULL;
@@ -329,6 +330,7 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
     CASE_REGISTER_NEW_TAG(DW_TAG_array_type, array_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_class_type, class_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_enumeration_type, enumerator_type)
+    CASE_REGISTER_NEW_TAG(DW_TAG_enumerator, enumerator)
     CASE_REGISTER_NEW_TAG(DW_TAG_member, member)
     CASE_REGISTER_NEW_TAG(DW_TAG_pointer_type, pointer_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_structure_type, structure_type)
@@ -418,6 +420,21 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         tree_builder_.SetElementCount(count);
       return true;
     }
+    // upper bound
+    case Dwarf32::Attribute::DW_AT_upper_bound: {
+      uint64_t count = FormDataValue(form, info, info_bytes);
+      if ( m_regged )
+        tree_builder_.SetElementCount(count);
+      return true;
+    }
+    // const value - for enums
+    case Dwarf32::Attribute::DW_AT_const_value: {
+      if ( !m_regged )
+        return false;
+      uint64_t count = FormDataValue(form, info, info_bytes);
+      tree_builder_.SetConstValue(count);
+      return true;
+    }
 
     default:
       return false;
@@ -491,7 +508,8 @@ bool ElfFile::GetAllClasses() {
         Dwarf32::Form abbrev_form = 
             static_cast<Dwarf32::Form>(ElfFile::ULEB128(abbrev, abbrev_bytes));
 
-        DBG_PRINTF(".info+%lx\t %02x %02x\n", info-debug_info_, 
+        if ( g_opt_d )
+          fprintf(g_outf,".info+%lx\t %02x %02x\n", info-debug_info_, 
                                                 abbrev_attribute, abbrev_form);
         bool logged = LogDwarfInfo(abbrev_attribute, 
           tag_id, abbrev_form, info, info_bytes, unit_hdr);

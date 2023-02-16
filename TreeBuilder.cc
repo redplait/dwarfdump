@@ -150,8 +150,25 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       }
       m_stack.top()->parents_.push_back({tag_id, 0});
       break;
-    case ElementType::subrange_type:  // Subrange
+    // Subrange
+    case ElementType::subrange_type:
       break;                          // Just update the current element type
+    // part of enum - check that parent is 
+    case ElementType::enumerator:
+      if (current_element_type_ == ElementType::none) {
+        return;
+      }  
+      if (!elements_.size()) {
+        fprintf(stderr, "Can't add a enumerator if the element list is empty\n");
+        return;
+      }
+      if ( m_stack.empty() ) {
+        fprintf(stderr, "Can't add a enumerator when stack is empty\n");
+        return;
+      }
+      m_stack.top()->enums_.push_back({NULL, 0});
+      break;
+
     default:
       elements_.push_back(Element(element_type, tag_id, level));
   }
@@ -167,6 +184,21 @@ void TreeBuilder::SetElementName(const char* name) {
     fprintf(stderr, "Can't set an element name if the element list is empty\n");
     return;
   }
+
+  if ( current_element_type_ == ElementType::enumerator )
+  {
+    if ( m_stack.empty() ) {
+      fprintf(stderr, "Can't set the enum name when stack is empty\n");
+      return;
+    }
+    if (!m_stack.top()->enums_.size()) {
+      fprintf(stderr, "Can't set the enum name if the enums list is empty\n");
+      return;
+    }
+
+    m_stack.top()->enums_.back().name = name;
+    return;
+  }  
 
   if (current_element_type_ == ElementType::member) {
     if ( m_stack.empty() ) {
@@ -291,6 +323,21 @@ void TreeBuilder::SetElementType(uint64_t type_id) {
   }
 }
 
+void TreeBuilder::SetConstValue(uint64_t count) {
+  if (current_element_type_ != ElementType::enumerator) {
+    return;
+  }
+  if ( m_stack.empty() ) {
+    fprintf(stderr, "Can't set ConstValue when stack is empty\n");
+    return;
+  }
+  if (!m_stack.top()->enums_.size()) {
+    fprintf(stderr, "Can't set ConstValue if the enums list is empty\n");
+    return;
+  }
+  m_stack.top()->enums_.back().value = count;
+}
+
 void TreeBuilder::SetElementCount(uint64_t count) {
   if (current_element_type_ != ElementType::subrange_type) {
     return;
@@ -380,6 +427,18 @@ std::string TreeBuilder::Element::GenerateJson(TreeBuilder *tb) {
       result += "{\"id\":\""+std::to_string(tb->get_replaced_type(parents_[i].id))+"\",";
       result += "\"offset\":"+std::to_string(parents_[i].offset)+"}";
       if (i+1 < parents_.size()) {
+        result += ",";
+      }
+    }
+    result += "],";
+  }
+  if ( enums_.size() > 0 )
+  {
+    result += "\"enums\":[";
+    for (size_t i = 0; i < enums_.size(); i++) {
+      result += "{\"name\":\""+EscapeJsonString(enums_[i].name)+"\",";
+      result += "\"value\":"+std::to_string(enums_[i].value)+"}";
+      if (i+1 < enums_.size()) {
         result += ",";
       }
     }
