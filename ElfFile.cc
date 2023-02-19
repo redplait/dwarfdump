@@ -227,6 +227,7 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
     case Dwarf32::Form::DW_FORM_data8:
     case Dwarf32::Form::DW_FORM_ref8:
     case Dwarf32::Form::DW_FORM_ref_sig8:
+    case Dwarf32::Form::DW_FORM_addr:
       value = *reinterpret_cast<const uint64_t*>(info);
       info += 8;
       bytes_available -= 8;
@@ -402,6 +403,13 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       return true;
     }
 
+    // address
+    case Dwarf32::Attribute::DW_AT_low_pc: {
+      uint64_t addr = FormDataValue(form, info, info_bytes);
+      if ( m_regged )
+        tree_builder_.SetAddr(addr);
+      return true;
+    }
     // Size
     case Dwarf32::Attribute::DW_AT_byte_size: {
       uint64_t byte_size = FormDataValue(form, info, info_bytes);

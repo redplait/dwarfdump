@@ -371,6 +371,17 @@ void TreeBuilder::SetElementType(uint64_t type_id) {
   }
 }
 
+void TreeBuilder::SetAddr(uint64_t count) {
+  if (current_element_type_ != ElementType::subroutine) {
+    return;
+  }
+  if (!elements_.size()) {
+    fprintf(stderr, "Can't set address when element list is empty\n");
+    return;
+  }
+  elements_.back().addr_ = count;
+}
+
 void TreeBuilder::SetConstValue(uint64_t count) {
   if (current_element_type_ != ElementType::enumerator) {
     return;
@@ -391,8 +402,7 @@ void TreeBuilder::SetElementCount(uint64_t count) {
     return;
   }
   if (!elements_.size()) {
-    fprintf(stderr, "Can't set an element count if the element list is"
-      " empty\n");
+    fprintf(stderr, "Can't set an element count if the element list is empty\n");
     return;
   }
   elements_.back().count_ = count;
@@ -467,6 +477,9 @@ std::string TreeBuilder::Element::GenerateJson(TreeBuilder *tb) {
   }
   if (size_) {
     result += "\"size\":"+std::to_string(size_)+",";
+  }
+  if ( addr_ ) {
+    result += "\"addr\":"+std::to_string(addr_)+",";
   }
   if (count_) {
     result += "\"count\":"+std::to_string(count_)+",";

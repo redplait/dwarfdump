@@ -41,6 +41,7 @@ public:
   void SetElementType(uint64_t type_id);
   void SetElementCount(uint64_t count);
   void SetConstValue(uint64_t count);
+  void SetAddr(uint64_t count);
 
   uint64_t get_replaced_type(uint64_t) const;
   int check_dumped_type(const char *);
@@ -87,7 +88,8 @@ private:
       size_(0), 
       type_id_(0), 
       offset_(0), 
-      count_(0) 
+      count_(0),
+      addr_(0)
     {}
     const char* TypeName();
     std::string GenerateJson(TreeBuilder *tb);
@@ -99,6 +101,7 @@ private:
     uint64_t type_id_;
     uint64_t offset_;
     uint64_t count_;
+    uint64_t addr_;
     std::vector<Element> members_;
     std::vector<Parent> parents_;
     std::vector<EnumItem> enums_;
