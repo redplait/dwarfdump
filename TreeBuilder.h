@@ -27,12 +27,14 @@ public:
     const_type,
     subroutine_type,
     formal_param,
+    subroutine,
   };
   void ProcessUnit(int last = 0);
   int add2stack();
   void pop_stack();
   void AddNone();
   void AddElement(ElementType element_type, uint64_t tag_id, int level);
+  bool AddFormalParam(uint64_t tag_id, int level);
   void SetElementName(const char* name);
   void SetElementSize(uint64_t size);
   void SetElementOffset(uint64_t offset);

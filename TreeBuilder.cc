@@ -49,8 +49,12 @@ int TreeBuilder::check_dumped_type(const char *name)
     return 0;
 // fprintf(g_outf, "found type %d with name %s\n", key.first, key.second);    
   // put fake type into m_replaced
-  dumped_type dt { current_element_type_, name, ci->second };
-  m_replaced[elements_.back().id_] = dt;
+  // don`t replace functions
+  if ( current_element_type_ != subroutine )
+  {
+    dumped_type dt { current_element_type_, name, ci->second };
+    m_replaced[elements_.back().id_] = dt;
+  }
   // remove current element
   elements_.pop_back();
   return 1;
@@ -120,6 +124,24 @@ void TreeBuilder::pop_stack()
   m_stack.pop();
 }
 
+// formal parameter - level should be +1 to parent
+bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level) {
+  current_element_type_ = ElementType::formal_param;
+  if (!elements_.size()) {
+    fprintf(stderr, "Can't add a formal parameter if the element list is empty\n");
+    return false;
+  }
+  if ( m_stack.empty() ) {
+    fprintf(stderr, "Can't add a formal parameter when stack is empty\n");
+    return false;
+  }
+//  fprintf(g_outf, "f level %d level %d\n", m_stack.top()->level_, level);
+  if ( m_stack.top()->level_ != level - 1 )
+    return false;
+  m_stack.top()->params_.push_back({NULL, 0});
+  return true;
+}
+
 void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int level) {
   switch(element_type) {
     case ElementType::member:       // Member
@@ -153,21 +175,6 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
     // Subrange
     case ElementType::subrange_type:
       break;                          // Just update the current element type
-    // formal parameter
-    case ElementType::formal_param:
-      if (current_element_type_ == ElementType::none) {
-        return;
-      }  
-      if (!elements_.size()) {
-        fprintf(stderr, "Can't add a formal parameter if the element list is empty\n");
-        return;
-      }
-      if ( m_stack.empty() ) {
-        fprintf(stderr, "Can't add a formal parameter when stack is empty\n");
-        return;
-      }
-      m_stack.top()->params_.push_back({NULL, 0});
-      break;
 
     // part of enum - check that parent is 
     case ElementType::enumerator:
@@ -422,6 +429,7 @@ const char* TreeBuilder::Element::TypeName() {
     case ElementType::base_type: return "base";
     case ElementType::const_type: return "const";
     case ElementType::subroutine_type: return "function_type";
+    case ElementType::subroutine: return "function";
     default: return "unk";
   }
 }
