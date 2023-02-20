@@ -25,6 +25,7 @@ public:
     subrange_type,
     base_type,
     const_type,
+    volatile_type,
     subroutine_type,
     formal_param,
     subroutine,
@@ -45,6 +46,8 @@ public:
 
   uint64_t get_replaced_type(uint64_t) const;
   int check_dumped_type(const char *);
+  // renderer methods
+  bool get_replaced_name(uint64_t, std::string &);
   // compilation unit data
   const char *cu_name;
   const char *cu_comp_dir;
@@ -52,6 +55,7 @@ public:
 private:
   static std::string EscapeJsonString(const char* str);
   int merge_dumped();
+  void dump_types();
 
   ElementType current_element_type_;
   ElementType previous_element_type_;
@@ -107,10 +111,17 @@ private:
     std::vector<EnumItem> enums_;
     std::vector<FormalParam> params_;
   };
+
+  void dump_enums(Element *);
+  void dump_fields(Element *);
+  void dump_func(Element *);
+  bool dump_type(uint64_t, std::string &);
+
   // per compilation unit data
   std::stack<Element *> m_stack;
   std::vector<Element> elements_;
   std::map<uint64_t, dumped_type> m_replaced;
+  std::map<uint64_t, Element *> m_els;
 
   // already dumped types
   std::map<UniqName, uint64_t> m_dumped_db;

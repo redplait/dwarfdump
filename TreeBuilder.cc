@@ -1,6 +1,6 @@
 #include "TreeBuilder.h"
 
-extern int g_opt_l, g_opt_v;
+extern int g_opt_j, g_opt_l, g_opt_v;
 extern FILE *g_outf;
 
 TreeBuilder::TreeBuilder() = default;
@@ -39,6 +39,217 @@ int TreeBuilder::merge_dumped()
     res++; 
   }
   return res;
+}
+
+bool TreeBuilder::get_replaced_name(uint64_t key, std::string &res)
+{
+   const auto ci = m_replaced.find(key);
+   if ( ci == m_replaced.end() )
+     return false;
+   switch(ci->second.type_)
+   {
+     case ElementType::typedef2:
+     case ElementType::class_type:
+     case ElementType::base_type:
+       res = ci->second.name_;
+       return true;
+     case ElementType::enumerator_type:
+       res = "enum ";
+       res += ci->second.name_;
+       return true;
+     case ElementType::structure_type:
+       res = "struct ";
+       res += ci->second.name_;
+       return true;
+     case ElementType::union_type:
+       res = "union ";
+       res += ci->second.name_;
+       return true;
+     default:
+       return false;
+   }
+}
+
+bool TreeBuilder::dump_type(uint64_t key, std::string &res)
+{
+  if ( get_replaced_name(key, res) )
+    return true;
+  if ( !key )
+  {
+    res = "void";
+    return true;
+  }
+  auto el = m_els.find(key);
+  if ( el == m_els.end() )
+  {
+    res = "missed type ";
+    res += std::to_string(key);
+    return true;
+  }
+  if ( el->second->type_ == ElementType::typedef2 ||
+       el->second->type_ == ElementType::base_type
+     )
+  {
+    res = el->second->name_;
+    return true;
+  }
+  if ( el->second->type_ == ElementType::structure_type )
+  {
+    res = "struct ";
+    if ( el->second->name_ )
+      res += el->second->name_;
+    return true;
+  }
+  if ( el->second->type_ == ElementType::union_type )
+  {
+    res = "union ";
+    if ( el->second->name_ )
+      res += el->second->name_;
+    return true;
+  }
+  if ( el->second->type_ == ElementType::enumerator_type )
+  {
+    res = "enum ";
+    if ( el->second->name_ )
+      res += el->second->name_;
+    return true;
+  }
+  if ( el->second->type_ == ElementType::pointer_type )
+  {
+    std::string tmp;
+    dump_type(el->second->type_id_, tmp);
+    res = tmp;
+    res += "*";
+    return true;
+  }
+  if ( el->second->type_ == ElementType::volatile_type )
+  {
+    std::string tmp;
+    dump_type(el->second->type_id_, tmp);
+    res = "volatile ";
+    res += tmp;
+    return true;
+  }
+  if ( el->second->type_ == ElementType::const_type )
+  {
+    std::string tmp;
+    dump_type(el->second->type_id_, tmp);
+    res = "const ";
+    res += tmp;
+    return true;
+  }
+  if ( el->second->type_ == ElementType::array_type )
+  {
+    dump_type(el->second->type_id_, res);
+    res += "[";
+    res += std::to_string(el->second->count_);
+    res += "]";
+    return true;
+  }
+  res = "dump_type";
+  res += std::to_string(el->second->type_);
+  return false;
+}
+
+void TreeBuilder::dump_enums(Element *e)
+{
+  for ( auto &en: e->enums_ )
+  {
+    if ( en.value >= 0 && en.value < 10 )
+      fprintf(g_outf, "  %s = %d,\n", en.name, (int)en.value );
+    else
+      fprintf(g_outf, "  %s = 0x%lX,\n", en.name, en.value );
+  }
+}
+
+void TreeBuilder::dump_fields(Element *e)
+{
+  for ( auto &en: e->members_ )
+  {
+    std::string tmp;
+    fprintf(g_outf, "// Offset 0x%lX\n", en.offset_);
+    dump_type(en.type_id_, tmp);
+    fprintf(g_outf, "%s %s;\n", tmp.c_str(), en.name_);  
+  }
+}
+
+void TreeBuilder::dump_func(Element *e)
+{
+  std::string tmp;
+  if ( e->type_id_ )
+    dump_type(e->type_id_, tmp);
+  else
+    tmp = "void";
+  fprintf(g_outf, "%s %s(", tmp.c_str(), e->name_);
+  if ( e->params_.empty() )
+    fprintf(g_outf, "void");
+  else {
+    for ( size_t i = 0; i < e->params_.size(); i++ )
+    {
+      tmp.clear();
+      dump_type(e->params_[i].id, tmp);
+      if ( e->params_[i].name )
+        fprintf(g_outf, "%s %s", tmp.c_str(), e->params_[i].name);
+      else
+        fprintf(g_outf, "%s", tmp.c_str());
+      if ( i+1 < e->params_.size() )
+        fprintf(g_outf, ",");
+    }
+  }
+  fprintf(g_outf, ")");
+}
+
+void TreeBuilder::dump_types()
+{
+  for ( auto &e: elements_ )
+  {
+    if ( !e.name_ )
+      continue;
+    if ( e.level_ > 1 )
+      continue;
+    // skip base types
+    if ( ElementType::base_type == e.type_ )
+      continue;
+    // skip replaced types
+    const auto ci = m_replaced.find(e.id_);
+    if ( ci != m_replaced.end() )
+      continue;
+    if ( e.addr_ )
+      fprintf(g_outf, "// 0x%lX\n", e.addr_);
+    if ( e.size_ )
+      fprintf(g_outf, "// Size 0x%lX\n", e.size_);
+    switch(e.type_)
+    {
+      case ElementType::enumerator_type:
+        fprintf(g_outf, "enum %s {\n", e.name_);
+        dump_enums(&e);
+        fprintf(g_outf, "}");
+        break;
+      case ElementType::structure_type:
+        fprintf(g_outf, "struct %s {\n", e.name_);
+        dump_fields(&e);
+        fprintf(g_outf, "}");
+        break;
+      case ElementType::union_type:
+        fprintf(g_outf, "union %s {\n", e.name_);
+        dump_fields(&e);
+        fprintf(g_outf, "}");
+        break;
+      case ElementType::subroutine:
+        dump_func(&e);
+        break;
+      case ElementType::typedef2:
+        {
+          std::string tname;
+          dump_type(e.type_id_, tname);
+          fprintf(g_outf, "typedef %s %s", tname.c_str(), e.name_);
+          break;
+        }
+      default:
+        fprintf(g_outf, "unknown type %d name %s", e.type_, e.name_);
+    }
+    fprintf(g_outf, ";\n\n");
+  }
 }
 
 int TreeBuilder::check_dumped_type(const char *name)
@@ -85,19 +296,26 @@ void TreeBuilder::ProcessUnit(int last)
     if ( cu_producer )
       fprintf(g_outf, "// Producer: %s\n", cu_producer);
   }
-  auto json = GenerateJson();
-  // if this was last unit - cut final comma
-  if ( last )
+  if ( g_opt_j )
   {
-    json.pop_back();
-    json.pop_back();
+    auto json = GenerateJson();
+    // if this was last unit - cut final comma
+    if ( last )
+    {
+      json.pop_back();
+      json.pop_back();
+    }
+    if ( !json.empty() )
+      fprintf(g_outf, "%s", json.c_str());
+  } else {
+    for ( auto &e: elements_ )
+      m_els[e.id_] = &e;
+    dump_types();
   }
-  if ( !json.empty() )
-    fprintf(g_outf, "%s", json.c_str());
-
   merge_dumped();
   elements_.clear();
   m_replaced.clear();
+  m_els.clear();
   cu_name = cu_comp_dir = cu_producer = NULL;
 }
 
@@ -438,6 +656,7 @@ const char* TreeBuilder::Element::TypeName() {
     case ElementType::inheritance: return "inheritance";
     case ElementType::base_type: return "base";
     case ElementType::const_type: return "const";
+    case ElementType::volatile_type: return "volatile";
     case ElementType::subroutine_type: return "function_type";
     case ElementType::subroutine: return "function";
     default: return "unk";

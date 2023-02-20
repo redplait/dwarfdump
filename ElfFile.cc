@@ -342,6 +342,7 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
     CASE_REGISTER_NEW_TAG(DW_TAG_subrange_type, subrange_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_base_type, base_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_const_type, const_type)
+    CASE_REGISTER_NEW_TAG(DW_TAG_volatile_type, volatile_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_subroutine_type, subroutine_type)
     case Dwarf32::Tag::DW_TAG_subprogram:
       if ( g_opt_f )
