@@ -37,6 +37,7 @@ public:
   void AddElement(ElementType element_type, uint64_t tag_id, int level);
   bool AddFormalParam(uint64_t tag_id, int level);
   void SetElementName(const char* name);
+  void SetLinkageName(const char* name);
   void SetElementSize(uint64_t size);
   void SetElementOffset(uint64_t offset);
   void SetElementType(uint64_t type_id);
@@ -88,7 +89,8 @@ private:
       type_(type), 
       id_(id),
       level_(level),
-      name_(nullptr), 
+      name_(nullptr),
+      link_name_(nullptr),
       size_(0), 
       type_id_(0), 
       offset_(0), 
@@ -101,6 +103,7 @@ private:
     uint64_t id_;
     int level_;
     const char* name_;
+    const char *link_name_;
     size_t size_;
     uint64_t type_id_;
     uint64_t offset_;

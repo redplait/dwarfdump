@@ -400,7 +400,10 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         m_regged = false;
         return true;
       }
-      tree_builder_.SetElementName(name);
+      if ( Dwarf32::Attribute::DW_AT_linkage_name == attribute )
+        tree_builder_.SetLinkageName(name);
+      else
+        tree_builder_.SetElementName(name);
       return true;
     }
 

@@ -210,6 +210,8 @@ void TreeBuilder::dump_types()
     // skip base types
     if ( ElementType::base_type == e.type_ )
       continue;
+    if ( ElementType::const_type == e.type_ )
+      continue;
     // skip replaced types
     const auto ci = m_replaced.find(e.id_);
     if ( ci != m_replaced.end() )
@@ -218,6 +220,10 @@ void TreeBuilder::dump_types()
       fprintf(g_outf, "// 0x%lX\n", e.addr_);
     if ( e.size_ )
       fprintf(g_outf, "// Size 0x%lX\n", e.size_);
+    if ( g_opt_v )
+      fprintf(g_outf, "// TypeId %lX\n", e.id_);
+    if ( e.link_name_ && e.link_name_ != e.name_ )
+      fprintf(g_outf, "// LinkageName: %s\n", e.link_name_);
     switch(e.type_)
     {
       case ElementType::enumerator_type:
@@ -268,6 +274,7 @@ int TreeBuilder::check_dumped_type(const char *name)
   }
   // remove current element
   elements_.pop_back();
+  AddNone();
   return 1;
 }
 
@@ -415,6 +422,18 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
   }
 
   current_element_type_ = element_type; 
+}
+
+void TreeBuilder::SetLinkageName(const char* name) {
+  if (current_element_type_ == ElementType::none) {
+    return;
+  }
+  if (!elements_.size()) {
+    fprintf(stderr, "Can't set an linkage name if the element list is empty\n");
+    return;
+  }
+  elements_.back().link_name_ = name;
+  return;
 }
 
 void TreeBuilder::SetElementName(const char* name) {
@@ -693,6 +712,9 @@ std::string TreeBuilder::Element::GenerateJson(TreeBuilder *tb) {
   }
   if (name_) {
     result += "\"name\":\""+EscapeJsonString(name_)+"\",";
+  }
+  if ( link_name_ && link_name_ != name_ ) {
+    result += "\"link_name\":\""+EscapeJsonString(link_name_)+"\",";
   }
   if (size_) {
     result += "\"size\":"+std::to_string(size_)+",";
