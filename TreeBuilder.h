@@ -26,6 +26,8 @@ public:
     base_type,
     const_type,
     volatile_type,
+    restrict_type,
+    reference_type,
     subroutine_type,
     formal_param,
     subroutine,

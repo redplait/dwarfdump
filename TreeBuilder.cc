@@ -130,6 +130,22 @@ bool TreeBuilder::dump_type(uint64_t key, std::string &res)
     res += tmp;
     return true;
   }
+  if ( el->second->type_ == ElementType::restrict_type )
+  {
+    std::string tmp;
+    dump_type(el->second->type_id_, tmp);
+    res = "restrict ";
+    res += tmp;
+    return true;
+  }
+  if ( el->second->type_ == ElementType::reference_type )
+  {
+    std::string tmp;
+    dump_type(el->second->type_id_, tmp);
+    res = tmp;
+    res += "&";
+    return true;
+  }
   if ( el->second->type_ == ElementType::const_type )
   {
     std::string tmp;
@@ -676,6 +692,8 @@ const char* TreeBuilder::Element::TypeName() {
     case ElementType::base_type: return "base";
     case ElementType::const_type: return "const";
     case ElementType::volatile_type: return "volatile";
+    case ElementType::restrict_type: return "restrict";
+    case ElementType::reference_type: return "reference";
     case ElementType::subroutine_type: return "function_type";
     case ElementType::subroutine: return "function";
     default: return "unk";
