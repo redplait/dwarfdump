@@ -31,11 +31,20 @@ int TreeBuilder::merge_dumped()
 //  fprintf(g_outf, "dumped type %d with name %s level %d\n", e.type_, e.name_, e.level_);
     if ( e.level_ > 1 )
       continue; // we heed only high-level types definitions
-    UniqName key { e.type_, e.name_};
-    auto added = m_dumped_db.find(key);
-    if ( added != m_dumped_db.end() )
-      continue; // this type already in m_dumped_db
-    m_dumped_db[key] = e.id_;
+    if ( in_string_pool(e.name_) )
+    {
+      UniqName key { e.type_, e.name_};
+      auto added = m_dumped_db.find(key);
+      if ( added != m_dumped_db.end() )
+        continue; // this type already in m_dumped_db
+      m_dumped_db[key] = e.id_;
+    } else {
+      UniqName2 key { e.type_, e.name_};
+      auto added = m_dumped_db2.find(key);
+      if ( added != m_dumped_db2.end() )
+        continue; // this type already in m_dumped_db2
+      m_dumped_db2[key] = e.id_;
+    }
     res++; 
   }
   return res;
@@ -276,16 +285,26 @@ void TreeBuilder::dump_types()
 
 int TreeBuilder::check_dumped_type(const char *name)
 {
-  UniqName key { current_element_type_, name };
-  const auto ci = m_dumped_db.find(key);
-  if ( ci == m_dumped_db.cend() )
-    return 0;
-// fprintf(g_outf, "found type %d with name %s\n", key.first, key.second);    
+  uint64_t rep_id;
+  if ( in_string_pool(name) )
+  {
+    UniqName key { current_element_type_, name };
+    const auto ci = m_dumped_db.find(key);
+    if ( ci == m_dumped_db.cend() )
+      return 0;
+    rep_id = ci->second;
+  } else {
+    UniqName2 key { current_element_type_, name };
+    const auto ci = m_dumped_db2.find(key);
+    if ( ci == m_dumped_db2.cend() )
+      return 0;
+    rep_id = ci->second;
+  }    
   // put fake type into m_replaced
   // don`t replace functions
   if ( current_element_type_ != subroutine )
   {
-    dumped_type dt { current_element_type_, name, ci->second };
+    dumped_type dt { current_element_type_, name, rep_id };
     m_replaced[elements_.back().id_] = dt;
   }
   // remove current element

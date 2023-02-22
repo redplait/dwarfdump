@@ -55,6 +55,15 @@ public:
   const char *cu_name;
   const char *cu_comp_dir;
   const char *cu_producer;
+  // for names with direct string - seems that if name lesser pointer size they are directed
+  // so renderer should be able to distinguish if some name located in string pool
+  // in other case this name should be considered as direct string
+  const char *debug_str_;
+  size_t debug_str_size_;
+  inline bool in_string_pool(const char *s)
+  {
+    return (s >= debug_str_) && (s < debug_str_ + debug_str_size_);
+  }
 private:
   static std::string EscapeJsonString(const char* str);
   int merge_dumped();
@@ -64,6 +73,7 @@ private:
   ElementType previous_element_type_;
 
   typedef std::pair<ElementType, const char*> UniqName;
+  typedef std::pair<ElementType, std::string> UniqName2;
   struct dumped_type {
     ElementType type_;
     const char *name_;
@@ -130,4 +140,5 @@ private:
 
   // already dumped types
   std::map<UniqName, uint64_t> m_dumped_db;
+  std::map<UniqName2, uint64_t> m_dumped_db2;
 };

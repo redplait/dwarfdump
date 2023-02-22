@@ -35,8 +35,8 @@ ElfFile::ElfFile(std::string filepath, bool& success) :
       debug_abbrev_ = reinterpret_cast<const unsigned char*>(s->get_data());
       debug_abbrev_size_ = s->get_size();
     } else if (!strcmp(name, ".debug_str")) {
-      debug_str_ = reinterpret_cast<const char*>(s->get_data());
-      debug_str_size_ = s->get_size();
+      tree_builder_.debug_str_ = reinterpret_cast<const char*>(s->get_data());
+      tree_builder_.debug_str_size_ = s->get_size();
     }
   }
 
@@ -261,7 +261,7 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
       str_pos = *reinterpret_cast<const uint32_t*>(info);
       info += sizeof(str_pos);
       bytes_available -= sizeof(str_pos);
-      str = &debug_str_[str_pos];
+      str = &tree_builder_.debug_str_[str_pos];
       break;
     case Dwarf32::Form::DW_FORM_string:
       str = reinterpret_cast<const char*>(info);

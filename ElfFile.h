@@ -36,8 +36,6 @@ private:
   size_t debug_info_size_;
   const unsigned char* debug_abbrev_;
   size_t debug_abbrev_size_;
-  const char* debug_str_;
-  size_t debug_str_size_;
 
   struct TagSection {
       unsigned int number;
