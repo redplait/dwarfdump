@@ -46,6 +46,7 @@ public:
   void SetElementCount(uint64_t count);
   void SetConstValue(uint64_t count);
   void SetAddr(uint64_t count);
+  void SetParentAccess(int);
 
   uint64_t get_replaced_type(uint64_t) const;
   int check_dumped_type(const char *);
@@ -83,6 +84,7 @@ private:
   struct Parent {
     uint64_t id;
     size_t offset;
+    int access = 0;
   };
 
   struct EnumItem {

@@ -374,6 +374,13 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case Dwarf32::Attribute::DW_AT_sibling:
       m_next = FormDataValue(form, info, info_bytes);
      return true;
+    case Dwarf32::Attribute::DW_AT_accessibility:
+      if ( m_stype == Dwarf32::Tag::DW_TAG_inheritance )
+      {
+        int a = (int)FormDataValue(form, info, info_bytes);
+        tree_builder_.SetParentAccess(a);
+        return true;
+      }
     // Name
     case Dwarf32::Attribute::DW_AT_producer:
       if ( m_stype == Dwarf32::Tag::DW_TAG_compile_unit )
