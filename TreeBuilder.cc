@@ -102,6 +102,11 @@ bool TreeBuilder::dump_type(uint64_t key, std::string &res)
     res = el->second->name_;
     return true;
   }
+  if ( el->second->type_ == ElementType::class_type )
+  {
+    res = el->second->name_;
+    return true; 
+  }
   if ( el->second->type_ == ElementType::structure_type )
   {
     res = "struct ";
@@ -224,6 +229,17 @@ void TreeBuilder::dump_func(Element *e)
   fprintf(g_outf, ")");
 }
 
+const char *access_name(int i)
+{
+  switch(i)
+  {
+    case 1: return "public ";
+    case 2: return "protected ";
+    case 3: return "private ";
+  }
+  return "";
+}
+
 void TreeBuilder::dump_types()
 {
   for ( auto &e: elements_ )
@@ -263,6 +279,27 @@ void TreeBuilder::dump_types()
         break;
       case ElementType::union_type:
         fprintf(g_outf, "union %s {\n", e.name_);
+        dump_fields(&e);
+        fprintf(g_outf, "}");
+        break;
+      case ElementType::class_type:
+        fprintf(g_outf, "class %s ", e.name_);
+        if ( !e.parents_.empty() )
+        {
+          fprintf(g_outf, ":\n");
+          for ( size_t pi = 0; pi < e.parents_.size(); pi++ )
+          {
+            fprintf(g_outf, "// offset %lX\n", e.parents_[pi].offset);
+            std::string pname;
+            dump_type(e.parents_[pi].id, pname);
+            fprintf(g_outf, "%s%s", access_name(e.parents_[pi].access), pname.c_str());
+            if ( pi != e.parents_.size() - 1 )
+              fprintf(g_outf, ",\n");
+            else
+              fprintf(g_outf, "\n");
+          }
+        }
+        fprintf(g_outf, "{\n");
         dump_fields(&e);
         fprintf(g_outf, "}");
         break;
@@ -404,6 +441,10 @@ bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level) {
 
 void TreeBuilder::SetParentAccess(int a)
 {
+  if (current_element_type_ == ElementType::none) {
+    return;
+  }
+
   if ( m_stack.empty() ) {
     fprintf(stderr, "Can't add a access when stack is empty\n");
     return;
