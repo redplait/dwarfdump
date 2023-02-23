@@ -375,7 +375,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       m_next = FormDataValue(form, info, info_bytes);
      return true;
     case Dwarf32::Attribute::DW_AT_accessibility:
-      if ( m_stype == Dwarf32::Tag::DW_TAG_inheritance )
+      if ( m_stype == Dwarf32::Tag::DW_TAG_inheritance || m_stype == Dwarf32::Tag::DW_TAG_member )
       {
         int a = (int)FormDataValue(form, info, info_bytes);
         tree_builder_.SetParentAccess(a);

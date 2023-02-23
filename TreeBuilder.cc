@@ -405,14 +405,25 @@ bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level) {
 void TreeBuilder::SetParentAccess(int a)
 {
   if ( m_stack.empty() ) {
-    fprintf(stderr, "Can't add a parent access when stack is empty\n");
+    fprintf(stderr, "Can't add a access when stack is empty\n");
     return;
   }
-  if ( m_stack.top()->parents_.empty() )  {
-    fprintf(stderr, "Can't add a parent access when parents list is empty\n");
+  if ( current_element_type_ == ElementType::member )
+  {
+    if ( m_stack.top()->members_.empty()) {
+      fprintf(stderr, "Can't set the member access if the members list is empty\n");
+      return;
+    }
+  // fprintf(g_outf, "SetParentAccess %s a %d\n", m_stack.top()->members_.back().name_, a);
+    m_stack.top()->members_.back().access_ = a;
     return;
+  } else {
+    if ( m_stack.top()->parents_.empty() ) {
+      fprintf(stderr, "Can't add a parent access when parents list is empty\n");
+      return;
+    }
+    m_stack.top()->parents_.back().access = a;
   }
-  m_stack.top()->parents_.back().access = a;
 }
 
 void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int level) {
@@ -747,6 +758,9 @@ std::string TreeBuilder::Element::GenerateJson(TreeBuilder *tb) {
     }
     if ( level_ && g_opt_l ) {
       result += "\"level\":\""+std::to_string(level_)+"\",";
+    }
+    if ( access_ ) {
+      result += "\"access\":"+std::to_string(access_)+",";
     }
     result += "\"offset\":"+std::to_string(offset_);
 

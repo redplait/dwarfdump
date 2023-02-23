@@ -109,7 +109,8 @@ private:
       type_id_(0), 
       offset_(0), 
       count_(0),
-      addr_(0)
+      addr_(0),
+      access_(0)
     {}
     const char* TypeName();
     std::string GenerateJson(TreeBuilder *tb);
@@ -123,6 +124,7 @@ private:
     uint64_t offset_;
     uint64_t count_;
     uint64_t addr_;
+    int access_;
     std::vector<Element> members_;
     std::vector<Parent> parents_;
     std::vector<EnumItem> enums_;
