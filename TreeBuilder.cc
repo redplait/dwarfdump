@@ -96,16 +96,12 @@ bool TreeBuilder::dump_type(uint64_t key, std::string &res)
     return true;
   }
   if ( el->second->type_ == ElementType::typedef2 ||
-       el->second->type_ == ElementType::base_type
+       el->second->type_ == ElementType::base_type ||
+       el->second->type_ == ElementType::class_type
      )
   {
     res = el->second->name_;
     return true;
-  }
-  if ( el->second->type_ == ElementType::class_type )
-  {
-    res = el->second->name_;
-    return true; 
   }
   if ( el->second->type_ == ElementType::structure_type )
   {
@@ -183,7 +179,9 @@ bool TreeBuilder::dump_type(uint64_t key, std::string &res)
 
 void TreeBuilder::dump_enums(Element *e)
 {
-  for ( auto &en: e->enums_ )
+  if ( !e->m_comp )
+    return;
+  for ( auto &en: e->m_comp->enums_ )
   {
     if ( en.value >= 0 && en.value < 10 )
       fprintf(g_outf, "  %s = %d,\n", en.name, (int)en.value );
@@ -194,7 +192,9 @@ void TreeBuilder::dump_enums(Element *e)
 
 void TreeBuilder::dump_fields(Element *e)
 {
-  for ( auto &en: e->members_ )
+  if ( !e->m_comp )
+    return;
+  for ( auto &en: e->m_comp->members_ )
   {
     std::string tmp;
     fprintf(g_outf, "// Offset 0x%lX\n", en.offset_);
@@ -211,18 +211,18 @@ void TreeBuilder::dump_func(Element *e)
   else
     tmp = "void";
   fprintf(g_outf, "%s %s(", tmp.c_str(), e->name_);
-  if ( e->params_.empty() )
+  if ( !e->m_comp || e->m_comp->params_.empty() )
     fprintf(g_outf, "void");
   else {
-    for ( size_t i = 0; i < e->params_.size(); i++ )
+    for ( size_t i = 0; i < e->m_comp->params_.size(); i++ )
     {
       tmp.clear();
-      dump_type(e->params_[i].id, tmp);
-      if ( e->params_[i].name )
-        fprintf(g_outf, "%s %s", tmp.c_str(), e->params_[i].name);
+      dump_type(e->m_comp->params_[i].id, tmp);
+      if ( e->m_comp->params_[i].name )
+        fprintf(g_outf, "%s %s", tmp.c_str(), e->m_comp->params_[i].name);
       else
         fprintf(g_outf, "%s", tmp.c_str());
-      if ( i+1 < e->params_.size() )
+      if ( i+1 < e->m_comp->params_.size() )
         fprintf(g_outf, ",");
     }
   }
@@ -284,16 +284,16 @@ void TreeBuilder::dump_types()
         break;
       case ElementType::class_type:
         fprintf(g_outf, "class %s ", e.name_);
-        if ( !e.parents_.empty() )
+        if ( e.m_comp && !e.m_comp->parents_.empty() )
         {
           fprintf(g_outf, ":\n");
-          for ( size_t pi = 0; pi < e.parents_.size(); pi++ )
+          for ( size_t pi = 0; pi < e.m_comp->parents_.size(); pi++ )
           {
-            fprintf(g_outf, "// offset %lX\n", e.parents_[pi].offset);
+            fprintf(g_outf, "// offset %lX\n", e.m_comp->parents_[pi].offset);
             std::string pname;
-            dump_type(e.parents_[pi].id, pname);
-            fprintf(g_outf, "%s%s", access_name(e.parents_[pi].access), pname.c_str());
-            if ( pi != e.parents_.size() - 1 )
+            dump_type(e.m_comp->parents_[pi].id, pname);
+            fprintf(g_outf, "%s%s", access_name(e.m_comp->parents_[pi].access), pname.c_str());
+            if ( pi != e.m_comp->parents_.size() - 1 )
               fprintf(g_outf, ",\n");
             else
               fprintf(g_outf, "\n");
@@ -432,10 +432,14 @@ bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level) {
     fprintf(stderr, "Can't add a formal parameter when stack is empty\n");
     return false;
   }
+  auto top = m_stack.top();
 //  fprintf(g_outf, "f level %d level %d\n", m_stack.top()->level_, level);
-  if ( m_stack.top()->level_ != level - 1 )
+  if ( top->level_ != level - 1 )
     return false;
-  m_stack.top()->params_.push_back({NULL, 0});
+  if ( !top->m_comp )
+    top->m_comp = new Compound();
+  
+  top->m_comp->params_.push_back({NULL, 0});
   return true;
 }
 
@@ -449,21 +453,22 @@ void TreeBuilder::SetParentAccess(int a)
     fprintf(stderr, "Can't add a access when stack is empty\n");
     return;
   }
+  auto top = m_stack.top();
   if ( current_element_type_ == ElementType::member )
   {
-    if ( m_stack.top()->members_.empty()) {
+    if ( !top->m_comp || top->m_comp->members_.empty()) {
       fprintf(stderr, "Can't set the member access if the members list is empty\n");
       return;
     }
   // fprintf(g_outf, "SetParentAccess %s a %d\n", m_stack.top()->members_.back().name_, a);
-    m_stack.top()->members_.back().access_ = a;
+    top->m_comp->members_.back().access_ = a;
     return;
   } else {
-    if ( m_stack.top()->parents_.empty() ) {
+    if ( !top->m_comp || top->m_comp->parents_.empty() ) {
       fprintf(stderr, "Can't add a parent access when parents list is empty\n");
       return;
     }
-    m_stack.top()->parents_.back().access = a;
+    top->m_comp->parents_.back().access = a;
   }
 }
 
@@ -480,8 +485,12 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       if (!elements_.size()) {
         fprintf(stderr, "Can't add a member if the element list is empty\n");
         return;
+      } else {
+        auto top = m_stack.top();
+        if ( !top->m_comp )
+          top->m_comp = new Compound();
+        top->m_comp->members_.push_back(Element(element_type, tag_id, level));
       }
-      m_stack.top()->members_.push_back(Element(element_type, tag_id, level));
       break;
     case ElementType::inheritance:    // Parent
       if (current_element_type_ == ElementType::none) {
@@ -494,8 +503,12 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       if ( m_stack.empty() ) {
         fprintf(stderr, "Can't add a parent when stack is empty\n");
         return;
+      } else {
+        auto top = m_stack.top();
+        if ( !top->m_comp )
+          top->m_comp = new Compound();
+        top->m_comp->parents_.push_back({tag_id, 0});
       }
-      m_stack.top()->parents_.push_back({tag_id, 0});
       break;
     // Subrange
     case ElementType::subrange_type:
@@ -513,8 +526,12 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       if ( m_stack.empty() ) {
         fprintf(stderr, "Can't add a enumerator when stack is empty\n");
         return;
+      } else {
+        auto top = m_stack.top();
+        if ( !top->m_comp )
+          top->m_comp = new Compound();
+        top->m_comp->enums_.push_back({NULL, 0});
       }
-      m_stack.top()->enums_.push_back({NULL, 0});
       break;
 
     default:
@@ -551,12 +568,13 @@ void TreeBuilder::SetElementName(const char* name) {
       fprintf(stderr, "Can't set the formal param name when stack is empty\n");
       return;
     }
-    if (!m_stack.top()->params_.size()) {
+    auto top = m_stack.top();
+    if (!top->m_comp || top->m_comp->params_.empty()) {
       fprintf(stderr, "Can't set the formal param name if the params list is empty\n");
       return;
     }
 
-    m_stack.top()->params_.back().name = name;
+    top->m_comp->params_.back().name = name;
     return;    
   }
   if ( current_element_type_ == ElementType::enumerator )
@@ -565,12 +583,13 @@ void TreeBuilder::SetElementName(const char* name) {
       fprintf(stderr, "Can't set the enum name when stack is empty\n");
       return;
     }
-    if (!m_stack.top()->enums_.size()) {
+    auto top = m_stack.top();
+    if (!top->m_comp || top->m_comp->enums_.empty()) {
       fprintf(stderr, "Can't set the enum name if the enums list is empty\n");
       return;
     }
 
-    m_stack.top()->enums_.back().name = name;
+    top->m_comp->enums_.back().name = name;
     return;
   }  
 
@@ -579,12 +598,13 @@ void TreeBuilder::SetElementName(const char* name) {
       fprintf(stderr, "Can't set the member name when stack is empty\n");
       return;
     }
-    if (!m_stack.top()->members_.size()) {
+    auto top = m_stack.top();
+    if (!top->m_comp || top->m_comp->members_.empty()) {
       fprintf(stderr, "Can't set the member name if the members list is empty\n");
       return;
     }
 
-    m_stack.top()->members_.back().name_ = name;
+    top->m_comp->members_.back().name_ = name;
     return;
   }
 
@@ -606,13 +626,14 @@ void TreeBuilder::SetElementSize(uint64_t size) {
       fprintf(stderr, "Can't set an member size when stack is empty\n");
       return;
     }
-    if (!m_stack.top()->members_.size()) {
+    auto top = m_stack.top();
+    if (!top->m_comp || top->m_comp->members_.empty()) {
       fprintf(stderr, "Can't set the member size if the members list is "
         "empty\n");
       return;
     }
 
-    m_stack.top()->members_.back().size_ = size;
+    top->m_comp->members_.back().size_ = size;
     return;
   }
 
@@ -624,33 +645,35 @@ void TreeBuilder::SetElementOffset(uint64_t offset) {
     return;
   }
   if (!elements_.size()) {
-    fprintf(stderr, "Can't set an element offset if the element list is "
-      "empty\n");
+    fprintf(stderr, "Can't set an element offset if the element list is empty\n");
     return;
   }
-
   switch (current_element_type_) {
     case ElementType::member:
       if ( m_stack.empty() ) {
         fprintf(stderr, "Can't set the member offset when stack is empty\n");
         return;
+      } else {
+        auto top = m_stack.top();
+        if (!top->m_comp || top->m_comp->members_.empty()) {
+          fprintf(stderr, "Can't set the member offset if the members list is empty\n");
+          break;
+        }
+        top->m_comp->members_.back().offset_ = offset;
       }
-      if (!m_stack.top()->members_.size()) {
-        fprintf(stderr, "Can't set the member offset if the members list is empty\n");
-        break;
-      }
-      m_stack.top()->members_.back().offset_ = offset;
       break;
     case ElementType::inheritance:
       if ( m_stack.empty() ) {
         fprintf(stderr, "Can't set the parent offset when stack is empty\n");
         return;
+      } else {
+        auto top = m_stack.top();
+        if (!top->m_comp || top->m_comp->parents_.empty()) {
+          fprintf(stderr, "Can't set the parent offset if the parents list is empty\n");
+          break;
+        }
+        top->m_comp->parents_.back().offset = offset;
       }
-      if (!m_stack.top()->parents_.size()) {
-        fprintf(stderr, "Can't set the parent offset if the parents list is empty\n");
-        break;
-      }
-      m_stack.top()->parents_.back().offset = offset;
       break;
     default:
       break;
@@ -665,40 +688,46 @@ void TreeBuilder::SetElementType(uint64_t type_id) {
     fprintf(stderr, "Can't set an element type if the element list is empty\n");
     return;
   }
-
+  
   switch (current_element_type_) {
     case ElementType::member:
       if ( m_stack.empty() ) {
         fprintf(stderr, "Can't set the member type when stack is empty\n");
         return;
+      } else {
+        auto top = m_stack.top();
+        if (!top->m_comp || top->m_comp->members_.empty()) {
+          fprintf(stderr, "Can't set the member type if the members list is empty\n");
+          break;
+        }
+        top->m_comp->members_.back().type_id_ = type_id;
       }
-      if (!m_stack.top()->members_.size()) {
-        fprintf(stderr, "Can't set the member type if the members list is empty\n");
-        break;
-      }
-      m_stack.top()->members_.back().type_id_ = type_id;
       break;
     case ElementType::inheritance:
       if ( m_stack.empty() ) {
         fprintf(stderr, "Can't set the parent type when stack is empty\n");
         return;
+      } else {
+        auto top = m_stack.top();
+        if (!top->m_comp || top->m_comp->parents_.empty()) {
+          fprintf(stderr, "Can't set the parent type if the parents list is empty\n");
+          break;
+        }
+        top->m_comp->parents_.back().id = type_id;
       }
-      if (!m_stack.top()->parents_.size()) {
-        fprintf(stderr, "Can't set the parent type if the parents list is empty\n");
-        break;
-      }
-      m_stack.top()->parents_.back().id = type_id;
       break;
     case ElementType::formal_param:
       if ( m_stack.empty() ) {
         fprintf(stderr, "Can't set the formal param type when stack is empty\n");
         return;
+      } else {
+        auto top = m_stack.top();
+        if (!top->m_comp || top->m_comp->params_.empty()) {
+          fprintf(stderr, "Can't set the formal param type if the members list is empty\n");
+          break;
+        }
+        top->m_comp->params_.back().id = type_id;
       }
-      if (!m_stack.top()->params_.size()) {
-        fprintf(stderr, "Can't set the formal param type if the members list is empty\n");
-        break;
-      }
-      m_stack.top()->params_.back().id = type_id;
       break;
     case ElementType::subrange_type:
       break; // do nothing
@@ -727,18 +756,19 @@ void TreeBuilder::SetConstValue(uint64_t count) {
     fprintf(stderr, "Can't set ConstValue when stack is empty\n");
     return;
   }
-  if (!m_stack.top()->enums_.size()) {
+  auto top = m_stack.top();
+  if ( !top->m_comp || top->m_comp->enums_.empty()) {
     fprintf(stderr, "Can't set ConstValue if the enums list is empty\n");
     return;
   }
-  m_stack.top()->enums_.back().value = count;
+  top->m_comp->enums_.back().value = count;
 }
 
 void TreeBuilder::SetElementCount(uint64_t count) {
   if (current_element_type_ != ElementType::subrange_type) {
     return;
   }
-  if (!elements_.size()) {
+  if ( elements_.empty()) {
     fprintf(stderr, "Can't set an element count if the element list is empty\n");
     return;
   }
@@ -830,51 +860,51 @@ std::string TreeBuilder::Element::GenerateJson(TreeBuilder *tb) {
   if (count_) {
     result += "\"count\":"+std::to_string(count_)+",";
   }
-  if (parents_.size() > 0) {
+  if ( m_comp && !m_comp->parents_.empty() ) {
     result += "\"parents\":[";
-    for (size_t i = 0; i < parents_.size(); i++) {
-      result += "{\"id\":\""+std::to_string(tb->get_replaced_type(parents_[i].id))+"\",";
-      if ( parents_[i].access )
-        result += "\"access\":"+std::to_string(parents_[i].access)+"\",";
-      result += "\"offset\":"+std::to_string(parents_[i].offset)+"}";
-      if (i+1 < parents_.size()) {
+    for (size_t i = 0; i < m_comp->parents_.size(); i++) {
+      result += "{\"id\":\""+std::to_string(tb->get_replaced_type(m_comp->parents_[i].id))+"\",";
+      if ( m_comp->parents_[i].access )
+        result += "\"access\":"+std::to_string(m_comp->parents_[i].access)+"\",";
+      result += "\"offset\":"+std::to_string(m_comp->parents_[i].offset)+"}";
+      if (i+1 < m_comp->parents_.size()) {
         result += ",";
       }
     }
     result += "],";
   }
-  if ( params_.size() > 0 )
+  if ( m_comp && !m_comp->params_.empty() )
   {
     result += "\"params\":[";
-    for (size_t i = 0; i < params_.size(); i++) {
-      if ( params_[i].name )
-        result += "{\"name\":\""+EscapeJsonString(params_[i].name)+"\",";
+    for (size_t i = 0; i < m_comp->params_.size(); i++) {
+      if ( m_comp->params_[i].name )
+        result += "{\"name\":\""+EscapeJsonString(m_comp->params_[i].name)+"\",";
       else
         result += "{";
-      result += "\"type_id\":"+std::to_string(params_[i].id)+"}";
-      if (i+1 < params_.size()) {
+      result += "\"type_id\":"+std::to_string(m_comp->params_[i].id)+"}";
+      if (i+1 < m_comp->params_.size()) {
         result += ",";
       }
     }
     result += "],";
   }
-  if ( enums_.size() > 0 )
+  if ( m_comp && !m_comp->enums_.empty() )
   {
     result += "\"enums\":[";
-    for (size_t i = 0; i < enums_.size(); i++) {
-      result += "{\"name\":\""+EscapeJsonString(enums_[i].name)+"\",";
-      result += "\"value\":"+std::to_string(enums_[i].value)+"}";
-      if (i+1 < enums_.size()) {
+    for (size_t i = 0; i < m_comp->enums_.size(); i++) {
+      result += "{\"name\":\""+EscapeJsonString(m_comp->enums_[i].name)+"\",";
+      result += "\"value\":"+std::to_string(m_comp->enums_[i].value)+"}";
+      if (i+1 < m_comp->enums_.size()) {
         result += ",";
       }
     }
     result += "],";
   }
-  if (members_.size() > 0) {
+  if ( m_comp && !m_comp->members_.empty() ) {
     result += "\"members\":[";
-    for (size_t i = 0; i < members_.size(); i++) {
-      result += members_[i].GenerateJson(tb);
-      if (i+1 < members_.size()) {
+    for (size_t i = 0; i < m_comp->members_.size(); i++) {
+      result += m_comp->members_[i].GenerateJson(tb);
+      if (i+1 < m_comp->members_.size()) {
         result += ",";
       }
     }

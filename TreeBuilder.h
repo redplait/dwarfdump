@@ -97,8 +97,43 @@ private:
     uint64_t id;
   };
 
-  class Element {
-  public:
+  struct Compound;
+
+  struct Element {
+    void move(Element &e)
+    {
+      type_ = e.type_;
+      id_ = e.id_;
+      level_ = e.level_;
+      name_ = e.name_;
+      link_name_ = e.link_name_;
+      size_ = e.size_;
+      type_id_ = e.type_id_;
+      offset_ = e.offset_;
+      count_ = e.count_;
+      addr_ = e.addr_;
+      access_ = e.access_;
+      m_comp = e.m_comp;
+      e.m_comp = nullptr;
+    }
+    Element(Element &&e)
+    {
+      move(e);
+    }
+    Element& operator=(Element &&e)
+    {
+      move(e);
+      return *this;
+    }
+    Element& operator=(const Element &) = delete;
+    ~Element()
+    {
+      if ( m_comp != nullptr )
+      {
+        delete m_comp;
+        m_comp = nullptr;
+      }
+    }
     Element(ElementType type, uint64_t id, int level) : 
       type_(type), 
       id_(id),
@@ -110,7 +145,8 @@ private:
       offset_(0), 
       count_(0),
       addr_(0),
-      access_(0)
+      access_(0),
+      m_comp(nullptr)
     {}
     const char* TypeName();
     std::string GenerateJson(TreeBuilder *tb);
@@ -125,6 +161,15 @@ private:
     uint64_t count_;
     uint64_t addr_;
     int access_;
+    Compound *m_comp;
+  };
+
+  struct Compound {
+    Compound() = default;
+    ~Compound() = default;
+    Compound& operator=(Compound &&) = default;
+    Compound(Compound &&) = default;
+
     std::vector<Element> members_;
     std::vector<Parent> parents_;
     std::vector<EnumItem> enums_;
