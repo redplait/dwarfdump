@@ -346,6 +346,7 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
     CASE_REGISTER_NEW_TAG(DW_TAG_restrict_type, restrict_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_reference_type, reference_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_subroutine_type, subroutine_type)
+    CASE_REGISTER_NEW_TAG(DW_TAG_namespace, ns_start)
     case Dwarf32::Tag::DW_TAG_subprogram:
       if ( g_opt_f )
       {
@@ -517,7 +518,7 @@ bool ElfFile::GetAllClasses() {
         if ( m_level )
         {
           m_level--;
-          tree_builder_.pop_stack();
+          tree_builder_.pop_stack(info-debug_info_);
         }
         continue;
       }

@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <map>
+#include <list>
 #include <vector>
 #include <stack>
 
@@ -31,10 +32,12 @@ public:
     subroutine_type,
     formal_param,
     subroutine,
+    ns_start,
+    ns_end,
   };
   void ProcessUnit(int last = 0);
   int add2stack();
-  void pop_stack();
+  void pop_stack(uint64_t);
   void AddNone();
   void AddElement(ElementType element_type, uint64_t tag_id, int level);
   bool AddFormalParam(uint64_t tag_id, int level);
@@ -71,7 +74,7 @@ private:
   void dump_types();
 
   ElementType current_element_type_;
-  ElementType previous_element_type_;
+  int ns_count = 0;
 
   typedef std::pair<ElementType, const char*> UniqName;
   typedef std::pair<ElementType, std::string> UniqName2;
@@ -183,7 +186,7 @@ private:
 
   // per compilation unit data
   std::stack<Element *> m_stack;
-  std::vector<Element> elements_;
+  std::list<Element> elements_;
   std::map<uint64_t, dumped_type> m_replaced;
   std::map<uint64_t, Element *> m_els;
 

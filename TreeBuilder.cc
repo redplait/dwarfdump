@@ -10,11 +10,14 @@ std::string TreeBuilder::GenerateJson() {
   std::string result;
   if ( elements_.empty() )
     return result;
-  for (size_t i = 0; i < elements_.size(); i++) {
-    result += elements_[i].GenerateJson(this);
-    result += ",\n";
+  for ( auto &e: elements_ ) {
+    auto jres = e.GenerateJson(this);
+    if ( !jres.empty() )
+    {
+      result += e.GenerateJson(this);
+      result += ",\n";
+    }
   }
-
   return result;
 }
 
@@ -28,6 +31,9 @@ int TreeBuilder::merge_dumped()
   {
     if ( !e.name_ )
       continue; // and type must be named
+    // no namespaces
+    if ( e.type_ == ns_start )
+      continue;
 //  fprintf(g_outf, "dumped type %d with name %s level %d\n", e.type_, e.name_, e.level_);
     if ( e.level_ > 1 )
       continue; // we heed only high-level types definitions
@@ -244,6 +250,16 @@ void TreeBuilder::dump_types()
 {
   for ( auto &e: elements_ )
   {
+    if ( ElementType::ns_end == e.type_ )
+    {
+      fprintf(g_outf, "} // namespace %s\n", e.name_);
+      continue;
+    }
+    if ( ElementType::ns_start == e.type_ )
+    {
+      fprintf(g_outf, "namespace %s {\n", e.name_);
+      continue;
+    }
     if ( !e.name_ )
       continue;
     if ( e.level_ > 1 )
@@ -396,6 +412,7 @@ void TreeBuilder::ProcessUnit(int last)
   m_replaced.clear();
   m_els.clear();
   cu_name = cu_comp_dir = cu_producer = NULL;
+  ns_count = 0;
 }
 
 void TreeBuilder::AddNone() {
@@ -408,15 +425,33 @@ int TreeBuilder::add2stack()
     // fprintf(stderr, "Can't add a member if the element list is empty\n");
     return 0;
   }
-  m_stack.push( &elements_.back() );
+  auto &last = elements_.back();
+  if ( last.type_ == ns_start )
+  {
+    ns_count++;
+    if ( g_opt_v )
+      fprintf(g_outf, "// ns_start %d at %lX\n", ns_count, last.id_);
+  }
+  m_stack.push( &last );
   return 1;
 }
 
-void TreeBuilder::pop_stack()
+void TreeBuilder::pop_stack(uint64_t off)
 {
+  // printf("pop_stack %lX, size %ld\n", off, m_stack.size());
   if ( m_stack.empty() ) {
     // fprintf(stderr, "stack is empty\n");
     return;
+  }
+  auto last = m_stack.top();
+//  printf( "top %d %lX\n", last->type_, last->id_);
+  if ( last->type_ == ns_start )
+  {
+    ns_count--;
+    elements_.push_back(Element(ns_end, last->type_id_, last->level_));
+    elements_.back().name_ = last->name_;
+    if ( g_opt_v )
+      fprintf(g_outf, "// ns_end %s %d off %lX\n", last->name_, ns_count, off);
   }
   m_stack.pop();
 }
@@ -473,6 +508,7 @@ void TreeBuilder::SetParentAccess(int a)
 }
 
 void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int level) {
+  level -= ns_count;
   switch(element_type) {
     case ElementType::member:       // Member
       if (current_element_type_ == ElementType::none) {
@@ -810,6 +846,7 @@ const char* TreeBuilder::Element::TypeName() {
     case ElementType::reference_type: return "reference";
     case ElementType::subroutine_type: return "function_type";
     case ElementType::subroutine: return "function";
+    case ElementType::ns_start: return "namespace";
     default: return "unk";
   }
 }
@@ -817,6 +854,9 @@ const char* TreeBuilder::Element::TypeName() {
 std::string TreeBuilder::Element::GenerateJson(TreeBuilder *tb) {
   std::string result;
 
+  if (type_ == ElementType::ns_end) {
+    return "";
+  }
   // A member is a special case
   if (type_ == ElementType::member) {
     result = "{";
@@ -846,6 +886,10 @@ std::string TreeBuilder::Element::GenerateJson(TreeBuilder *tb) {
     result += "\"type_id\":\""+std::to_string(type_id_)+"\",";
   }
   if (name_) {
+      if (type_ == ElementType::ns_start) {
+        result += "\"name\":\""+EscapeJsonString(name_)+"\"}";
+        return result;
+      }
     result += "\"name\":\""+EscapeJsonString(name_)+"\",";
   }
   if ( link_name_ && link_name_ != name_ ) {
