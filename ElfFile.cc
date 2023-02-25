@@ -327,7 +327,7 @@ bool ElfFile::LoadAbbrevTags(uint32_t abbrev_offset) {
     return true; \
     break;
 
-bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
+bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id, bool has_children) {
   switch (tag) {
     CASE_REGISTER_NEW_TAG(DW_TAG_array_type, array_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_class_type, class_type)
@@ -346,7 +346,14 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
     CASE_REGISTER_NEW_TAG(DW_TAG_restrict_type, restrict_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_reference_type, reference_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_subroutine_type, subroutine_type)
-    CASE_REGISTER_NEW_TAG(DW_TAG_namespace, ns_start)
+    case Dwarf32::Tag::DW_TAG_namespace:
+      if ( has_children )
+      {
+        tree_builder_.AddElement(TreeBuilder::ElementType::ns_start, tag_id, m_level);
+        return true;
+      }
+      tree_builder_.AddNone();
+      break;      
     case Dwarf32::Tag::DW_TAG_subprogram:
       if ( g_opt_f )
       {
@@ -533,7 +540,7 @@ bool ElfFile::GetAllClasses() {
       const unsigned char* abbrev = section->ptr;
       size_t abbrev_bytes = debug_abbrev_size_ - (abbrev - debug_abbrev_);
       m_stype = section->type;
-      m_regged = RegisterNewTag(m_stype, tag_id);
+      m_regged = RegisterNewTag(m_stype, tag_id, section->has_children);
       m_next = 0;
 
       if ( g_opt_d )
