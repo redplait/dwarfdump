@@ -328,6 +328,7 @@ bool ElfFile::LoadAbbrevTags(uint32_t abbrev_offset) {
     break;
 
 bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id, bool has_children) {
+   bool ell = false;
   switch (tag) {
     CASE_REGISTER_NEW_TAG(DW_TAG_array_type, array_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_class_type, class_type)
@@ -363,10 +364,12 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id, bool has_childre
       }
       tree_builder_.AddNone();
       break;
+    case Dwarf32::Tag::DW_TAG_unspecified_parameters:
+      ell = true;
     case Dwarf32::Tag::DW_TAG_formal_parameter:
       if ( m_regged )
       {
-        return tree_builder_.AddFormalParam(tag_id, m_level);
+        return tree_builder_.AddFormalParam(tag_id, m_level, ell);
       }
       tree_builder_.AddNone();
       break;

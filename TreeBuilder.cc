@@ -231,7 +231,10 @@ void TreeBuilder::dump_func(Element *e)
     for ( size_t i = 0; i < e->m_comp->params_.size(); i++ )
     {
       tmp.clear();
-      dump_type(e->m_comp->params_[i].id, tmp);
+      if ( e->m_comp->params_[i].ellipsis )
+        tmp = "...";
+      else  
+        dump_type(e->m_comp->params_[i].id, tmp);
       if ( e->m_comp->params_[i].name )
         fprintf(g_outf, "%s %s", tmp.c_str(), e->m_comp->params_[i].name);
       else
@@ -465,7 +468,7 @@ void TreeBuilder::pop_stack(uint64_t off)
 }
 
 // formal parameter - level should be +1 to parent
-bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level) {
+bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level, bool ell) {
   current_element_type_ = ElementType::formal_param;
   if (!elements_.size()) {
     fprintf(stderr, "Can't add a formal parameter if the element list is empty\n");
@@ -482,7 +485,7 @@ bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level) {
   if ( !top->m_comp )
     top->m_comp = new Compound();
   
-  top->m_comp->params_.push_back({NULL, 0});
+  top->m_comp->params_.push_back({NULL, 0, ell});
   return true;
 }
 
@@ -934,7 +937,13 @@ std::string TreeBuilder::Element::GenerateJson(TreeBuilder *tb) {
         result += "{\"name\":\""+EscapeJsonString(m_comp->params_[i].name)+"\",";
       else
         result += "{";
-      result += "\"type_id\":"+std::to_string(m_comp->params_[i].id)+"}";
+      if (m_comp->params_[i].ellipsis)
+      {
+        result += "\"ellipsis\"}";
+      } else {
+        if ( m_comp->params_[i].id )
+          result += "\"type_id\":"+std::to_string(m_comp->params_[i].id)+"}";
+      }
       if (i+1 < m_comp->params_.size()) {
         result += ",";
       }
