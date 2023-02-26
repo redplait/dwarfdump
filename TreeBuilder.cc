@@ -454,6 +454,40 @@ void TreeBuilder::SetElementSize(uint64_t size) {
   elements_.back().size_ = size; 
 }
 
+void TreeBuilder::SetBitSize(int v)
+{
+   if (current_element_type_ != ElementType::member) {
+    return;
+  }
+  if ( m_stack.empty() ) {
+    fprintf(stderr, "Can't set the bit size when stack is empty\n");
+    return;
+  }
+  auto top = m_stack.top();
+  if (!top->m_comp || top->m_comp->members_.empty()) {
+    fprintf(stderr, "Can't set the bit size if the members list is empty\n");
+    return;
+  }
+  top->m_comp->members_.back().bit_size_ = v;
+}
+
+void TreeBuilder::SetBitOffset(int v)
+{
+   if (current_element_type_ != ElementType::member) {
+    return;
+  }
+  if ( m_stack.empty() ) {
+    fprintf(stderr, "Can't set the bit offset when stack is empty\n");
+    return;
+  }
+  auto top = m_stack.top();
+  if (!top->m_comp || top->m_comp->members_.empty()) {
+    fprintf(stderr, "Can't set the bit offset if the members list is empty\n");
+    return;
+  }
+  top->m_comp->members_.back().bit_offset_ = v;
+}
+
 void TreeBuilder::SetElementOffset(uint64_t offset) {
    if (current_element_type_ == ElementType::none) {
     return;

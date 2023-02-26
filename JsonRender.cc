@@ -66,6 +66,10 @@ std::string JsonRender::GenerateJson(Element &e) {
     if ( e.access_ ) {
       result += "\"access\":"+std::to_string(e.access_)+",";
     }
+    if ( e.bit_offset_ )
+      result += "\"bit_offset\":"+std::to_string(e.bit_offset_)+",";
+    if ( e.bit_size_ )
+      result += "\"bit_size\":"+std::to_string(e.bit_size_)+",";
     result += "\"offset\":"+std::to_string(e.offset_);
 
     result += "}";

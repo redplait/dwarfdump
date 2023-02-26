@@ -443,6 +443,19 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       return true;
     }
     // Size
+    case Dwarf32::Attribute::DW_AT_bit_size: {
+      uint64_t byte_size = FormDataValue(form, info, info_bytes);
+      if ( m_regged )
+        tree_builder->SetBitSize(byte_size);
+      return true;
+    }
+    case Dwarf32::Attribute::DW_AT_bit_offset: {
+      uint64_t byte_size = FormDataValue(form, info, info_bytes);
+      if ( m_regged )
+        tree_builder->SetBitOffset(byte_size);
+      return true;
+    }
+
     case Dwarf32::Attribute::DW_AT_byte_size: {
       uint64_t byte_size = FormDataValue(form, info, info_bytes);
       if ( m_regged )

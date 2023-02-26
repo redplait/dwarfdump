@@ -53,6 +53,8 @@ public:
   void SetConstValue(uint64_t count);
   void SetAlignment(uint64_t);
   void SetAddr(uint64_t count);
+  void SetBitSize(int);
+  void SetBitOffset(int);
   void SetParentAccess(int);
 
   uint64_t get_replaced_type(uint64_t) const;
@@ -123,6 +125,8 @@ protected:
       addr_ = e.addr_;
       align_ = e.align_;
       access_ = e.access_;
+      bit_size_ = e.bit_size_;
+      bit_offset_ = e.bit_offset_;
       m_comp = e.m_comp;
       e.m_comp = nullptr;
     }
@@ -157,6 +161,8 @@ protected:
       addr_(0),
       align_(0),
       access_(0),
+      bit_size_(0),
+      bit_offset_(0),
       m_comp(nullptr)
     {}
     const char* TypeName();
@@ -172,6 +178,8 @@ protected:
     uint64_t addr_;
     uint64_t align_;
     int access_;
+    int bit_size_;
+    int bit_offset_;
     Compound *m_comp;
   };
 
