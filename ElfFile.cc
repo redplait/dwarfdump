@@ -6,12 +6,12 @@
 
 int g_opt_d = 0,
     g_opt_f = 0,
-    g_opt_j = 0,
     g_opt_l = 0,
     g_opt_v = 0;
 FILE *g_outf = NULL;
 
-ElfFile::ElfFile(std::string filepath, bool& success) :
+ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
+  tree_builder(tb),
   debug_info_(nullptr), debug_info_size_(0),
   debug_abbrev_(nullptr), debug_abbrev_size_(0) {
   // read elf file
@@ -35,8 +35,8 @@ ElfFile::ElfFile(std::string filepath, bool& success) :
       debug_abbrev_ = reinterpret_cast<const unsigned char*>(s->get_data());
       debug_abbrev_size_ = s->get_size();
     } else if (!strcmp(name, ".debug_str")) {
-      tree_builder_.debug_str_ = reinterpret_cast<const char*>(s->get_data());
-      tree_builder_.debug_str_size_ = s->get_size();
+      tree_builder->debug_str_ = reinterpret_cast<const char*>(s->get_data());
+      tree_builder->debug_str_size_ = s->get_size();
     }
   }
 
@@ -261,7 +261,7 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
       str_pos = *reinterpret_cast<const uint32_t*>(info);
       info += sizeof(str_pos);
       bytes_available -= sizeof(str_pos);
-      str = &tree_builder_.debug_str_[str_pos];
+      str = &tree_builder->debug_str_[str_pos];
       break;
     case Dwarf32::Form::DW_FORM_string:
       str = reinterpret_cast<const char*>(info);
@@ -323,7 +323,7 @@ bool ElfFile::LoadAbbrevTags(uint32_t abbrev_offset) {
 
 #define CASE_REGISTER_NEW_TAG(tag_type, element_type)                         \
   case Dwarf32::Tag::tag_type:                                                \
-    tree_builder_.AddElement(TreeBuilder::ElementType::element_type, tag_id, m_level); \
+    tree_builder->AddElement(TreeBuilder::ElementType::element_type, tag_id, m_level); \
     return true; \
     break;
 
@@ -351,30 +351,30 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id, bool has_childre
     case Dwarf32::Tag::DW_TAG_namespace:
       if ( has_children )
       {
-        tree_builder_.AddElement(TreeBuilder::ElementType::ns_start, tag_id, m_level);
+        tree_builder->AddElement(TreeBuilder::ElementType::ns_start, tag_id, m_level);
         return true;
       }
-      tree_builder_.AddNone();
+      tree_builder->AddNone();
       break;      
     case Dwarf32::Tag::DW_TAG_subprogram:
       if ( g_opt_f )
       {
-        tree_builder_.AddElement(TreeBuilder::ElementType::subroutine, tag_id, m_level);
+        tree_builder->AddElement(TreeBuilder::ElementType::subroutine, tag_id, m_level);
         return true;
       }
-      tree_builder_.AddNone();
+      tree_builder->AddNone();
       break;
     case Dwarf32::Tag::DW_TAG_unspecified_parameters:
       ell = true;
     case Dwarf32::Tag::DW_TAG_formal_parameter:
       if ( m_regged )
       {
-        return tree_builder_.AddFormalParam(tag_id, m_level, ell);
+        return tree_builder->AddFormalParam(tag_id, m_level, ell);
       }
-      tree_builder_.AddNone();
+      tree_builder->AddNone();
       break;
     default:
-      tree_builder_.AddNone();
+      tree_builder->AddNone();
   }
   return false;
 }
@@ -390,41 +390,41 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       if ( m_stype == Dwarf32::Tag::DW_TAG_inheritance || m_stype == Dwarf32::Tag::DW_TAG_member )
       {
         int a = (int)FormDataValue(form, info, info_bytes);
-        tree_builder_.SetParentAccess(a);
+        tree_builder->SetParentAccess(a);
         return true;
       }
     // Name
     case Dwarf32::Attribute::DW_AT_producer:
       if ( m_stype == Dwarf32::Tag::DW_TAG_compile_unit )
       {
-        tree_builder_.cu_producer = FormStringValue(form, info, info_bytes);
+        tree_builder->cu_producer = FormStringValue(form, info, info_bytes);
         return true;  
       }
       break;
     case Dwarf32::Attribute::DW_AT_comp_dir:
       if ( m_stype == Dwarf32::Tag::DW_TAG_compile_unit )
       {
-        tree_builder_.cu_comp_dir = FormStringValue(form, info, info_bytes);
+        tree_builder->cu_comp_dir = FormStringValue(form, info, info_bytes);
         return true;  
       }
       break;
     case Dwarf32::Attribute::DW_AT_name:
       if ( m_stype == Dwarf32::Tag::DW_TAG_compile_unit )
       {
-        tree_builder_.cu_name = FormStringValue(form, info, info_bytes);
+        tree_builder->cu_name = FormStringValue(form, info, info_bytes);
         return true;  
       }
     case Dwarf32::Attribute::DW_AT_linkage_name: {
       const char* name = FormStringValue(form, info, info_bytes);
-      if ( tree_builder_.check_dumped_type(name) )
+      if ( tree_builder->check_dumped_type(name) )
       {
         m_regged = false;
         return true;
       }
       if ( Dwarf32::Attribute::DW_AT_linkage_name == attribute )
-        tree_builder_.SetLinkageName(name);
+        tree_builder->SetLinkageName(name);
       else
-        tree_builder_.SetElementName(name);
+        tree_builder->SetElementName(name);
       return true;
     }
 
@@ -432,21 +432,21 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case Dwarf32::Attribute::DW_AT_low_pc: {
       uint64_t addr = FormDataValue(form, info, info_bytes);
       if ( m_regged )
-        tree_builder_.SetAddr(addr);
+        tree_builder->SetAddr(addr);
       return true;
     }
     // Size
     case Dwarf32::Attribute::DW_AT_byte_size: {
       uint64_t byte_size = FormDataValue(form, info, info_bytes);
       if ( m_regged )
-        tree_builder_.SetElementSize(byte_size);
+        tree_builder->SetElementSize(byte_size);
       return true;
     }
 
     // Offset
     case Dwarf32::Attribute::DW_AT_data_member_location: {
       uint64_t offset = FormDataValue(form, info, info_bytes);
-      tree_builder_.SetElementOffset(offset);
+      tree_builder->SetElementOffset(offset);
       return true;
     }
 
@@ -459,7 +459,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         id += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
       }
       if ( m_regged )
-        tree_builder_.SetElementType(id);
+        tree_builder->SetElementType(id);
       return true;
     }
 
@@ -467,14 +467,14 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case Dwarf32::Attribute::DW_AT_count: {
       uint64_t count = FormDataValue(form, info, info_bytes);
       if ( m_regged )
-        tree_builder_.SetElementCount(count);
+        tree_builder->SetElementCount(count);
       return true;
     }
     // upper bound
     case Dwarf32::Attribute::DW_AT_upper_bound: {
       uint64_t count = FormDataValue(form, info, info_bytes);
       if ( m_regged )
-        tree_builder_.SetElementCount(count);
+        tree_builder->SetElementCount(count);
       return true;
     }
     // const value - for enums
@@ -482,7 +482,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       if ( !m_regged )
         return false;
       uint64_t count = FormDataValue(form, info, info_bytes);
-      tree_builder_.SetConstValue(count);
+      tree_builder->SetConstValue(count);
       return true;
     }
     // aligment
@@ -491,7 +491,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
        return false;
      else {
       uint64_t count = FormDataValue(form, info, info_bytes);
-      tree_builder_.SetAlignment(count);
+      tree_builder->SetAlignment(count);
       return true;
      }
     default:
@@ -507,7 +507,7 @@ bool ElfFile::GetAllClasses() {
 
   while (info_bytes > 0) {
     // process previous compilation unit
-    tree_builder_.ProcessUnit();
+    tree_builder->ProcessUnit();
     // Load the compilation unit information
     const unsigned char* cu_start = info;
     const Dwarf32::CompilationUnitHdr* unit_hdr =
@@ -537,7 +537,7 @@ bool ElfFile::GetAllClasses() {
         if ( m_level )
         {
           m_level--;
-          tree_builder_.pop_stack(info-debug_info_);
+          tree_builder->pop_stack(info-debug_info_);
         }
         continue;
       }
@@ -594,14 +594,14 @@ bool ElfFile::GetAllClasses() {
       if ( section->has_children )
       {
         m_level++;
-        tree_builder_.add2stack();
+        tree_builder->add2stack();
       }
 skip_level:
        ;
     }
   }
   // process last compilation unit
-  tree_builder_.ProcessUnit(1);
+  tree_builder->ProcessUnit(1);
 
   return true;
 }

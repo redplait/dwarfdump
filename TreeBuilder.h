@@ -5,11 +5,13 @@
 #include <vector>
 #include <stack>
 
+extern int g_opt_l, g_opt_v;
+extern FILE *g_outf;
+
 class TreeBuilder {
 public:
   TreeBuilder();
-  ~TreeBuilder();
-  std::string GenerateJson();
+  virtual ~TreeBuilder();
 
   enum ElementType {
     none,
@@ -70,10 +72,10 @@ public:
   {
     return (s >= debug_str_) && (s < debug_str_ + debug_str_size_);
   }
-private:
-  static std::string EscapeJsonString(const char* str);
+protected:
+  virtual void RenderUnit(int last)
+  {}
   int merge_dumped();
-  void dump_types();
 
   ElementType current_element_type_;
   int ns_count = 0;
@@ -157,7 +159,6 @@ private:
       m_comp(nullptr)
     {}
     const char* TypeName();
-    std::string GenerateJson(TreeBuilder *tb);
     ElementType type_;
     uint64_t id_;
     int level_;
@@ -185,16 +186,10 @@ private:
     std::vector<FormalParam> params_;
   };
 
-  void dump_enums(Element *);
-  void dump_fields(Element *);
-  void dump_func(Element *);
-  bool dump_type(uint64_t, std::string &);
-
   // per compilation unit data
   std::stack<Element *> m_stack;
   std::list<Element> elements_;
   std::map<uint64_t, dumped_type> m_replaced;
-  std::map<uint64_t, Element *> m_els;
 
   // already dumped types
   std::map<UniqName, uint64_t> m_dumped_db;

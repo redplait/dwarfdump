@@ -10,11 +10,9 @@ using namespace ELFIO;
 
 class ElfFile {
 public:
-  ElfFile(std::string filepath, bool& success);
+  ElfFile(std::string filepath, bool& success, TreeBuilder *);
   ~ElfFile();
   bool GetAllClasses();
-
-  std::string json() { return tree_builder_.GenerateJson(); }
 
 private:
   static uint32_t ULEB128(const unsigned char* &data, size_t& bytes_available);
@@ -31,6 +29,7 @@ private:
     size_t& info_bytes, const void* unit_base);
 
   elfio reader;
+  TreeBuilder *tree_builder;
 
   const unsigned char* debug_info_;
   size_t debug_info_size_;
@@ -49,6 +48,4 @@ private:
   int64_t m_next; // value of DW_AT_sibling
   int m_level;
   bool m_regged;
-
-  TreeBuilder tree_builder_;
 };
