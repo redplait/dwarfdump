@@ -49,6 +49,7 @@ public:
   void SetElementType(uint64_t type_id);
   void SetElementCount(uint64_t count);
   void SetConstValue(uint64_t count);
+  void SetAlignment(uint64_t);
   void SetAddr(uint64_t count);
   void SetParentAccess(int);
 
@@ -117,6 +118,7 @@ private:
       offset_ = e.offset_;
       count_ = e.count_;
       addr_ = e.addr_;
+      align_ = e.align_;
       access_ = e.access_;
       m_comp = e.m_comp;
       e.m_comp = nullptr;
@@ -150,6 +152,7 @@ private:
       offset_(0), 
       count_(0),
       addr_(0),
+      align_(0),
       access_(0),
       m_comp(nullptr)
     {}
@@ -165,6 +168,7 @@ private:
     uint64_t offset_;
     uint64_t count_;
     uint64_t addr_;
+    uint64_t align_;
     int access_;
     Compound *m_comp;
   };

@@ -186,6 +186,10 @@ namespace Dwarf32 {
 
     // DWARF 5
     DW_AT_noreturn = 0x87,
+    DW_AT_alignment = 0x88,
+    DW_AT_export_symbols = 0x89,
+    DW_AT_deleted = 0x8a,
+    DW_AT_defaulted = 0x8b,
 
     DW_AT_lo_user = 0x2000,
     DW_AT_hi_user = 0x3fff

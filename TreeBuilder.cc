@@ -784,6 +784,21 @@ void TreeBuilder::SetElementType(uint64_t type_id) {
   }
 }
 
+void TreeBuilder::SetAlignment(uint64_t v)
+{
+  if ( current_element_type_ == ElementType::class_type ||
+       current_element_type_ == ElementType::structure_type ||
+       current_element_type_ == ElementType::union_type
+  )
+  {
+    if (!elements_.size()) {
+      fprintf(stderr, "Can't set alignment when element list is empty\n");
+      return;
+    }
+    elements_.back().align_ = v;
+  }
+}
+
 void TreeBuilder::SetAddr(uint64_t count) {
   if (current_element_type_ != ElementType::subroutine) {
     return;
@@ -894,6 +909,8 @@ std::string TreeBuilder::Element::GenerateJson(TreeBuilder *tb) {
   // The others are generic
   result += "\""+std::to_string(id_)+"\":";
   result += "{\"type\":\""+std::string(TypeName())+"\",";
+  if ( align_ )
+    result += "\"alignment\":\""+std::to_string(align_)+"\",";
   if (type_id_) {
     result += "\"type_id\":\""+std::to_string(type_id_)+"\",";
   }

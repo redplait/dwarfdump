@@ -485,7 +485,15 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       tree_builder_.SetConstValue(count);
       return true;
     }
-
+    // aligment
+    case Dwarf32::Attribute::DW_AT_alignment:
+     if ( !m_regged )
+       return false;
+     else {
+      uint64_t count = FormDataValue(form, info, info_bytes);
+      tree_builder_.SetAlignment(count);
+      return true;
+     }
     default:
       return false;
   }
