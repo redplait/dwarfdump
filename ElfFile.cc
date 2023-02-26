@@ -408,6 +408,13 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         return true;  
       }
       break;
+    case Dwarf32::Attribute::DW_AT_language:
+      if ( m_stype == Dwarf32::Tag::DW_TAG_compile_unit )
+      {
+        tree_builder->cu_lang = (int)FormDataValue(form, info, info_bytes);
+        return true;  
+      }
+      break;  
     case Dwarf32::Attribute::DW_AT_name:
       if ( m_stype == Dwarf32::Tag::DW_TAG_compile_unit )
       {

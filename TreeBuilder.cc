@@ -1,4 +1,5 @@
 #include "TreeBuilder.h"
+#include "dwarf32.h"
 
 TreeBuilder::TreeBuilder() = default;
 TreeBuilder::~TreeBuilder() = default;
@@ -105,6 +106,59 @@ uint64_t TreeBuilder::get_replaced_type(uint64_t id) const
   return ci->second.id;
 }
 
+const char *get_cu_name(int c)
+{
+  switch (c)
+	{
+	  /* Ordered by the numeric value of these constants.  */
+	case Dwarf32::dwarf_source_language::DW_LANG_C89: return "ANSI C";
+	case Dwarf32::dwarf_source_language::DW_LANG_C:	 return "non-ANSI C";
+	case Dwarf32::dwarf_source_language::DW_LANG_Ada83:	      return "Ada";
+	case Dwarf32::dwarf_source_language::DW_LANG_C_plus_plus:	return "C++";
+	case Dwarf32::dwarf_source_language::DW_LANG_Cobol74:		  return "Cobol 74";
+	case Dwarf32::dwarf_source_language::DW_LANG_Cobol85:		  return "Cobol 85";
+	case Dwarf32::dwarf_source_language::DW_LANG_Fortran77:		return "FORTRAN 77";
+	case Dwarf32::dwarf_source_language::DW_LANG_Fortran90:		return "Fortran 90";
+	case Dwarf32::dwarf_source_language::DW_LANG_Pascal83:		return "ANSI Pascal";
+	case Dwarf32::dwarf_source_language::DW_LANG_Modula2:		  return "Modula 2";
+	  /* DWARF 2.1 values.	*/
+	case Dwarf32::dwarf_source_language::DW_LANG_Java:		    return "Java";
+	case Dwarf32::dwarf_source_language::DW_LANG_C99:		      return "ANSI C99";
+	case Dwarf32::dwarf_source_language::DW_LANG_Ada95:		    return "ADA 95";
+	case Dwarf32::dwarf_source_language::DW_LANG_Fortran95:		return "Fortran 95";
+	  /* DWARF 3 values.  */
+	case Dwarf32::dwarf_source_language::DW_LANG_PLI:		      return "PLI";
+	case Dwarf32::dwarf_source_language::DW_LANG_ObjC:		    return "Objective C";
+	case Dwarf32::dwarf_source_language::DW_LANG_ObjC_plus_plus:	return "Objective C++";
+	case Dwarf32::dwarf_source_language::DW_LANG_UPC:		      return "Unified Parallel C";
+	case Dwarf32::dwarf_source_language::DW_LANG_D:			      return "D";
+	  /* DWARF 4 values.  */
+	case Dwarf32::dwarf_source_language::DW_LANG_Python:		  return "Python";
+	  /* DWARF 5 values.  */
+	case Dwarf32::dwarf_source_language::DW_LANG_OpenCL:		  return "OpenCL";
+	case Dwarf32::dwarf_source_language::DW_LANG_Go:		      return "Go";
+	case Dwarf32::dwarf_source_language::DW_LANG_Modula3:		  return "Modula 3";
+	case Dwarf32::dwarf_source_language::DW_LANG_Haskell:		  return "Haskell";
+	case Dwarf32::dwarf_source_language::DW_LANG_C_plus_plus_03:	return "C++03";
+	case Dwarf32::dwarf_source_language::DW_LANG_C_plus_plus_11:	return "C++11";
+	case Dwarf32::dwarf_source_language::DW_LANG_OCaml:		    return "OCaml";
+	case Dwarf32::dwarf_source_language::DW_LANG_Rust:		    return "Rust";
+	case Dwarf32::dwarf_source_language::DW_LANG_C11:		      return "C11";
+	case Dwarf32::dwarf_source_language::DW_LANG_Swift:		    return "Swift";
+	case Dwarf32::dwarf_source_language::DW_LANG_Julia:		    return "Julia";
+	case Dwarf32::dwarf_source_language::DW_LANG_Dylan:		    return "Dylan";
+	case Dwarf32::dwarf_source_language::DW_LANG_C_plus_plus_14:	return "C++14";
+	case Dwarf32::dwarf_source_language::DW_LANG_Fortran03:		return "Fortran 03";
+	case Dwarf32::dwarf_source_language::DW_LANG_Fortran08:		return "Fortran 08";
+	case Dwarf32::dwarf_source_language::DW_LANG_RenderScript:	return "RenderScript";
+	  /* MIPS extension.  */
+	case Dwarf32::dwarf_source_language::DW_LANG_Mips_Assembler:	return "assembler";
+	  /* UPC extension.  */
+	case Dwarf32::dwarf_source_language::DW_LANG_Upc:		return "Unified Parallel C";
+  }
+  return nullptr;
+}
+
 // called on each processed compilation unit
 void TreeBuilder::ProcessUnit(int last)
 {
@@ -119,6 +173,14 @@ void TreeBuilder::ProcessUnit(int last)
       fprintf(g_outf, "\n// Name: %s\n", cu_name);
     if ( cu_comp_dir )
       fprintf(g_outf, "// CompDir: %s\n", cu_comp_dir);
+    if ( cu_lang )
+    {
+      auto lang = get_cu_name(cu_lang);
+      if ( lang )
+        fprintf(g_outf, "// Language: %s\n", lang);
+      else
+        fprintf(g_outf, "// Language: 0x%X\n", cu_lang);
+    }
     if ( cu_producer )
       fprintf(g_outf, "// Producer: %s\n", cu_producer);
   }
@@ -127,6 +189,7 @@ void TreeBuilder::ProcessUnit(int last)
   elements_.clear();
   m_replaced.clear();
   cu_name = cu_comp_dir = cu_producer = NULL;
+  cu_lang = 0;
   ns_count = 0;
 }
 
