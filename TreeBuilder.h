@@ -29,6 +29,7 @@ public:
     volatile_type,
     restrict_type,
     reference_type,
+    rvalue_ref_type,
     subroutine_type,
     formal_param,
     subroutine,
