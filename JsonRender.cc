@@ -80,6 +80,8 @@ std::string JsonRender::GenerateJson(Element &e) {
   // The others are generic
   result += "\""+std::to_string(e.id_)+"\":";
   result += "{\"type\":\""+std::string(e.TypeName())+"\",";
+  if ( e.noret_ )
+    result += "\"noreturn\",";
   if ( e.align_ )
     result += "\"alignment\":\""+std::to_string(e.align_)+"\",";
   if (e.type_id_) {

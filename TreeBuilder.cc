@@ -471,6 +471,19 @@ void TreeBuilder::SetBitSize(int v)
   top->m_comp->members_.back().bit_size_ = v;
 }
 
+void TreeBuilder::SetNoReturn(bool v)
+{
+   if (current_element_type_ == ElementType::none) {
+    return;
+  }
+  if (!elements_.size()) {
+    fprintf(stderr, "Can't set an noreturn attribute if the element list is "
+      "empty\n");
+    return;
+  }
+  elements_.back().noret_ = v;  
+}
+
 void TreeBuilder::SetBitOffset(int v)
 {
    if (current_element_type_ != ElementType::member) {

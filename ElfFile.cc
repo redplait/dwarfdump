@@ -505,6 +505,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       tree_builder->SetConstValue(count);
       return true;
     }
+    break;
     // aligment
     case Dwarf32::Attribute::DW_AT_alignment:
      if ( !m_regged )
@@ -514,6 +515,16 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       tree_builder->SetAlignment(count);
       return true;
      }
+     break;
+     // noreturn attribute
+    case Dwarf32::Attribute::DW_AT_noreturn:
+     if ( !m_regged )
+       return false;
+     else {
+      tree_builder->SetNoReturn(true);
+      return true;
+     }
+     break;
     default:
       return false;
   }

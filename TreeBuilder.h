@@ -56,6 +56,7 @@ public:
   void SetBitSize(int);
   void SetBitOffset(int);
   void SetParentAccess(int);
+  void SetNoReturn(bool);
 
   uint64_t get_replaced_type(uint64_t) const;
   int check_dumped_type(const char *);
@@ -129,6 +130,7 @@ protected:
       bit_offset_ = e.bit_offset_;
       m_comp = e.m_comp;
       e.m_comp = nullptr;
+      noret_ = e.noret_;
     }
     Element(Element &&e)
     {
@@ -163,7 +165,8 @@ protected:
       access_(0),
       bit_size_(0),
       bit_offset_(0),
-      m_comp(nullptr)
+      m_comp(nullptr),
+      noret_(false)
     {}
     const char* TypeName();
     ElementType type_;
@@ -181,6 +184,7 @@ protected:
     int bit_size_;
     int bit_offset_;
     Compound *m_comp;
+    bool noret_;
   };
 
   struct Compound {
