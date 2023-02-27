@@ -114,6 +114,8 @@ protected:
   struct Element {
     void move(Element &e)
     {
+      owner_ = e.owner_;
+      e.owner_ = nullptr;
       type_ = e.type_;
       id_ = e.id_;
       level_ = e.level_;
@@ -150,7 +152,8 @@ protected:
         m_comp = nullptr;
       }
     }
-    Element(ElementType type, uint64_t id, int level) : 
+    Element(ElementType type, uint64_t id, int level, Element *o) :
+      owner_(o), 
       type_(type), 
       id_(id),
       level_(level),
@@ -169,6 +172,7 @@ protected:
       noret_(false)
     {}
     const char* TypeName();
+    Element *owner_;
     ElementType type_;
     uint64_t id_;
     int level_;
@@ -199,6 +203,7 @@ protected:
     std::vector<FormalParam> params_;
   };
 
+  Element *get_owner();
   // per compilation unit data
   std::stack<Element *> m_stack;
   std::list<Element> elements_;

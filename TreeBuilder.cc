@@ -226,7 +226,7 @@ void TreeBuilder::pop_stack(uint64_t off)
   if ( last->type_ == ns_start )
   {
     ns_count--;
-    elements_.push_back(Element(ns_end, last->type_id_, last->level_));
+    elements_.push_back(Element(ns_end, last->type_id_, last->level_, get_owner()));
     elements_.back().name_ = last->name_;
     if ( g_opt_v )
       fprintf(g_outf, "// ns_end %s %d off %lX\n", last->name_, ns_count, off);
@@ -303,7 +303,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         auto top = m_stack.top();
         if ( !top->m_comp )
           top->m_comp = new Compound();
-        top->m_comp->members_.push_back(Element(element_type, tag_id, level));
+        top->m_comp->members_.push_back(Element(element_type, tag_id, level, get_owner()));
       }
       break;
     case ElementType::inheritance:    // Parent
@@ -349,7 +349,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       break;
 
     default:
-      elements_.push_back(Element(element_type, tag_id, level));
+      elements_.push_back(Element(element_type, tag_id, level, get_owner()));
   }
 
   current_element_type_ = element_type; 
@@ -649,6 +649,13 @@ void TreeBuilder::SetElementCount(uint64_t count) {
     return;
   }
   elements_.back().count_ = count;
+}
+
+TreeBuilder::Element *TreeBuilder::get_owner()
+{
+  if ( m_stack.empty() )
+    return nullptr;
+  return m_stack.top();
 }
 
 const char* TreeBuilder::Element::TypeName() {
