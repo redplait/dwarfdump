@@ -136,7 +136,11 @@ void PlainRender::dump_fields(Element *e)
     std::string tmp;
     fprintf(g_outf, "// Offset 0x%lX\n", en.offset_);
     dump_type(en.type_id_, tmp);
-    fprintf(g_outf, "%s %s;\n", tmp.c_str(), en.name_);  
+    fprintf(g_outf, "%s %s", tmp.c_str(), en.name_);
+    // pdbdump format for bit fields :offset:size
+    if ( en.bit_size_ )
+      fprintf(g_outf, ":%d:%d", en.bit_offset_, en.bit_size_);
+    fprintf(g_outf, ";\n");
   }
 }
 
