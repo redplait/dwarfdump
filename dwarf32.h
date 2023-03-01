@@ -233,6 +233,11 @@ namespace Dwarf32 {
     DW_ACCESS_private = 0x03
   };
 
+  enum Virtuality {
+    DW_VIRTUALITY_none = 0,
+    DW_VIRTUALITY_virtual = 1,
+    DW_VIRTUALITY_pure_virtual = 2
+  };
 /* Source language names and codes.  */
   enum dwarf_source_language {
     DW_LANG_C89 = 0x0001,
