@@ -35,6 +35,7 @@ public:
     subroutine_type,
     formal_param,
     subroutine,
+    method,
     ns_start,
     ns_end,
   };
@@ -56,6 +57,8 @@ public:
   void SetBitSize(int);
   void SetBitOffset(int);
   void SetParentAccess(int);
+  void SetVirtuality(int);
+  void SetObjPtr(uint64_t);
   void SetNoReturn(bool);
 
   uint64_t get_replaced_type(uint64_t) const;
@@ -80,10 +83,11 @@ protected:
   virtual void RenderUnit(int last)
   {}
   int merge_dumped();
+  int can_have_methods(int level);
 
   ElementType current_element_type_;
   int ns_count = 0;
-
+  
   typedef std::pair<ElementType, const char*> UniqName;
   typedef std::pair<ElementType, std::string> UniqName2;
   struct dumped_type {
@@ -191,6 +195,17 @@ protected:
     bool noret_;
   };
 
+  struct Method: public Element
+  {
+    Method(uint64_t id, int level, Element *o)
+     : Element(method, id, level, o),
+       virt_(0),
+       this_arg_(0)
+    {}
+    int virt_;
+    uint64_t this_arg_;
+  };
+
   struct Compound {
     Compound() = default;
     ~Compound() = default;
@@ -201,10 +216,12 @@ protected:
     std::vector<Parent> parents_;
     std::vector<EnumItem> enums_;
     std::vector<FormalParam> params_;
+    std::list<Method> methods_;
   };
 
   Element *get_owner();
   // per compilation unit data
+  Element *recent_ = nullptr;
   std::stack<Element *> m_stack;
   std::list<Element> elements_;
   std::map<uint64_t, dumped_type> m_replaced;

@@ -386,6 +386,18 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case Dwarf32::Attribute::DW_AT_sibling:
       m_next = FormDataValue(form, info, info_bytes);
      return true;
+    case Dwarf32::Attribute::DW_AT_object_pointer: {
+      uint64_t v = FormDataValue(form, info, info_bytes);
+      if ( m_regged )
+        tree_builder->SetObjPtr((int)v);
+      return true;
+    }   
+    case Dwarf32::Attribute::DW_AT_virtuality: {
+      uint64_t v = FormDataValue(form, info, info_bytes);
+      if ( m_regged )
+        tree_builder->SetVirtuality((int)v);
+      return true;
+    }
     case Dwarf32::Attribute::DW_AT_accessibility:
       if ( m_stype == Dwarf32::Tag::DW_TAG_inheritance || m_stype == Dwarf32::Tag::DW_TAG_member )
       {

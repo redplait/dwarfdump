@@ -191,6 +191,7 @@ void TreeBuilder::ProcessUnit(int last)
   cu_name = cu_comp_dir = cu_producer = NULL;
   cu_lang = 0;
   ns_count = 0;
+  recent_ = nullptr;
 }
 
 void TreeBuilder::AddNone() {
@@ -210,7 +211,10 @@ int TreeBuilder::add2stack()
     if ( g_opt_v )
       fprintf(g_outf, "// ns_start %d at %lX\n", ns_count, last.id_);
   }
-  m_stack.push( &last );
+  if ( recent_ )
+    m_stack.push(recent_);
+  else
+    m_stack.push( &last );
   return 1;
 }
 
@@ -232,27 +236,38 @@ void TreeBuilder::pop_stack(uint64_t off)
       fprintf(g_outf, "// ns_end %s %d off %lX\n", last->name_, ns_count, off);
   }
   m_stack.pop();
+  recent_ = nullptr;
+}
+
+int TreeBuilder::can_have_methods(int level)
+{
+  if ( m_stack.empty() )
+    return 0;
+  auto last = m_stack.top();
+  if ( last->type_ == ns_start )
+    return 0;
+  return (level > 1);
 }
 
 // formal parameter - level should be +1 to parent
 bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level, bool ell) {
   current_element_type_ = ElementType::formal_param;
-  if (!elements_.size()) {
-    fprintf(stderr, "Can't add a formal parameter if the element list is empty\n");
+  if ( !recent_ )
+  {
+    fprintf(stderr, "Can't add a formal parameter %lX if the element list is empty\n", tag_id);
     return false;
   }
   if ( m_stack.empty() ) {
     fprintf(stderr, "Can't add a formal parameter when stack is empty\n");
     return false;
   }
-  auto top = m_stack.top();
 //  fprintf(g_outf, "f level %d level %d\n", m_stack.top()->level_, level);
-  if ( top->level_ != level - 1 )
+  if ( recent_->level_ != level - 1 )
     return false;
-  if ( !top->m_comp )
-    top->m_comp = new Compound();
+  if ( !recent_->m_comp )
+    recent_->m_comp = new Compound();
   
-  top->m_comp->params_.push_back({NULL, 0, ell});
+  recent_->m_comp->params_.push_back({NULL, 0, ell});
   return true;
 }
 
@@ -277,6 +292,8 @@ void TreeBuilder::SetParentAccess(int a)
     top->m_comp->members_.back().access_ = a;
     return;
   } else {
+    if ( recent_ )
+      top = recent_;
     if ( !top->m_comp || top->m_comp->parents_.empty() ) {
       fprintf(stderr, "Can't add a parent access when parents list is empty\n");
       return;
@@ -296,7 +313,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         fprintf(stderr, "Can't add a member when stack is empty\n");
         return;
       }
-      if (!elements_.size()) {
+      if (elements_.empty()) {
         fprintf(stderr, "Can't add a member if the element list is empty\n");
         return;
       } else {
@@ -310,7 +327,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       if (current_element_type_ == ElementType::none) {
         return;
       }  
-      if (!elements_.size()) {
+      if (elements_.empty()) {
         fprintf(stderr, "Can't add a parent if the element list is empty\n");
         return;
       }
@@ -333,7 +350,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       if (current_element_type_ == ElementType::none) {
         return;
       }  
-      if (!elements_.size()) {
+      if (elements_.empty()) {
         fprintf(stderr, "Can't add a enumerator if the element list is empty\n");
         return;
       }
@@ -348,8 +365,25 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       }
       break;
 
+    case ElementType::subroutine:
+      if ( can_have_methods(level) )
+      {
+        auto top = m_stack.top();
+        if ( !top->m_comp )
+          top->m_comp = new Compound();
+        top->m_comp->methods_.push_back(Method(tag_id, level, get_owner()));
+        current_element_type_ = ElementType::method;
+        recent_ = &top->m_comp->methods_.back();
+        return;
+      }
     default:
       elements_.push_back(Element(element_type, tag_id, level, get_owner()));
+      if ( element_type == ElementType::subroutine ||
+           element_type == ElementType::subroutine_type
+         )
+        recent_ = &elements_.back();
+      else
+        recent_ = nullptr;
   }
 
   current_element_type_ = element_type; 
@@ -363,7 +397,10 @@ void TreeBuilder::SetLinkageName(const char* name) {
     fprintf(stderr, "Can't set an linkage name if the element list is empty\n");
     return;
   }
-  elements_.back().link_name_ = name;
+  if ( recent_ )
+    recent_->link_name_ = name;
+  else
+    elements_.back().link_name_ = name;
   return;
 }
 
@@ -382,13 +419,12 @@ void TreeBuilder::SetElementName(const char* name) {
       fprintf(stderr, "Can't set the formal param name when stack is empty\n");
       return;
     }
-    auto top = m_stack.top();
-    if (!top->m_comp || top->m_comp->params_.empty()) {
+    if (!recent_ || !recent_->m_comp || recent_->m_comp->params_.empty()) {
       fprintf(stderr, "Can't set the formal param name if the params list is empty\n");
       return;
     }
 
-    top->m_comp->params_.back().name = name;
+    recent_->m_comp->params_.back().name = name;
     return;    
   }
   if ( current_element_type_ == ElementType::enumerator )
@@ -402,7 +438,6 @@ void TreeBuilder::SetElementName(const char* name) {
       fprintf(stderr, "Can't set the enum name if the enums list is empty\n");
       return;
     }
-
     top->m_comp->enums_.back().name = name;
     return;
   }  
@@ -421,8 +456,10 @@ void TreeBuilder::SetElementName(const char* name) {
     top->m_comp->members_.back().name_ = name;
     return;
   }
-
-  elements_.back().name_ = name;
+  if ( recent_ )
+    recent_->name_ = name;
+  else
+    elements_.back().name_ = name;
 }
 
 void TreeBuilder::SetElementSize(uint64_t size) {
@@ -442,16 +479,17 @@ void TreeBuilder::SetElementSize(uint64_t size) {
     }
     auto top = m_stack.top();
     if (!top->m_comp || top->m_comp->members_.empty()) {
-      fprintf(stderr, "Can't set the member size if the members list is "
-        "empty\n");
+      fprintf(stderr, "Can't set the member size if the members list is empty\n");
       return;
     }
 
     top->m_comp->members_.back().size_ = size;
     return;
   }
-
-  elements_.back().size_ = size; 
+  if ( recent_ )
+    recent_->size_ = size;
+  else
+    elements_.back().size_ = size; 
 }
 
 void TreeBuilder::SetBitSize(int v)
@@ -471,17 +509,39 @@ void TreeBuilder::SetBitSize(int v)
   top->m_comp->members_.back().bit_size_ = v;
 }
 
+void TreeBuilder::SetObjPtr(uint64_t v)
+{
+  if ( !recent_ )
+    return;
+  if ( ElementType::method != recent_->type_ )
+    return;
+  Method *m = static_cast<Method *>(recent_);
+  m->this_arg_ = v;
+}
+
+void TreeBuilder::SetVirtuality(int v)
+{
+  if ( !recent_ )
+    return;
+  if ( ElementType::method != recent_->type_ )
+    return;
+  Method *m = static_cast<Method *>(recent_);
+  m->virt_ = v;
+}
+
 void TreeBuilder::SetNoReturn(bool v)
 {
    if (current_element_type_ == ElementType::none) {
     return;
   }
   if (!elements_.size()) {
-    fprintf(stderr, "Can't set an noreturn attribute if the element list is "
-      "empty\n");
+    fprintf(stderr, "Can't set an noreturn attribute if the element list is empty\n");
     return;
   }
-  elements_.back().noret_ = v;  
+  if ( recent_ )
+    recent_->noret_ = v;
+  else
+    elements_.back().noret_ = v;  
 }
 
 void TreeBuilder::SetBitOffset(int v)
@@ -582,18 +642,20 @@ void TreeBuilder::SetElementType(uint64_t type_id) {
         fprintf(stderr, "Can't set the formal param type when stack is empty\n");
         return;
       } else {
-        auto top = m_stack.top();
-        if (!top->m_comp || top->m_comp->params_.empty()) {
+        if (!recent_ || !recent_->m_comp || recent_->m_comp->params_.empty()) {
           fprintf(stderr, "Can't set the formal param type if the members list is empty\n");
           break;
         }
-        top->m_comp->params_.back().id = type_id;
+        recent_->m_comp->params_.back().id = type_id;
       }
       break;
     case ElementType::subrange_type:
       break; // do nothing
     default:
-      elements_.back().type_id_ = type_id;
+      if ( recent_)
+        recent_->type_id_ = type_id;
+      else
+        elements_.back().type_id_ = type_id;
       break;
   }
 }
@@ -621,7 +683,10 @@ void TreeBuilder::SetAddr(uint64_t count) {
     fprintf(stderr, "Can't set address when element list is empty\n");
     return;
   }
-  elements_.back().addr_ = count;
+  if ( recent_ )
+    recent_->addr_ = count;
+  else
+    elements_.back().addr_ = count;
 }
 
 void TreeBuilder::SetConstValue(uint64_t count) {
@@ -648,7 +713,10 @@ void TreeBuilder::SetElementCount(uint64_t count) {
     fprintf(stderr, "Can't set an element count if the element list is empty\n");
     return;
   }
-  elements_.back().count_ = count;
+  if ( recent_ )
+    recent_->count_ = count;
+  else
+    elements_.back().count_ = count;
 }
 
 TreeBuilder::Element *TreeBuilder::get_owner()
@@ -678,6 +746,7 @@ const char* TreeBuilder::Element::TypeName() {
     case ElementType::rvalue_ref_type: return "rvalue_reference";
     case ElementType::subroutine_type: return "function_type";
     case ElementType::subroutine: return "function";
+    case ElementType::method: return "method";
     case ElementType::ns_start: return "namespace";
     default: return "unk";
   }
