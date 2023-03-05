@@ -533,7 +533,16 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
      if ( !m_regged )
        return false;
      else {
-      tree_builder->SetNoReturn(true);
+      tree_builder->SetNoReturn();
+      return true;
+     }
+     break;
+     // declaration
+     case Dwarf32::Attribute::DW_AT_declaration:
+     if ( !m_regged )
+       return false;
+     else {
+      tree_builder->SetDeclaration();
       return true;
      }
      break;

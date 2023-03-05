@@ -59,7 +59,8 @@ public:
   void SetParentAccess(int);
   void SetVirtuality(int);
   void SetObjPtr(uint64_t);
-  void SetNoReturn(bool);
+  void SetNoReturn();
+  void SetDeclaration();
 
   uint64_t get_replaced_type(uint64_t) const;
   int check_dumped_type(const char *);
@@ -137,6 +138,7 @@ protected:
       m_comp = e.m_comp;
       e.m_comp = nullptr;
       noret_ = e.noret_;
+      decl_ = e.decl_;
     }
     Element(Element &&e)
     {
@@ -173,7 +175,8 @@ protected:
       bit_size_(0),
       bit_offset_(0),
       m_comp(nullptr),
-      noret_(false)
+      noret_(false),
+      decl_(false)
     {}
     const char* TypeName();
     Element *owner_;
@@ -193,6 +196,20 @@ protected:
     int bit_offset_;
     Compound *m_comp;
     bool noret_;
+    bool decl_;
+
+    inline bool can_have_decl() const
+    {
+      return (type_ == ElementType::class_type) ||
+             (type_ == ElementType::enumerator_type) ||
+             (type_ == ElementType::structure_type) ||
+             (type_ == ElementType::union_type)
+      ;
+    }
+    inline bool is_pure_decl() const
+    {
+      return decl_ && (m_comp == nullptr);
+    }
   };
 
   struct Method: public Element

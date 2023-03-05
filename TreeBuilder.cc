@@ -17,6 +17,9 @@ int TreeBuilder::merge_dumped()
     // no namespaces
     if ( e.type_ == ns_start )
       continue;
+    // skip pure forward declarations
+    if ( e.is_pure_decl() )
+      continue;
 //  fprintf(g_outf, "dumped type %d with name %s level %d\n", e.type_, e.name_, e.level_);
     if ( e.level_ > 1 )
       continue; // we heed only high-level types definitions
@@ -529,7 +532,7 @@ void TreeBuilder::SetVirtuality(int v)
   m->virt_ = v;
 }
 
-void TreeBuilder::SetNoReturn(bool v)
+void TreeBuilder::SetNoReturn()
 {
    if (current_element_type_ == ElementType::none) {
     return;
@@ -539,9 +542,23 @@ void TreeBuilder::SetNoReturn(bool v)
     return;
   }
   if ( recent_ )
-    recent_->noret_ = v;
+    recent_->noret_ = true;
   else
-    elements_.back().noret_ = v;  
+    elements_.back().noret_ = true;  
+}
+
+void TreeBuilder::SetDeclaration()
+{
+   if (current_element_type_ == ElementType::none) {
+    return;
+  }
+  if (!elements_.size()) {
+    fprintf(stderr, "Can't set an declaration attribute if the element list is empty\n");
+    return;
+  }
+  auto &last = elements_.back();
+  if ( last.can_have_decl() )
+    last.decl_ = true;
 }
 
 void TreeBuilder::SetBitOffset(int v)

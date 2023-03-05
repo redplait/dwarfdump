@@ -105,6 +105,14 @@ std::string JsonRender::GenerateJson(Element &e) {
   if ( e.addr_ ) {
     result += "\"addr\":"+std::to_string(e.addr_)+",";
   }
+  if ( e.type_ == ElementType::method )
+  {
+    Method &m = static_cast<Method &>(e);
+    if ( m.virt_ )
+      result += "\"virt\":"+std::to_string(m.virt_)+",";
+    if ( m.this_arg_ )
+      result += "\"this_arg\":"+std::to_string(m.this_arg_)+",";
+  }
   if (e.count_) {
     result += "\"count\":"+std::to_string(e.count_)+",";
   }
@@ -164,7 +172,16 @@ std::string JsonRender::GenerateJson(Element &e) {
     }
     result += "],";
   }
-
+  if ( e.m_comp && !e.m_comp->methods_.empty() ) {
+    result += "\"methods\":[";
+    for ( auto &m: e.m_comp->methods_ )
+      result += GenerateJson(m) + ",\n"; 
+    if (result.back() == '\n')
+      result.pop_back();
+    if (result.back() == ',')
+      result.pop_back();
+    result += "],";
+  }
   if (result.back() == ',') {
     result.pop_back();
   }
