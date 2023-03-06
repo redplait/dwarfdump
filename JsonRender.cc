@@ -176,6 +176,7 @@ std::string JsonRender::GenerateJson(Element &e) {
     result += "\"methods\":[";
     for ( auto &m: e.m_comp->methods_ )
       result += GenerateJson(m) + ",\n"; 
+      
     if (result.back() == '\n')
       result.pop_back();
     if (result.back() == ',')
