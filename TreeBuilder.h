@@ -210,6 +210,12 @@ protected:
     {
       return decl_ && (m_comp == nullptr);
     }
+    inline bool has_methods() const
+    {
+      if ( m_comp == nullptr )
+        return false;
+      return !m_comp->methods_.empty();
+    }
   };
 
   struct Method: public Element

@@ -1,4 +1,5 @@
 #include "PlainRender.h"
+#include "dwarf32.h"
 
 void PlainRender::RenderUnit(int last)
 {
@@ -144,6 +145,70 @@ void PlainRender::dump_fields(Element *e)
   }
 }
 
+void PlainRender::dump_methods(Element *e)
+{
+  if ( !e->has_methods() )
+    return;
+  fprintf(g_outf, "// --- methods\n");
+  for ( auto &en: e->m_comp->methods_ )
+  {
+    std::string tmp;
+    dump_method(&en, tmp);
+    if ( g_opt_v )
+      fprintf(g_outf, "// TypeId %lX\n", en.id_);
+    fprintf(g_outf, "%s;\n", tmp.c_str());
+  }
+}
+
+const char *access_name(int i)
+{
+  switch(i)
+  {
+    case 1: return "public ";
+    case 2: return "protected ";
+    case 3: return "private ";
+  }
+  return "";
+}
+
+void PlainRender::dump_method(Method *e, std::string &res)
+{
+  res = access_name(e->access_);
+  if ( e->virt_ )
+    res += "virtual ";
+  if ( !e->this_arg_ )
+    res += "static ";
+  std::string tmp;
+  if ( e->type_id_ )
+    dump_type(e->type_id_, tmp);
+  else
+    tmp = "void";
+  res += tmp + " ";
+  res += e->name_;
+  res += "(";
+  if ( !e->m_comp || e->m_comp->params_.empty() )
+    ;
+  else {
+    for ( size_t i = 0; i < e->m_comp->params_.size(); i++ )
+    {
+      tmp.clear();
+      if ( e->m_comp->params_[i].ellipsis )
+        tmp = "...";
+      else  
+        dump_type(e->m_comp->params_[i].id, tmp);
+      if ( e->m_comp->params_[i].name )
+        res += tmp + e->m_comp->params_[i].name;
+      else
+        res += tmp;
+      if ( i+1 < e->m_comp->params_.size() )
+        res += ",";
+    }
+  }
+  res += ")";
+  if ( e->virt_ == Dwarf32::Virtuality::DW_VIRTUALITY_pure_virtual )
+    res += " = 0";  
+}
+
 void PlainRender::dump_func(Element *e)
 {
   std::string tmp;
@@ -171,17 +236,6 @@ void PlainRender::dump_func(Element *e)
     }
   }
   fprintf(g_outf, ")");
-}
-
-const char *access_name(int i)
-{
-  switch(i)
-  {
-    case 1: return "public ";
-    case 2: return "protected ";
-    case 3: return "private ";
-  }
-  return "";
 }
 
 void PlainRender::dump_types()
@@ -235,6 +289,7 @@ void PlainRender::dump_types()
           break;
         fprintf(g_outf, " {\n");
         dump_fields(&e);
+        dump_methods(&e);
         fprintf(g_outf, "}");
         break;
       case ElementType::union_type:
@@ -243,6 +298,7 @@ void PlainRender::dump_types()
           break;
         fprintf(g_outf, " {\n");
         dump_fields(&e);
+        dump_methods(&e);
         fprintf(g_outf, "}");
         break;
       case ElementType::class_type:
@@ -266,6 +322,7 @@ void PlainRender::dump_types()
         }
         fprintf(g_outf, "{\n");
         dump_fields(&e);
+        dump_methods(&e);
         fprintf(g_outf, "}");
         break;
       case ElementType::subroutine:
