@@ -253,7 +253,9 @@ int TreeBuilder::can_have_methods(int level)
 }
 
 // formal parameter - level should be +1 to parent
-bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level, bool ell) {
+bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level, bool ell) 
+{
+  level -= ns_count;
   current_element_type_ = ElementType::formal_param;
   if ( !recent_ )
   {
@@ -264,7 +266,7 @@ bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level, bool ell) {
     fprintf(stderr, "Can't add a formal parameter when stack is empty\n");
     return false;
   }
-//  fprintf(g_outf, "f level %d level %d\n", m_stack.top()->level_, level);
+  // fprintf(g_outf, "f level %d level %d\n", m_stack.top()->level_, level);
   if ( recent_->level_ != level - 1 )
     return false;
   if ( !recent_->m_comp )

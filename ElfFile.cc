@@ -367,6 +367,8 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id, bool has_childre
     case Dwarf32::Tag::DW_TAG_unspecified_parameters:
       ell = true;
     case Dwarf32::Tag::DW_TAG_formal_parameter:
+      if ( g_opt_d )
+        fprintf(g_outf, "param %lX regged %d\n", tag_id, m_regged);
       if ( m_regged )
       {
         return tree_builder->AddFormalParam(tag_id, m_level, ell);

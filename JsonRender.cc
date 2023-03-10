@@ -107,6 +107,8 @@ std::string JsonRender::GenerateJson(Element &e) {
   }
   if ( e.type_ == ElementType::method )
   {
+    if ( g_opt_l )
+      result += "\"level\":\""+std::to_string(e.level_)+"\",";
     Method &m = static_cast<Method &>(e);
     if ( m.virt_ )
       result += "\"virt\":"+std::to_string(m.virt_)+",";
@@ -176,7 +178,7 @@ std::string JsonRender::GenerateJson(Element &e) {
     result += "\"methods\":[";
     for ( auto &m: e.m_comp->methods_ )
       result += GenerateJson(m) + ",\n"; 
-      
+
     if (result.back() == '\n')
       result.pop_back();
     if (result.back() == ',')
