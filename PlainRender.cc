@@ -222,25 +222,36 @@ void PlainRender::dump_types()
     switch(e.type_)
     {
       case ElementType::enumerator_type:
-        fprintf(g_outf, "enum %s {\n", e.name_);
+        fprintf(g_outf, "enum %s", e.name_);
+        if ( e.is_pure_decl() )
+          break;
+        fprintf(g_outf, " {\n");
         dump_enums(&e);
         fprintf(g_outf, "}");
         break;
       case ElementType::structure_type:
-        fprintf(g_outf, "struct %s {\n", e.name_);
+        fprintf(g_outf, "struct %s", e.name_);
+        if ( e.is_pure_decl() )
+          break;
+        fprintf(g_outf, " {\n");
         dump_fields(&e);
         fprintf(g_outf, "}");
         break;
       case ElementType::union_type:
-        fprintf(g_outf, "union %s {\n", e.name_);
+        fprintf(g_outf, "union %s", e.name_);
+        if ( e.is_pure_decl() )
+          break;
+        fprintf(g_outf, " {\n");
         dump_fields(&e);
         fprintf(g_outf, "}");
         break;
       case ElementType::class_type:
-        fprintf(g_outf, "class %s ", e.name_);
+        fprintf(g_outf, "class %s", e.name_);
+        if ( e.is_pure_decl() )
+          break;
         if ( e.m_comp && !e.m_comp->parents_.empty() )
         {
-          fprintf(g_outf, ":\n");
+          fprintf(g_outf, " :\n");
           for ( size_t pi = 0; pi < e.m_comp->parents_.size(); pi++ )
           {
             fprintf(g_outf, "// offset %lX\n", e.m_comp->parents_[pi].offset);

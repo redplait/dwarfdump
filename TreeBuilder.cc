@@ -247,7 +247,7 @@ int TreeBuilder::can_have_methods(int level)
   if ( m_stack.empty() )
     return 0;
   auto last = m_stack.top();
-  if ( last->type_ == ns_start )
+  if ( last->type_ == ns_start || last->type_ == subroutine_type || last->type_ == subroutine )
     return 0;
   return (level > 1);
 }
@@ -338,7 +338,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         fprintf(stderr, "Can't add a parent when stack is empty\n");
         return;
       } else {
-        auto top = m_stack.top();
+        auto &top = m_stack.top();
         if ( !top->m_comp )
           top->m_comp = new Compound();
         top->m_comp->parents_.push_back({tag_id, 0});
@@ -361,7 +361,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         fprintf(stderr, "Can't add a enumerator when stack is empty\n");
         return;
       } else {
-        auto top = m_stack.top();
+        auto &top = m_stack.top();
         if ( !top->m_comp )
           top->m_comp = new Compound();
         top->m_comp->enums_.push_back({NULL, 0});
@@ -375,6 +375,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         if ( !top->m_comp )
           top->m_comp = new Compound();
         top->m_comp->methods_.push_back(Method(tag_id, level, get_owner()));
+        // fprintf(g_outf, "add method to %s parent tid %lX type %d tid %lX\n", top->name_, top->id_, top->type_, tag_id);
         current_element_type_ = ElementType::method;
         recent_ = &top->m_comp->methods_.back();
         return;
