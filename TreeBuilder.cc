@@ -550,6 +550,13 @@ void TreeBuilder::SetNoReturn()
     elements_.back().noret_ = true;  
 }
 
+void TreeBuilder::SetArtiticial()
+{
+  if ( !recent_ || current_element_type_ != ElementType::method )
+    return;
+  Method *m = static_cast<Method *>(recent_);
+  m->art_ = true;
+}
 void TreeBuilder::SetDeclaration()
 {
    if (current_element_type_ == ElementType::none) {

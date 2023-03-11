@@ -181,8 +181,10 @@ void PlainRender::dump_method(Method *e, std::string &res)
   std::string tmp;
   if ( e->type_id_ )
     dump_type(e->type_id_, tmp);
-  else
-    tmp = "void";
+  else {
+    if ( !e->art_ )
+      tmp = "void";
+  }
   res += tmp + " ";
   res += e->name_;
   res += "(";

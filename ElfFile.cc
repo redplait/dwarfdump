@@ -548,6 +548,10 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       return true;
      }
      break;
+     case Dwarf32::Attribute::DW_AT_artificial:
+       if ( m_regged )
+         tree_builder->SetArtiticial();
+       return true;
     default:
       return false;
   }
