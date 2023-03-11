@@ -1,6 +1,29 @@
 #include "PlainRender.h"
 #include "dwarf32.h"
 
+static const char *s_marg = "  ";
+
+std::string &add_margin(std::string &s, int level)
+{
+  for ( int i = 0; i < level; ++i )
+    s += s_marg;
+  return s;
+}
+
+std::string &PlainRender::render_one_enum(std::string &s, EnumItem &en)
+{
+  s = en.name;
+  s += " = "; 
+  if ( en.value >= 0 && en.value < 10 )
+    s += std::to_string((int)en.value);
+  else {
+    char buf[40];
+    snprintf(buf, sizeof(buf), "0x%lX", en.value);
+    s += buf; 
+  }
+  return s;
+}
+
 void PlainRender::RenderUnit(int last)
 {
   for ( auto &e: elements_ )
@@ -9,7 +32,7 @@ void PlainRender::RenderUnit(int last)
   m_els.clear();
 }
 
-bool PlainRender::dump_type(uint64_t key, std::string &res)
+bool PlainRender::dump_type(uint64_t key, std::string &res, int level)
 {
   if ( get_replaced_name(key, res) )
     return true;
@@ -52,6 +75,21 @@ bool PlainRender::dump_type(uint64_t key, std::string &res)
     res = "enum ";
     if ( el->second->name_ )
       res += el->second->name_;
+    else if ( el->second->m_comp != nullptr )
+    {
+      res += "{\n";
+      int n = 0;
+      for ( auto &en: el->second->m_comp->enums_ )
+      {
+        std::string one;
+        if ( n )
+          res += ",\n";
+        add_margin(res, level);
+        n++;
+        res += render_one_enum(one, en);
+      }
+      res += "\n}";
+    }
     return true;
   }
   if ( el->second->type_ == ElementType::pointer_type )
@@ -119,13 +157,18 @@ void PlainRender::dump_enums(Element *e)
 {
   if ( !e->m_comp )
     return;
+  int n = 0;
+  std::string s;
   for ( auto &en: e->m_comp->enums_ )
   {
-    if ( en.value >= 0 && en.value < 10 )
-      fprintf(g_outf, "  %s = %d,\n", en.name, (int)en.value );
-    else
-      fprintf(g_outf, "  %s = 0x%lX,\n", en.name, en.value );
+    std::string one;
+    if ( n )
+      s += ",\n";
+    add_margin(s, 1);
+    n++;
+    s += render_one_enum(one, en);
   }
+  fprintf(g_outf, "%s\n", s.c_str());
 }
 
 void PlainRender::dump_fields(Element *e)
