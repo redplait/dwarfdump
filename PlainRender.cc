@@ -61,6 +61,13 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, int level)
     res = "struct ";
     if ( el->second->name_ )
       res += el->second->name_;
+    else if ( el->second->m_comp != nullptr )
+    {
+      res += "{\n";
+      render_fields(el->second, res, level + 1);
+      add_margin(res, level);
+      res += "}";
+    }
     return true;
   }
   if ( el->second->type_ == ElementType::union_type )
@@ -68,6 +75,13 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, int level)
     res = "union ";
     if ( el->second->name_ )
       res += el->second->name_;
+    else if ( el->second->m_comp != nullptr )
+    {
+      res += "{\n";
+      render_fields(el->second, res, level + 1);
+      add_margin(res, level);
+      res += "}";
+    }
     return true;
   }
   if ( el->second->type_ == ElementType::enumerator_type )
@@ -171,6 +185,44 @@ void PlainRender::dump_enums(Element *e)
   fprintf(g_outf, "%s\n", s.c_str());
 }
 
+std::string &PlainRender::render_field(Element *e, std::string &s, int level)
+{
+  dump_type(e->type_id_, s, level);
+  if ( e->name_ )
+  {
+     s += " ";
+    s += e->name_;
+  }
+  // pdbdump format for bit fields :offset:size
+  if ( e->bit_size_ )
+  {
+    s += ":";
+    s += std::to_string(e->bit_offset_);
+    s += ":";
+    s += std::to_string(e->bit_size_);
+  }
+  return s;
+}
+
+std::string &PlainRender::render_fields(Element *e, std::string &s, int level)
+{
+  if ( !e->m_comp )
+    return s;
+  for ( auto &en: e->m_comp->members_ )
+  {
+    std::string tmp;
+    add_margin(s, level);
+    s += "// Offset 0x";
+    char buf[40];
+    snprintf(buf, sizeof(buf), "%lX\n", en.offset_);
+    s += buf;
+    add_margin(s, level);
+    render_field(&en, tmp, level + 1);
+    s += tmp + ";\n";
+  }
+  return s;
+}
+
 void PlainRender::dump_fields(Element *e)
 {
   if ( !e->m_comp )
@@ -179,12 +231,8 @@ void PlainRender::dump_fields(Element *e)
   {
     std::string tmp;
     fprintf(g_outf, "// Offset 0x%lX\n", en.offset_);
-    dump_type(en.type_id_, tmp);
-    fprintf(g_outf, "%s %s", tmp.c_str(), en.name_);
-    // pdbdump format for bit fields :offset:size
-    if ( en.bit_size_ )
-      fprintf(g_outf, ":%d:%d", en.bit_offset_, en.bit_size_);
-    fprintf(g_outf, ";\n");
+    render_field(&en, tmp, 1);
+    fprintf(g_outf, "%s;\n", tmp.c_str());
   }
 }
 
