@@ -1,5 +1,6 @@
 #include "PlainRender.h"
 #include "dwarf32.h"
+#include <string.h>
 
 static const char *s_marg = "  ";
 
@@ -273,7 +274,7 @@ void PlainRender::dump_methods(Element *e)
   for ( auto &en: e->m_comp->methods_ )
   {
     std::string tmp;
-    dump_method(&en, tmp);
+    dump_method(&en, e, tmp);
     if ( g_opt_v )
       fprintf(g_outf, "// TypeId %lX\n", en.id_);
     if ( en.vtbl_index_ )
@@ -293,7 +294,16 @@ const char *access_name(int i)
   return "";
 }
 
-void PlainRender::dump_method(Method *e, std::string &res)
+bool PlainRender::is_constructor(const Element *e, const Element *owner) const
+{
+  if ( nullptr == e->name_ || owner->name_ == nullptr )
+    return false;
+  if ( e->name_ == owner->name_ )
+    return true;
+  return !strcmp(e->name_, owner->name_);
+}
+
+void PlainRender::dump_method(Method *e, const Element *owner, std::string &res)
 {
   res = access_name(e->access_);
   if ( e->virt_ )
@@ -306,7 +316,7 @@ void PlainRender::dump_method(Method *e, std::string &res)
     named n { e->name_ };
     dump_type(e->type_id_, tmp, &n);
   } else {
-    if ( !e->art_ )
+    if ( !e->art_ && ! is_constructor(e, owner) )
       tmp = "void";
   }
   res += tmp + " ";
