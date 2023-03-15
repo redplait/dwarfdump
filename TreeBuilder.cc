@@ -524,6 +524,16 @@ void TreeBuilder::SetBitSize(int v)
   top->m_comp->members_.back().bit_size_ = v;
 }
 
+void TreeBuilder::SetVtblIndex(uint64_t v)
+{
+  if ( !recent_ )
+    return;
+  if ( ElementType::method != recent_->type_ )
+    return;
+  Method *m = static_cast<Method *>(recent_);
+  m->vtbl_index_ = v;
+}
+
 void TreeBuilder::SetObjPtr(uint64_t v)
 {
   if ( !recent_ )

@@ -198,6 +198,83 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data,
   }
 }
 
+// seems that vtable_elem_location usually encoded not as simple DW_FORM_xxx (so we can`t use FormDataValue here)
+// but as DW_OP_constu inside block
+// so I ripped necessary part of code from binutils/dwarf.c function decode_location_expression in this method
+uint64_t ElfFile::DecodeLocation(Dwarf32::Form form, const unsigned char* info, size_t bytes_available) 
+{
+  if ( form != Dwarf32::Form::DW_FORM_exprloc )
+    return FormDataValue(form, info, bytes_available);
+  uint64_t len = ElfFile::ULEB128(info, bytes_available);
+  const unsigned char *end = info + len;
+  while( info < end && bytes_available )
+  {
+    unsigned op = *info;
+    info++;
+    bytes_available--;
+    uint64_t value = 0;
+    switch(op)
+    {
+      case Dwarf32::dwarf_ops::DW_OP_constu:
+      case Dwarf32::dwarf_ops::DW_OP_consts: // signed variant
+        return ElfFile::ULEB128(info, bytes_available);
+      // 1 byte
+      case Dwarf32::dwarf_ops::DW_OP_const1u:
+      case Dwarf32::dwarf_ops::DW_OP_const1s:
+      {
+        if ( bytes_available >= 1 )
+        {
+          value = *reinterpret_cast<const uint8_t*>(info);
+          return value; 
+        }
+        fprintf(stderr, "DecodeLocation: wrong len %lX for op %X\n", bytes_available, op);
+        return 0;
+      }
+      // 2 bytes
+      case Dwarf32::dwarf_ops::DW_OP_const2u:
+      case Dwarf32::dwarf_ops::DW_OP_const2s:
+      {
+        if ( bytes_available >= 2 )
+        {
+          value = *reinterpret_cast<const uint16_t*>(info);
+          return value; 
+        }
+        fprintf(stderr, "DecodeLocation: wrong len2 %lX for op %X\n", bytes_available, op);
+        return 0;
+      }
+      // 4 bytes
+      case Dwarf32::dwarf_ops::DW_OP_const4u:
+      case Dwarf32::dwarf_ops::DW_OP_const4s:
+      {
+        if ( bytes_available >= 4 )
+        {
+          value = *reinterpret_cast<const uint32_t*>(info);
+          return value; 
+        }
+        fprintf(stderr, "DecodeLocation: wrong len4 %lX for op %X\n", bytes_available, op);
+        return 0;
+      }
+      // 8 bytes
+      case Dwarf32::dwarf_ops::DW_OP_const8u:
+      case Dwarf32::dwarf_ops::DW_OP_const8s:
+      {
+        if ( bytes_available >= 8 )
+        {
+          value = *reinterpret_cast<const uint64_t*>(info);
+          return value; 
+        }
+        fprintf(stderr, "DecodeLocation: wrong len8 %lX for op %X\n", bytes_available, op);
+        return 0;
+      }
+
+      default:
+        fprintf(stderr, "DecodeLocation: unknown op %X\n", op);
+        return 0;
+    }
+  }
+  return 0;
+}
+
 uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info, 
                                                       size_t& bytes_available) {
   uint64_t value = 0;
@@ -520,6 +597,16 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       return true;
     }
     break;
+    // vtable elem location
+    case Dwarf32::Attribute::DW_AT_vtable_elem_location:
+      if ( m_regged )
+      {
+        uint64_t idx = DecodeLocation(form, info, info_bytes);
+        if ( idx )
+          tree_builder->SetVtblIndex(idx);
+      }
+      return false;
+     break;
     // aligment
     case Dwarf32::Attribute::DW_AT_alignment:
      if ( !m_regged )

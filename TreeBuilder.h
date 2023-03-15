@@ -62,6 +62,7 @@ public:
   void SetNoReturn();
   void SetDeclaration();
   void SetArtiticial();
+  void SetVtblIndex(uint64_t);
 
   uint64_t get_replaced_type(uint64_t) const;
   int check_dumped_type(const char *);
@@ -225,10 +226,12 @@ protected:
     Method(uint64_t id, int level, Element *o)
      : Element(method, id, level, o),
        virt_(0),
+       vtbl_index_(0),
        this_arg_(0),
        art_(false)
     {}
     int virt_;
+    uint64_t vtbl_index_;
     uint64_t this_arg_;
     bool art_; // from DW_AT_artificial - for destructors
   };

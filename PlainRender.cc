@@ -276,6 +276,8 @@ void PlainRender::dump_methods(Element *e)
     dump_method(&en, tmp);
     if ( g_opt_v )
       fprintf(g_outf, "// TypeId %lX\n", en.id_);
+    if ( en.vtbl_index_ )
+      fprintf(g_outf, "// Vtbl index %lX\n", en.vtbl_index_);
     fprintf(g_outf, "%s;\n", tmp.c_str());
   }
 }
