@@ -32,7 +32,7 @@ void PlainRender::RenderUnit(int last)
   m_els.clear();
 }
 
-bool PlainRender::dump_type(uint64_t key, std::string &res, int level)
+bool PlainRender::dump_type(uint64_t key, std::string &res, named *n, int level)
 {
   if ( get_replaced_name(key, res) )
     return true;
@@ -109,15 +109,18 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, int level)
   if ( el->second->type_ == ElementType::pointer_type )
   {
     std::string tmp;
-    dump_type(el->second->type_id_, tmp);
+    dump_type(el->second->type_id_, tmp, n);
     res = tmp;
-    res += "*";
+    // probably wrong assumption: if we had subroutine_type somewhere below (and this is the only place where used_ field become true)
+    // then we don`t need to add yet one asterisk
+    if ( !n->used_ )
+      res += "*";
     return true;
   }
   if ( el->second->type_ == ElementType::volatile_type )
   {
     std::string tmp;
-    dump_type(el->second->type_id_, tmp);
+    dump_type(el->second->type_id_, tmp, n);
     res = "volatile ";
     res += tmp;
     return true;
@@ -125,7 +128,7 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, int level)
   if ( el->second->type_ == ElementType::restrict_type )
   {
     std::string tmp;
-    dump_type(el->second->type_id_, tmp);
+    dump_type(el->second->type_id_, tmp, n);
     res = "restrict ";
     res += tmp;
     return true;
@@ -133,7 +136,7 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, int level)
   if ( el->second->type_ == ElementType::reference_type )
   {
     std::string tmp;
-    dump_type(el->second->type_id_, tmp);
+    dump_type(el->second->type_id_, tmp, n);
     res = tmp;
     res += "&";
     return true;
@@ -141,7 +144,7 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, int level)
   if ( el->second->type_ == ElementType::rvalue_ref_type )
   {
     std::string tmp;
-    dump_type(el->second->type_id_, tmp);
+    dump_type(el->second->type_id_, tmp, n);
     res = tmp;
     res += "&&";
     return true;
@@ -149,17 +152,41 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, int level)
   if ( el->second->type_ == ElementType::const_type )
   {
     std::string tmp;
-    dump_type(el->second->type_id_, tmp);
+    dump_type(el->second->type_id_, tmp, n);
     res = "const ";
     res += tmp;
     return true;
   }
   if ( el->second->type_ == ElementType::array_type )
   {
-    dump_type(el->second->type_id_, res);
+    dump_type(el->second->type_id_, res, n);
     res += "[";
     res += std::to_string(el->second->count_);
     res += "]";
+    return true;
+  }
+  if ( el->second->type_ == ElementType::subroutine_type )
+  {
+    auto sname = n->name();
+    n->used_ = true;
+    if ( el->second->type_id_ )
+    {
+      std::string tmp;
+      dump_type(el->second->type_id_, tmp, n);
+      res += tmp;
+    } else
+      res += "void";
+    res += " (*";
+    if ( sname != nullptr )
+      res += sname;
+    res += ")(";
+    if ( !el->second->m_comp || el->second->m_comp->params_.empty() )
+      ;
+    else {
+      std::string params;
+      res += render_params(el->second, params);
+    }
+    res += ")";
     return true;
   }
   res = "dump_type";
@@ -187,11 +214,13 @@ void PlainRender::dump_enums(Element *e)
 
 std::string &PlainRender::render_field(Element *e, std::string &s, int level)
 {
-  dump_type(e->type_id_, s, level);
-  if ( e->name_ )
+  named n { e->name_ };
+  dump_type(e->type_id_, s, &n, level);
+  auto name = n.name();
+  if ( name != nullptr )
   {
      s += " ";
-    s += e->name_;
+    s += name;
   }
   // pdbdump format for bit fields :offset:size
   if ( e->bit_size_ )
@@ -271,8 +300,10 @@ void PlainRender::dump_method(Method *e, std::string &res)
     res += "static ";
   std::string tmp;
   if ( e->type_id_ )
-    dump_type(e->type_id_, tmp);
-  else {
+  {
+    named n { e->name_ };
+    dump_type(e->type_id_, tmp, &n);
+  } else {
     if ( !e->art_ )
       tmp = "void";
   }
@@ -282,51 +313,54 @@ void PlainRender::dump_method(Method *e, std::string &res)
   if ( !e->m_comp || e->m_comp->params_.empty() )
     ;
   else {
-    for ( size_t i = 0; i < e->m_comp->params_.size(); i++ )
-    {
-      tmp.clear();
-      if ( e->m_comp->params_[i].ellipsis )
-        tmp = "...";
-      else  
-        dump_type(e->m_comp->params_[i].id, tmp);
-      if ( e->m_comp->params_[i].name )
-        res += tmp + e->m_comp->params_[i].name;
-      else
-        res += tmp;
-      if ( i+1 < e->m_comp->params_.size() )
-        res += ",";
-    }
+    std::string params;
+    res += render_params(e, params);
   }
   res += ")";
   if ( e->virt_ == Dwarf32::Virtuality::DW_VIRTUALITY_pure_virtual )
     res += " = 0";  
 }
 
+std::string &PlainRender::render_params(Element *e, std::string &s)
+{
+  for ( size_t i = 0; i < e->m_comp->params_.size(); i++ )
+  {
+    std::string tmp;
+    named n { e->m_comp->params_[i].name };
+    if ( e->m_comp->params_[i].ellipsis )
+      tmp = "...";
+    else { 
+      dump_type(e->m_comp->params_[i].id, tmp, &n);
+    }
+    auto name = n.name();
+    if ( name != nullptr )
+    {
+      s += tmp + " ";
+      s += name;
+    } else
+      s += tmp;
+    if ( i+1 < e->m_comp->params_.size() )
+      s += ",";
+  }
+  return s;
+}
+
 void PlainRender::dump_func(Element *e)
 {
   std::string tmp;
   if ( e->type_id_ )
-    dump_type(e->type_id_, tmp);
-  else
+  {
+    named n { e->name_ };
+    dump_type(e->type_id_, tmp, &n);
+  } else
     tmp = "void";
   fprintf(g_outf, "%s %s(", tmp.c_str(), e->name_);
   if ( !e->m_comp || e->m_comp->params_.empty() )
     fprintf(g_outf, "void");
   else {
-    for ( size_t i = 0; i < e->m_comp->params_.size(); i++ )
-    {
-      tmp.clear();
-      if ( e->m_comp->params_[i].ellipsis )
-        tmp = "...";
-      else  
-        dump_type(e->m_comp->params_[i].id, tmp);
-      if ( e->m_comp->params_[i].name )
-        fprintf(g_outf, "%s %s", tmp.c_str(), e->m_comp->params_[i].name);
-      else
-        fprintf(g_outf, "%s", tmp.c_str());
-      if ( i+1 < e->m_comp->params_.size() )
-        fprintf(g_outf, ",");
-    }
+    std::string params;
+    render_params(e, params);
+    fprintf(g_outf, "%s", params.c_str());
   }
   fprintf(g_outf, ")");
 }
@@ -405,7 +439,8 @@ void PlainRender::dump_types()
           {
             fprintf(g_outf, "// offset %lX\n", e.m_comp->parents_[pi].offset);
             std::string pname;
-            dump_type(e.m_comp->parents_[pi].id, pname);
+            named pn;
+            dump_type(e.m_comp->parents_[pi].id, pname, &pn);
             fprintf(g_outf, "%s%s", access_name(e.m_comp->parents_[pi].access), pname.c_str());
             if ( pi != e.m_comp->parents_.size() - 1 )
               fprintf(g_outf, ",\n");
@@ -424,8 +459,13 @@ void PlainRender::dump_types()
       case ElementType::typedef2:
         {
           std::string tname;
-          dump_type(e.type_id_, tname);
-          fprintf(g_outf, "typedef %s %s", tname.c_str(), e.name_);
+          named n { e.name_ };
+          dump_type(e.type_id_, tname, &n);
+          auto tn = n.name();
+          if ( tn != nullptr )
+            fprintf(g_outf, "typedef %s %s", tname.c_str(), e.name_);
+          else
+            fprintf(g_outf, "typedef %s", tname.c_str());
           break;
         }
       default:

@@ -1,6 +1,26 @@
 #pragma once
 #include "TreeBuilder.h"
 
+struct named
+{
+  named()
+   : name_(nullptr),
+     used_(false)
+   {}
+  named(const char *n)
+   : name_(n),
+     used_(false)
+   {}
+  const char *name() const
+  {
+    if ( used_ )
+      return nullptr;
+    return name_;
+  }
+  const char *name_;
+  bool used_;
+};
+
 class PlainRender: public TreeBuilder
 {
   public:
@@ -21,6 +41,7 @@ class PlainRender: public TreeBuilder
    std::string &render_one_enum(std::string &s, EnumItem &en);
    std::string &render_field(Element *e, std::string &s, int level);
    std::string &render_fields(Element *e, std::string &s, int level);
-   bool dump_type(uint64_t, std::string &, int level = 0);
+   std::string &render_params(Element *e, std::string &s);
+   bool dump_type(uint64_t, std::string &, named *, int level = 0);
 
 };
