@@ -376,6 +376,7 @@ void PlainRender::dump_types()
     }
     if ( ElementType::ns_start == e.type_ )
     {
+      put_file_hdr();
       fprintf(g_outf, "namespace %s {\n", e.name_);
       continue;
     }
@@ -392,6 +393,7 @@ void PlainRender::dump_types()
     const auto ci = m_replaced.find(e.id_);
     if ( ci != m_replaced.end() )
       continue;
+    put_file_hdr();
     if ( e.addr_ )
       fprintf(g_outf, "// 0x%lX\n", e.addr_);
     if ( e.size_ )

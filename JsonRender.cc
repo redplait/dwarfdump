@@ -26,7 +26,10 @@ void JsonRender::RenderUnit(int last)
     json.pop_back();
   }
   if ( !json.empty() )
+  {
+    put_file_hdr();
     fprintf(g_outf, "%s", json.c_str());
+  }
 }
 
 std::string JsonRender::GenerateJson() {

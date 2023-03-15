@@ -84,6 +84,7 @@ public:
 protected:
   virtual void RenderUnit(int last)
   {}
+  void put_file_hdr();
   int merge_dumped();
   int can_have_methods(int level);
 
@@ -247,6 +248,7 @@ protected:
 
   Element *get_owner();
   // per compilation unit data
+  bool m_hdr_dumped;
   Element *recent_ = nullptr;
   std::stack<Element *> m_stack;
   std::list<Element> elements_;

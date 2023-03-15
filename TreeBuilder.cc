@@ -162,6 +162,31 @@ const char *get_cu_name(int c)
   return nullptr;
 }
 
+void TreeBuilder::put_file_hdr()
+{
+  if ( !g_opt_v )
+    return;
+  if ( elements_.empty() )
+    return;
+  if ( m_hdr_dumped )
+    return;
+  m_hdr_dumped = true;
+  if ( cu_name )
+    fprintf(g_outf, "\n// Name: %s\n", cu_name);
+  if ( cu_comp_dir )
+    fprintf(g_outf, "// CompDir: %s\n", cu_comp_dir);
+  if ( cu_lang )
+  {
+    auto lang = get_cu_name(cu_lang);
+    if ( lang )
+      fprintf(g_outf, "// Language: %s\n", lang);
+    else
+      fprintf(g_outf, "// Language: 0x%X\n", cu_lang);
+  }
+  if ( cu_producer )
+    fprintf(g_outf, "// Producer: %s\n", cu_producer);
+}
+
 // called on each processed compilation unit
 void TreeBuilder::ProcessUnit(int last)
 {
@@ -170,23 +195,7 @@ void TreeBuilder::ProcessUnit(int last)
     // fprintf(stderr, "ProcessUnit: stack is not empty\n");
     m_stack = {};
   }
-  if ( g_opt_v && !elements_.empty() )
-  {
-    if ( cu_name )
-      fprintf(g_outf, "\n// Name: %s\n", cu_name);
-    if ( cu_comp_dir )
-      fprintf(g_outf, "// CompDir: %s\n", cu_comp_dir);
-    if ( cu_lang )
-    {
-      auto lang = get_cu_name(cu_lang);
-      if ( lang )
-        fprintf(g_outf, "// Language: %s\n", lang);
-      else
-        fprintf(g_outf, "// Language: 0x%X\n", cu_lang);
-    }
-    if ( cu_producer )
-      fprintf(g_outf, "// Producer: %s\n", cu_producer);
-  }
+  m_hdr_dumped = false;
   RenderUnit(last);
   merge_dumped();
   elements_.clear();
