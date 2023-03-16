@@ -36,6 +36,7 @@ public:
     formal_param,
     subroutine,
     method,
+    ptr2member,
     ns_start,
     ns_end,
   };
@@ -53,7 +54,8 @@ public:
   void SetElementCount(uint64_t count);
   void SetConstValue(uint64_t count);
   void SetAlignment(uint64_t);
-  void SetAddr(uint64_t count);
+  void SetAddr(uint64_t);
+  void SetContainingType(uint64_t);
   void SetBitSize(int);
   void SetBitOffset(int);
   void SetParentAccess(int);
@@ -136,6 +138,7 @@ protected:
       count_ = e.count_;
       addr_ = e.addr_;
       align_ = e.align_;
+      cont_type_ = e.cont_type_;
       access_ = e.access_;
       bit_size_ = e.bit_size_;
       bit_offset_ = e.bit_offset_;
@@ -175,6 +178,7 @@ protected:
       count_(0),
       addr_(0),
       align_(0),
+      cont_type_(0),
       access_(0),
       bit_size_(0),
       bit_offset_(0),
@@ -195,6 +199,7 @@ protected:
     uint64_t count_;
     uint64_t addr_;
     uint64_t align_;
+    uint64_t cont_type_; // for ptr2member
     int access_;
     int bit_size_;
     int bit_offset_;

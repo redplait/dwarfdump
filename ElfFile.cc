@@ -425,6 +425,7 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id, bool has_childre
     CASE_REGISTER_NEW_TAG(DW_TAG_reference_type, reference_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_rvalue_reference_type, rvalue_ref_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_subroutine_type, subroutine_type)
+    CASE_REGISTER_NEW_TAG(DW_TAG_ptr_to_member_type, ptr2member)
     case Dwarf32::Tag::DW_TAG_namespace:
       if ( has_children )
       {
@@ -551,6 +552,13 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       uint64_t byte_size = FormDataValue(form, info, info_bytes);
       if ( m_regged )
         tree_builder->SetElementSize(byte_size);
+      return true;
+    }
+
+    case Dwarf32::Attribute::DW_AT_containing_type: {
+      uint64_t ctype = FormDataValue(form, info, info_bytes);
+      if ( m_regged )
+        tree_builder->SetContainingType(ctype);
       return true;
     }
 

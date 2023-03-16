@@ -83,6 +83,8 @@ std::string JsonRender::GenerateJson(Element &e) {
   // The others are generic
   result += "\""+std::to_string(e.id_)+"\":";
   result += "{\"type\":\""+std::string(e.TypeName())+"\",";
+  if ( e.cont_type_ )
+    result += "{\"cont_type\":\""+std::to_string(e.cont_type_)+"\",";
   if ( e.owner_ != nullptr )
     result += "\"owner\":\""+std::to_string(e.owner_->id_)+"\",";
   if ( e.noret_ )

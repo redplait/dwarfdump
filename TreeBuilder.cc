@@ -721,6 +721,15 @@ void TreeBuilder::SetAlignment(uint64_t v)
   }
 }
 
+void TreeBuilder::SetContainingType(uint64_t ct)
+{
+  if (!elements_.size()) {
+    fprintf(stderr, "Can't set ContainingType when element list is empty\n");
+    return;
+  }
+  elements_.back().cont_type_ = ct;
+}
+
 void TreeBuilder::SetAddr(uint64_t count) {
   if (current_element_type_ != ElementType::subroutine) {
     return;
@@ -793,6 +802,7 @@ const char* TreeBuilder::Element::TypeName() {
     case ElementType::subroutine_type: return "function_type";
     case ElementType::subroutine: return "function";
     case ElementType::method: return "method";
+    case ElementType::ptr2member: return "ptr2member";
     case ElementType::ns_start: return "namespace";
     default: return "unk";
   }
