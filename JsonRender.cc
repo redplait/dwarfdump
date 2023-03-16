@@ -144,6 +144,8 @@ std::string JsonRender::GenerateJson(Element &e) {
         result += "{\"name\":\""+EscapeJsonString(e.m_comp->params_[i].name)+"\",";
       else
         result += "{";
+      if ( e.m_comp->params_[i].param_id )
+        result += "\"id\":\""+std::to_string(e.m_comp->params_[i].param_id)+"\",";
       if (e.m_comp->params_[i].ellipsis)
       {
         result += "\"ellipsis\"}";

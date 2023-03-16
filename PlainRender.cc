@@ -185,7 +185,7 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, named *n, int level)
       ;
     else {
       std::string params;
-      res += render_params(el->second, params);
+      res += render_params(el->second, 0, params);
     }
     res += ")";
     return true;
@@ -326,19 +326,19 @@ void PlainRender::dump_method(Method *e, const Element *owner, std::string &res)
     ;
   else {
     std::string params;
-    res += render_params(e, params);
+    res += render_params(e, e->this_arg_, params);
   }
   res += ")";
   if ( e->virt_ == Dwarf32::Virtuality::DW_VIRTUALITY_pure_virtual )
     res += " = 0";  
 }
 
-std::string &PlainRender::render_params(Element *e, std::string &s)
+std::string &PlainRender::render_params(Element *e, uint64_t this_arg, std::string &s)
 {
   for ( size_t i = 0; i < e->m_comp->params_.size(); i++ )
   {
     std::string tmp;
-    named n { e->m_comp->params_[i].name };
+    named n { e->m_comp->params_[i].param_id == this_arg ? "this" : e->m_comp->params_[i].name };
     if ( e->m_comp->params_[i].ellipsis )
       tmp = "...";
     else { 
@@ -371,7 +371,7 @@ void PlainRender::dump_func(Element *e)
     fprintf(g_outf, "void");
   else {
     std::string params;
-    render_params(e, params);
+    render_params(e, 0, params);
     fprintf(g_outf, "%s", params.c_str());
   }
   fprintf(g_outf, ")");
@@ -483,7 +483,17 @@ void PlainRender::dump_types()
           break;
         }
       default:
-        fprintf(g_outf, "unknown type %d name %s", e.type_, e.name_);
+        fprintf(g_outf, "// unknown type %d name %s\n", e.type_, e.name_);
+        {
+          std::string tname;
+          named n { e.name_ };
+          dump_type(e.type_id_, tname, &n);
+          auto tn = n.name();
+          if ( tn != nullptr )
+            fprintf(g_outf, "%s %s", tname.c_str(), e.name_);
+          else
+            fprintf(g_outf, "%s", tname.c_str());          
+        }
     }
     fprintf(g_outf, ";\n\n");
   }

@@ -113,6 +113,7 @@ protected:
 
   struct FormalParam {
     const char *name;
+    uint64_t param_id;
     uint64_t id;
     bool ellipsis;
   };

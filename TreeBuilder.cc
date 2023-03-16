@@ -281,7 +281,7 @@ bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level, bool ell)
   if ( !recent_->m_comp )
     recent_->m_comp = new Compound();
   
-  recent_->m_comp->params_.push_back({NULL, 0, ell});
+  recent_->m_comp->params_.push_back({NULL, tag_id, 0, ell});
   return true;
 }
 
