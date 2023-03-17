@@ -154,11 +154,14 @@ std::string JsonRender::GenerateJson(Element &e) {
         result += "\"id\":\""+std::to_string(e.m_comp->params_[i].param_id)+"\",";
       if (e.m_comp->params_[i].ellipsis)
       {
-        result += "\"ellipsis\"}";
+        result += "\"ellipsis\"";
       } else {
         if ( e.m_comp->params_[i].id )
-          result += "\"type_id\":"+std::to_string(e.m_comp->params_[i].id)+"}";
+          result += "\"type_id\":"+std::to_string(e.m_comp->params_[i].id);
       }
+      if (result.back() == ',')
+        result.pop_back();
+      result += "}";
       if (i+1 < e.m_comp->params_.size()) {
         result += ",";
       }

@@ -732,6 +732,9 @@ void TreeBuilder::SetContainingType(uint64_t ct)
 
 void TreeBuilder::SetAbs(uint64_t ct)
 {
+  if (current_element_type_ != ElementType::subroutine) {
+    return;
+  }
   if (!elements_.size()) {
     fprintf(stderr, "Can't set abstract_origin when element list is empty\n");
     return;
