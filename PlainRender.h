@@ -30,8 +30,10 @@ class PlainRender: public TreeBuilder
     {}
   protected:
    std::map<uint64_t, Element *> m_els;
+   std::map<uint64_t, std::list<Element *> > m_specs;
    
    virtual void RenderUnit(int last);
+   std::list<Element *> *get_specs(uint64_t);
    void dump_types();
    void dump_enums(Element *);
    void dump_fields(Element *);

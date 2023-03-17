@@ -25,12 +25,28 @@ std::string &PlainRender::render_one_enum(std::string &s, EnumItem &en)
   return s;
 }
 
+std::list<TreeBuilder::Element *> *PlainRender::get_specs(uint64_t id)
+{
+  auto fi = m_specs.find(id);
+  if ( fi == m_specs.end() )
+    return nullptr;
+  return &fi->second;
+}
+
 void PlainRender::RenderUnit(int last)
 {
   for ( auto &e: elements_ )
+  {
     m_els[e.id_] = &e;
+    if ( e.spec_ && e.addr_ )
+    {
+      // fprintf(g_outf, "spec %lX for %lX\n", e.id_, e.spec_);
+      m_specs[e.spec_].push_back(&e);
+    }
+  }
   dump_types();
   m_els.clear();
+  m_specs.clear();
 }
 
 bool PlainRender::dump_type(uint64_t key, std::string &res, named *n, int level)
@@ -279,6 +295,19 @@ void PlainRender::dump_methods(Element *e)
       fprintf(g_outf, "// TypeId %lX\n", en.id_);
     if ( en.vtbl_index_ )
       fprintf(g_outf, "// Vtbl index %lX\n", en.vtbl_index_);
+    auto slist = get_specs(en.id_);
+    if ( slist != nullptr )
+    {
+      auto s = slist->size();
+      if ( s > 1 )
+        fprintf(g_outf, "// specifications: %ld\n", s);
+      else
+        fprintf(g_outf, "// specification\n");
+      for ( auto e: *slist )
+      {
+        fprintf(g_outf, "//  addr %lX type_id %lX\n", e->addr_, e->id_);
+      }
+    }
     fprintf(g_outf, "%s;\n", tmp.c_str());
   }
 }
