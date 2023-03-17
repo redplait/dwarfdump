@@ -8,6 +8,8 @@ my %g_tags;
 my %g_arts;
 my %g_specs;
 my %g_cont;
+my %g_defs;
+my %g_abs;
 
 sub parse
 {
@@ -50,6 +52,16 @@ sub parse
         $g_cont{$tag}++;
         next;
       }  
+      if ( $str =~ / DW_AT_defaulted / )
+      {
+        $g_defs{$tag}++;
+        next;
+      }  
+      if ( $str =~ /DW_AT_abstract_origin:/ )
+      {
+        $g_abs{$tag}++;
+        next;
+      }  
     }
   }
   close $fh;  
@@ -77,3 +89,7 @@ printf("--- specifications:\n");
 dump_tags(\%g_specs);
 printf("--- containing types:\n");
 dump_tags(\%g_cont);
+printf("--- defaulted:\n");
+dump_tags(\%g_defs);
+printf("--- abstract origins:\n");
+dump_tags(\%g_abs);

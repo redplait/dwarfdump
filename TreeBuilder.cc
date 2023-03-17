@@ -730,10 +730,20 @@ void TreeBuilder::SetContainingType(uint64_t ct)
   elements_.back().cont_type_ = ct;
 }
 
+void TreeBuilder::SetAbs(uint64_t ct)
+{
+  if (!elements_.size()) {
+    fprintf(stderr, "Can't set abstract_origin when element list is empty\n");
+    return;
+  }
+  elements_.back().spec_ = ct;
+}
+
+
 void TreeBuilder::SetSpec(uint64_t ct)
 {
   if (!elements_.size()) {
-    fprintf(stderr, "Can't set specification: when element list is empty\n");
+    fprintf(stderr, "Can't set specification when element list is empty\n");
     return;
   }
   elements_.back().spec_ = ct;

@@ -106,6 +106,8 @@ std::string JsonRender::GenerateJson(Element &e) {
   }
   if (e.spec_)
     result += "\"spec\":"+std::to_string(e.spec_)+",";
+  if ( e.abs_ )
+    result += "\"abs\":"+std::to_string(e.abs_)+",";
   if (e.size_) {
     result += "\"size\":"+std::to_string(e.size_)+",";
   }

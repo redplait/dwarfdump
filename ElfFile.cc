@@ -526,6 +526,12 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         tree_builder->SetElementName(name);
       return true;
     }
+    case Dwarf32::Attribute::DW_AT_abstract_origin: {
+      uint64_t addr = FormDataValue(form, info, info_bytes);
+      if ( m_regged )
+        tree_builder->SetAbs(addr);
+      return true;
+    }
     case Dwarf32::Attribute::DW_AT_specification: {
       uint64_t addr = FormDataValue(form, info, info_bytes);
       if ( m_regged )
