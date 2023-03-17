@@ -83,8 +83,8 @@ std::string JsonRender::GenerateJson(Element &e) {
   // The others are generic
   result += "\""+std::to_string(e.id_)+"\":";
   result += "{\"type\":\""+std::string(e.TypeName())+"\",";
-  if ( e.cont_type_ )
-    result += "{\"cont_type\":\""+std::to_string(e.cont_type_)+"\",";
+  if ( e.type_ == ElementType::ptr2member && e.cont_type_ )
+    result += "\"cont_type\":\""+std::to_string(e.cont_type_)+"\",";
   if ( e.owner_ != nullptr )
     result += "\"owner\":\""+std::to_string(e.owner_->id_)+"\",";
   if ( e.noret_ )
@@ -104,6 +104,8 @@ std::string JsonRender::GenerateJson(Element &e) {
   if ( e.link_name_ && e.link_name_ != e.name_ ) {
     result += "\"link_name\":\""+EscapeJsonString(e.link_name_)+"\",";
   }
+  if (e.spec_)
+    result += "\"spec\":"+std::to_string(e.spec_)+",";
   if (e.size_) {
     result += "\"size\":"+std::to_string(e.size_)+",";
   }

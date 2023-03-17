@@ -730,6 +730,15 @@ void TreeBuilder::SetContainingType(uint64_t ct)
   elements_.back().cont_type_ = ct;
 }
 
+void TreeBuilder::SetSpec(uint64_t ct)
+{
+  if (!elements_.size()) {
+    fprintf(stderr, "Can't set specification: when element list is empty\n");
+    return;
+  }
+  elements_.back().spec_ = ct;
+}
+
 void TreeBuilder::SetAddr(uint64_t count) {
   if (current_element_type_ != ElementType::subroutine) {
     return;
