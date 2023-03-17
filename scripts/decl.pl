@@ -7,6 +7,7 @@ use warnings;
 my %g_tags;
 my %g_arts;
 my %g_specs;
+my %g_cont;
 
 sub parse
 {
@@ -44,6 +45,11 @@ sub parse
         $g_specs{$tag}++;
         next;
       }  
+      if ( $str =~ /DW_AT_containing_type:/ )
+      {
+        $g_cont{$tag}++;
+        next;
+      }  
     }
   }
   close $fh;  
@@ -69,3 +75,5 @@ printf("--- artificial:\n");
 dump_tags(\%g_arts);
 printf("--- specifications:\n");
 dump_tags(\%g_specs);
+printf("--- containing types:\n");
+dump_tags(\%g_cont);
