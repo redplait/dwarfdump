@@ -6,6 +6,7 @@ use warnings;
 
 my %g_tags;
 my %g_arts;
+my %g_specs;
 
 sub parse
 {
@@ -38,6 +39,11 @@ sub parse
         $g_arts{$tag}++;
         next;
       }  
+      if ( $str =~ /DW_AT_specification:/ )
+      {
+        $g_specs{$tag}++;
+        next;
+      }  
     }
   }
   close $fh;  
@@ -61,3 +67,5 @@ printf("--- declaration:\n");
 dump_tags(\%g_tags);
 printf("--- artificial:\n");
 dump_tags(\%g_arts);
+printf("--- specifications:\n");
+dump_tags(\%g_specs);
