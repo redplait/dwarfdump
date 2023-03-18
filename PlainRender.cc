@@ -335,6 +335,8 @@ bool PlainRender::is_constructor(const Element *e, const Element *owner) const
 void PlainRender::dump_method(Method *e, const Element *owner, std::string &res)
 {
   res = access_name(e->access_);
+  if ( e->inlined_ )
+    res += "inline ";
   if ( e->virt_ )
     res += "virtual ";
   if ( !e->this_arg_ )
@@ -358,6 +360,8 @@ void PlainRender::dump_method(Method *e, const Element *owner, std::string &res)
     res += render_params(e, e->this_arg_, params);
   }
   res += ")";
+  if ( e->def_ )
+    res += " default";
   if ( e->virt_ == Dwarf32::Virtuality::DW_VIRTUALITY_pure_virtual )
     res += " = 0";  
 }

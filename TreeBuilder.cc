@@ -576,6 +576,15 @@ void TreeBuilder::SetArtiticial()
   Method *m = static_cast<Method *>(recent_);
   m->art_ = true;
 }
+
+void TreeBuilder::SetDefaulted()
+{
+  if ( !recent_ || current_element_type_ != ElementType::method )
+    return;
+  Method *m = static_cast<Method *>(recent_);
+  m->def_ = true;
+}
+
 void TreeBuilder::SetDeclaration()
 {
    if (current_element_type_ == ElementType::none) {
@@ -750,7 +759,7 @@ void TreeBuilder::SetInlined(int ct)
      )
     return;
   if (!elements_.size()) {
-    fprintf(stderr, "Can't set abstract_origin when element list is empty\n");
+    fprintf(stderr, "Can't set inlined when element list is empty\n");
     return;
   }
   if ( recent_)

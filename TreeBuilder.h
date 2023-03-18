@@ -65,6 +65,7 @@ public:
   void SetDeclaration();
   void SetArtiticial();
   void SetVtblIndex(uint64_t);
+  void SetDefaulted();
   void SetSpec(uint64_t);
   void SetAbs(uint64_t);
   void SetInlined(int);
@@ -246,12 +247,14 @@ protected:
        virt_(0),
        vtbl_index_(0),
        this_arg_(0),
-       art_(false)
+       art_(false),
+       def_(false)
     {}
     int virt_;
     uint64_t vtbl_index_;
     uint64_t this_arg_;
     bool art_; // from DW_AT_artificial - for destructors
+    bool def_; // DW_AT_defaulted
   };
 
   struct Compound {
