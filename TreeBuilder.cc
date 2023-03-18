@@ -775,6 +775,7 @@ void TreeBuilder::SetSpec(uint64_t ct)
     fprintf(stderr, "Can't set specification when element list is empty\n");
     return;
   }
+  // fprintf(g_outf, "spec %lX for %lX\n", ct, elements_.back().id_);
   elements_.back().spec_ = ct;
 }
 

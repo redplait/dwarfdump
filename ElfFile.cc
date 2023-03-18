@@ -469,7 +469,14 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case Dwarf32::Attribute::DW_AT_object_pointer: {
       uint64_t v = FormDataValue(form, info, info_bytes);
       if ( m_regged )
+      {
+          if (form != Dwarf32::Form::DW_FORM_ref_addr) {
+            // The offset is relative to the current compilation unit, we make it
+            // absolute
+            v += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
+          }
         tree_builder->SetObjPtr((int)v);
+      }
       return true;
     }   
     case Dwarf32::Attribute::DW_AT_virtuality: {
@@ -541,13 +548,27 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case Dwarf32::Attribute::DW_AT_abstract_origin: {
       uint64_t addr = FormDataValue(form, info, info_bytes);
       if ( m_regged )
-        tree_builder->SetAbs(cu_base + addr);
+      {
+          if (form != Dwarf32::Form::DW_FORM_ref_addr) {
+            // The offset is relative to the current compilation unit, we make it
+            // absolute
+            addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
+          }
+        tree_builder->SetAbs(addr);
+      }
       return true;
     }
     case Dwarf32::Attribute::DW_AT_specification: {
       uint64_t addr = FormDataValue(form, info, info_bytes);
       if ( m_regged )
+      {
+        if (form != Dwarf32::Form::DW_FORM_ref_addr) {
+          // The offset is relative to the current compilation unit, we make it
+          // absolute
+          addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
+        }
         tree_builder->SetSpec(addr);
+      }
       return true;
     }
     // address
@@ -581,7 +602,14 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case Dwarf32::Attribute::DW_AT_containing_type: {
       uint64_t ctype = FormDataValue(form, info, info_bytes);
       if ( m_regged )
+      {
+        if (form != Dwarf32::Form::DW_FORM_ref_addr) {
+          // The offset is relative to the current compilation unit, we make it
+          // absolute
+          ctype += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
+        }
         tree_builder->SetContainingType(ctype);
+      }
       return true;
     }
 
