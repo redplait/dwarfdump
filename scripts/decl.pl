@@ -10,6 +10,8 @@ my %g_specs;
 my %g_cont;
 my %g_defs;
 my %g_abs;
+my %g_inl;
+my %g_defa;
 
 sub parse
 {
@@ -62,6 +64,11 @@ sub parse
         $g_abs{$tag}++;
         next;
       }  
+      if ( $str =~ / DW_AT_inline\s+:/ )
+      {
+        $g_inl{$tag}++;
+        next;
+      }  
     }
   }
   close $fh;  
@@ -93,3 +100,5 @@ printf("--- defaulted:\n");
 dump_tags(\%g_defs);
 printf("--- abstract origins:\n");
 dump_tags(\%g_abs);
+printf("--- inlined:\n");
+dump_tags(\%g_inl);
