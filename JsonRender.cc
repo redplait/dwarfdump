@@ -134,6 +134,8 @@ std::string JsonRender::GenerateJson(Element &e) {
     put(result, "size", e.size_);
   if ( e.addr_ )
     put(result, "addr", e.addr_);
+  if ( e.inlined_ )
+    put(result, "inline", e.inlined_);
   if ( e.type_ == ElementType::method )
   {
     if ( g_opt_l )

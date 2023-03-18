@@ -67,6 +67,7 @@ public:
   void SetVtblIndex(uint64_t);
   void SetSpec(uint64_t);
   void SetAbs(uint64_t);
+  void SetInlined(int);
 
   uint64_t get_replaced_type(uint64_t) const;
   int check_dumped_type(const char *);
@@ -143,6 +144,7 @@ protected:
       cont_type_ = e.cont_type_;
       spec_ = e.spec_;
       abs_ = e.abs_;
+      inlined_ = e.inlined_;
       access_ = e.access_;
       bit_size_ = e.bit_size_;
       bit_offset_ = e.bit_offset_;
@@ -185,6 +187,7 @@ protected:
       cont_type_(0),
       spec_(0),
       abs_(0),
+      inlined_(0),
       access_(0),
       bit_size_(0),
       bit_offset_(0),
@@ -208,6 +211,7 @@ protected:
     uint64_t cont_type_; // for ptr2member
     uint64_t spec_;
     uint64_t abs_; // for DW_AT_abstract_origin
+    int inlined_;
     int access_;
     int bit_size_;
     int bit_offset_;
