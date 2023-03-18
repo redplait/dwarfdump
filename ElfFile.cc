@@ -541,7 +541,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case Dwarf32::Attribute::DW_AT_abstract_origin: {
       uint64_t addr = FormDataValue(form, info, info_bytes);
       if ( m_regged )
-        tree_builder->SetAbs(addr);
+        tree_builder->SetAbs(cu_base + addr);
       return true;
     }
     case Dwarf32::Attribute::DW_AT_specification: {
@@ -686,6 +686,7 @@ bool ElfFile::GetAllClasses() {
     tree_builder->ProcessUnit();
     // Load the compilation unit information
     const unsigned char* cu_start = info;
+    cu_base = cu_start - debug_info_;
     const Dwarf32::CompilationUnitHdr* unit_hdr =
         reinterpret_cast<const Dwarf32::CompilationUnitHdr*>(info);
     DBG_PRINTF("unit_length         = 0x%x\n", unit_hdr->unit_length);

@@ -35,6 +35,7 @@ std::list<TreeBuilder::Element *> *PlainRender::get_specs(uint64_t id)
 
 void PlainRender::RenderUnit(int last)
 {
+  int need_abs = 0;
   for ( auto &e: elements_ )
   {
     m_els[e.id_] = &e;
@@ -42,6 +43,31 @@ void PlainRender::RenderUnit(int last)
     {
       // fprintf(g_outf, "spec %lX for %lX\n", e.id_, e.spec_);
       m_specs[e.spec_].push_back(&e);
+    }
+    if ( e.is_abs() )
+      need_abs |= 1;
+  }
+  if ( need_abs )
+  {
+    // collect addresses for functions with abstract_origin
+    for ( auto &e: elements_ )
+    {
+      if ( !e.is_abs() )
+        continue;
+      // fprintf(g_outf, "type %lX abs %lX\n", e.id_, e.abs_);
+      auto f = m_els.find(e.abs_);
+      if ( f == m_els.end() )
+      {
+        if ( g_opt_v )
+          fprintf(stderr, "cannot find origin with type %lX for %lX\n", e.abs_, e.id_);
+        continue;
+      }
+      if ( !f->second->spec_ )
+      {
+        fprintf(stderr, "invalid origin type %lX for %lX\n", e.abs_, e.id_);
+        continue;
+      }
+      m_specs[f->second->spec_].push_back(&e);
     }
   }
   dump_types();
@@ -305,7 +331,10 @@ void PlainRender::dump_methods(Element *e)
         fprintf(g_outf, "// specification\n");
       for ( auto e: *slist )
       {
-        fprintf(g_outf, "//  addr %lX type_id %lX\n", e->addr_, e->id_);
+        fprintf(g_outf, "//  addr %lX type_id %lX", e->addr_, e->id_);
+        if ( e->link_name_ )
+          fprintf(g_outf, " %s", e->link_name_);
+        fprintf(g_outf, "\n");
       }
     }
     fprintf(g_outf, "%s;\n", tmp.c_str());

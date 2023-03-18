@@ -47,6 +47,7 @@ private:
   typedef std::map<unsigned int, struct TagSection> CompilationUnit;
   CompilationUnit compilation_unit_;
   Dwarf32::Tag m_stype;
+  int64_t cu_base;
   int64_t m_next; // value of DW_AT_sibling
   int m_level;
   bool m_regged;

@@ -220,6 +220,10 @@ protected:
     bool noret_;
     bool decl_;
 
+    inline bool is_abs() const
+    {
+      return (abs_) && (addr_);
+    }
     inline bool can_have_decl() const
     {
       return (type_ == ElementType::class_type) ||

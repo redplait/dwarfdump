@@ -749,6 +749,7 @@ void TreeBuilder::SetAbs(uint64_t ct)
     fprintf(stderr, "Can't set abstract_origin when element list is empty\n");
     return;
   }
+  // fprintf(g_outf, "SetAbs %lX to %lX\n", ct, elements_.back().id_);
   elements_.back().abs_ = ct;
 }
 
