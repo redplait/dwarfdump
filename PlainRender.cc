@@ -64,10 +64,11 @@ void PlainRender::RenderUnit(int last)
       }
       if ( !f->second->spec_ )
       {
-        fprintf(stderr, "invalid origin type %lX for %lX\n", e.abs_, e.id_);
+        // fprintf(stderr, "invalid origin type %lX for %lX\n", e.abs_, e.id_);
+        m_specs[f->second->id_].push_back(&e);
         continue;
-      }
-      m_specs[f->second->spec_].push_back(&e);
+      } else
+        m_specs[f->second->spec_].push_back(&e);
     }
   }
   dump_types();
@@ -308,6 +309,25 @@ void PlainRender::dump_fields(Element *e)
   }
 }
 
+void PlainRender::dump_spec(Element *en)
+{
+  auto slist = get_specs(en->id_);
+  if ( slist == nullptr )
+    return;
+  auto s = slist->size();
+  if ( s > 1 )
+    fprintf(g_outf, "// specifications: %ld\n", s);
+  else
+    fprintf(g_outf, "// specification\n");
+  for ( auto e: *slist )
+  {
+    fprintf(g_outf, "//  addr %lX type_id %lX", e->addr_, e->id_);
+    if ( e->link_name_ )
+      fprintf(g_outf, " %s", e->link_name_);
+    fprintf(g_outf, "\n");
+  }
+}
+
 void PlainRender::dump_methods(Element *e)
 {
   if ( !e->has_methods() )
@@ -321,22 +341,7 @@ void PlainRender::dump_methods(Element *e)
       fprintf(g_outf, "// TypeId %lX\n", en.id_);
     if ( en.vtbl_index_ )
       fprintf(g_outf, "// Vtbl index %lX\n", en.vtbl_index_);
-    auto slist = get_specs(en.id_);
-    if ( slist != nullptr )
-    {
-      auto s = slist->size();
-      if ( s > 1 )
-        fprintf(g_outf, "// specifications: %ld\n", s);
-      else
-        fprintf(g_outf, "// specification\n");
-      for ( auto e: *slist )
-      {
-        fprintf(g_outf, "//  addr %lX type_id %lX", e->addr_, e->id_);
-        if ( e->link_name_ )
-          fprintf(g_outf, " %s", e->link_name_);
-        fprintf(g_outf, "\n");
-      }
-    }
+    dump_spec(&en);
     fprintf(g_outf, "%s;\n", tmp.c_str());
   }
 }
@@ -422,12 +427,15 @@ std::string &PlainRender::render_params(Element *e, uint64_t this_arg, std::stri
 void PlainRender::dump_func(Element *e)
 {
   std::string tmp;
+  dump_spec(e);
   if ( e->type_id_ )
   {
     named n { e->name_ };
     dump_type(e->type_id_, tmp, &n);
   } else
     tmp = "void";
+  if ( e->inlined_ )
+    fprintf(g_outf, "inline "); 
   fprintf(g_outf, "%s %s(", tmp.c_str(), e->name_);
   if ( !e->m_comp || e->m_comp->params_.empty() )
     fprintf(g_outf, "void");
