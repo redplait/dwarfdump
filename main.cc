@@ -15,6 +15,7 @@ void usage(const char *prog)
   printf("-d - dump debug info\n");
   printf("-f - add functions\n");
   printf("-j - produce json\n");
+  printf("-k - keep already dumped types\n");
   printf("-l - add levels\n");
   printf("-o out-file\n");
   printf("-v - verbose mode\n");
@@ -27,7 +28,7 @@ int main(int argc, char* argv[])
   // read options
   while(1)
   {
-    int c = getopt(argc, argv, "dfjlvo:");
+    int c = getopt(argc, argv, "dfjklvo:");
     if ( c == -1 )
       break;
     switch(c)
@@ -38,6 +39,8 @@ int main(int argc, char* argv[])
         break;
       case 'j': use_json = 1;
         break; 
+      case 'k': g_opt_k = 1;
+        break;
       case 'l': g_opt_l = 1;
         break;
       case 'v': g_opt_v = 1;

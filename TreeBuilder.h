@@ -5,7 +5,7 @@
 #include <vector>
 #include <stack>
 
-extern int g_opt_l, g_opt_v;
+extern int g_opt_k, g_opt_l, g_opt_v;
 extern FILE *g_outf;
 
 class TreeBuilder {
@@ -153,6 +153,7 @@ protected:
       e.m_comp = nullptr;
       noret_ = e.noret_;
       decl_ = e.decl_;
+      dumped_ = e.dumped_;
     }
     Element(Element &&e)
     {
@@ -194,7 +195,8 @@ protected:
       bit_offset_(0),
       m_comp(nullptr),
       noret_(false),
-      decl_(false)
+      decl_(false),
+      dumped_(false)
     {}
     const char* TypeName();
     Element *owner_;
@@ -219,6 +221,7 @@ protected:
     Compound *m_comp;
     bool noret_;
     bool decl_;
+    bool dumped_;
 
     inline bool is_abs() const
     {
@@ -241,6 +244,16 @@ protected:
       if ( m_comp == nullptr )
         return false;
       return !m_comp->methods_.empty();
+    }
+    size_t get_rank() const
+    {
+      if ( m_comp == nullptr )
+        return 0;
+      return m_comp->members_.size() +
+             m_comp->parents_.size() +
+             m_comp->enums_.size() +
+             m_comp->params_.size() +
+             m_comp->methods_.size();
     }
   };
 
@@ -275,6 +288,7 @@ protected:
   };
 
   Element *get_owner();
+  int should_keep(Element *);
   // per compilation unit data
   bool m_hdr_dumped;
   Element *recent_ = nullptr;
@@ -283,6 +297,6 @@ protected:
   std::map<uint64_t, dumped_type> m_replaced;
 
   // already dumped types
-  std::map<UniqName, uint64_t> m_dumped_db;
-  std::map<UniqName2, uint64_t> m_dumped_db2;
+  std::map<UniqName, std::pair<uint64_t, size_t> > m_dumped_db;
+  std::map<UniqName2, std::pair<uint64_t, size_t> > m_dumped_db2;
 };

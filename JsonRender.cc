@@ -107,6 +107,8 @@ std::string JsonRender::GenerateJson(Element &e) {
   // The others are generic  
   result += "\""+std::to_string(e.id_)+"\":{";
   put(result, "type", e.TypeName());
+  if ( e.dumped_ )
+    put(result, "dumped", e.dumped_);
   if ( e.type_ == ElementType::ptr2member && e.cont_type_ )
     put(result, "cont_type", e.cont_type_);
   if ( e.owner_ != nullptr )

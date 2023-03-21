@@ -6,6 +6,7 @@
 
 int g_opt_d = 0,
     g_opt_f = 0,
+    g_opt_k = 0,
     g_opt_l = 0,
     g_opt_v = 0;
 FILE *g_outf = NULL;

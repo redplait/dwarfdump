@@ -23,19 +23,26 @@ int TreeBuilder::merge_dumped()
 //  fprintf(g_outf, "dumped type %d with name %s level %d\n", e.type_, e.name_, e.level_);
     if ( e.level_ > 1 )
       continue; // we heed only high-level types definitions
+    size_t rank = e.get_rank();
     if ( in_string_pool(e.name_) )
     {
       UniqName key { e.type_, e.name_};
       auto added = m_dumped_db.find(key);
       if ( added != m_dumped_db.end() )
-        continue; // this type already in m_dumped_db
-      m_dumped_db[key] = e.id_;
+      {
+        if ( e.dumped_ && rank <= added->second.second )
+          continue; // this type already in m_dumped_db
+      }
+      m_dumped_db[key] = { e.id_, rank };
     } else {
       UniqName2 key { e.type_, e.name_};
       auto added = m_dumped_db2.find(key);
       if ( added != m_dumped_db2.end() )
-        continue; // this type already in m_dumped_db2
-      m_dumped_db2[key] = e.id_;
+      {
+        if ( e.dumped_ && rank <= added->second.second )
+          continue; // this type already in m_dumped_db2
+      }
+      m_dumped_db2[key] = { e.id_, rank };
     }
     res++; 
   }
@@ -80,13 +87,23 @@ int TreeBuilder::check_dumped_type(const char *name)
     const auto ci = m_dumped_db.find(key);
     if ( ci == m_dumped_db.cend() )
       return 0;
-    rep_id = ci->second;
+    rep_id = ci->second.first;
   } else {
     UniqName2 key { current_element_type_, name };
     const auto ci = m_dumped_db2.find(key);
     if ( ci == m_dumped_db2.cend() )
       return 0;
-    rep_id = ci->second;
+    rep_id = ci->second.first;
+  }
+  if ( g_opt_k )
+  {
+    // we can`t use get_ramk here bcs we know only type and name
+    // so we can safely replace only basic types
+    if ( current_element_type_ != typedef2 && current_element_type_ != base_type )
+    {
+      elements_.back().dumped_ = true;
+      return 0;
+    }
   }    
   // put fake type into m_replaced
   // don`t replace functions
