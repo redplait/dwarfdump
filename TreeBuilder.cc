@@ -78,6 +78,29 @@ bool TreeBuilder::get_replaced_name(uint64_t key, std::string &res)
    }
 }
 
+// return 1 if we want to dump this type
+int TreeBuilder::should_keep(Element *e)
+{
+  if ( !e->dumped_ )
+    return 1;
+  size_t old_rank = 0;
+  if ( in_string_pool(e->name_) )
+  {
+    UniqName key { e->type_, e->name_ };
+    const auto ci = m_dumped_db.find(key);
+    if ( ci == m_dumped_db.cend() )
+      return 0;
+    old_rank = ci->second.second;
+  } else {
+    UniqName2 key { e->type_, e->name_ };
+    const auto ci = m_dumped_db2.find(key);
+    if ( ci == m_dumped_db2.cend() )
+      return 0;
+    old_rank = ci->second.second;
+  }
+  return e->get_rank() > old_rank;
+}
+
 int TreeBuilder::check_dumped_type(const char *name)
 {
   uint64_t rep_id;

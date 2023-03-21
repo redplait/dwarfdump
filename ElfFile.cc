@@ -322,7 +322,7 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
       bytes_available -= value;
       break;
     default:
-      fprintf(stderr, "ERR: Unexpected form data 0x%x\n", form);
+      fprintf(stderr, "ERR: Unexpected form data 0x%x at %lX\n", form, info - debug_info_);
       exit(1);
   }
 
@@ -650,7 +650,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     }
     // const value - for enums
     case Dwarf32::Attribute::DW_AT_const_value: {
-      if ( !m_regged )
+      if ( !m_regged || !tree_builder->is_enum() )
         return false;
       uint64_t count = FormDataValue(form, info, info_bytes);
       tree_builder->SetConstValue(count);

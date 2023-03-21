@@ -9,7 +9,8 @@ struct named
    {}
   named(const char *n)
    : name_(n),
-     used_(false)
+     used_(false),
+     no_ptr_(false)
    {}
   const char *name() const
   {
@@ -19,6 +20,7 @@ struct named
   }
   const char *name_;
   bool used_;
+  bool no_ptr_;
 };
 
 class PlainRender: public TreeBuilder

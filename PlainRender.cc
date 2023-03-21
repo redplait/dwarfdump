@@ -209,6 +209,27 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, named *n, int level)
     res += "]";
     return true;
   }
+  if ( el->second->type_ == ElementType::ptr2member )
+  {
+    std::string cname, tname, tmp;
+    dump_type(el->second->cont_type_, cname, n);
+    if ( n->name() != nullptr )
+    {
+      tmp = cname + "::*" + n->name();
+      named n2 { tmp.c_str() };
+      n2.no_ptr_ = true;
+      dump_type(el->second->type_id_, tname, &n2);
+      if ( n2.used_ )
+      {
+        n->used_ = true;
+        res = tname;
+        return true;
+      } 
+    } else
+      dump_type(el->second->type_id_, tname, n);
+    res = cname + "::*" + tname;
+    return true;
+  }
   if ( el->second->type_ == ElementType::subroutine_type )
   {
     auto sname = n->name();
@@ -220,7 +241,9 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, named *n, int level)
       res += tmp;
     } else
       res += "void";
-    res += " (*";
+    res += " (";
+    if ( !n->no_ptr_ )
+      res += "*";
     if ( sname != nullptr )
       res += sname;
     res += ")(";
@@ -453,7 +476,7 @@ void PlainRender::dump_types()
   {
     if ( ElementType::ns_end == e.type_ )
     {
-      fprintf(g_outf, "} // namespace %s\n", e.name_);
+      fprintf(g_outf, "}; // namespace %s\n", e.name_);
       continue;
     }
     if ( ElementType::ns_start == e.type_ )
@@ -471,13 +494,15 @@ void PlainRender::dump_types()
       continue;
     if ( ElementType::const_type == e.type_ )
       continue;
+    if ( g_opt_k && e.dumped_ && !should_keep(&e) )
+      continue;
     // skip replaced types
     const auto ci = m_replaced.find(e.id_);
     if ( ci != m_replaced.end() )
       continue;
     put_file_hdr();
     if ( e.addr_ )
-      fprintf(g_outf, "// 0x%lX\n", e.addr_);
+      fprintf(g_outf, "// Addr 0x%lX\n", e.addr_);
     if ( e.size_ )
       fprintf(g_outf, "// Size 0x%lX\n", e.size_);
     if ( g_opt_v )

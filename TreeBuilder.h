@@ -40,6 +40,10 @@ public:
     ns_start,
     ns_end,
   };
+  inline bool is_enum() const
+  {
+    return current_element_type_ == enumerator;
+  }
   void ProcessUnit(int last = 0);
   int add2stack();
   void pop_stack(uint64_t);
