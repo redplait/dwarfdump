@@ -25,7 +25,7 @@ private:
   const char* FormStringValue(Dwarf32::Form form,
       const unsigned char* &info, size_t& bytes_available);
   bool LoadAbbrevTags(uint32_t abbrev_offset);
-  bool RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id, bool);
+  bool RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id);
   bool LogDwarfInfo(Dwarf32::Attribute attribute, 
     uint64_t tag_id, Dwarf32::Form form, const unsigned char* &info, 
     size_t& info_bytes, const void* unit_base);
@@ -44,9 +44,9 @@ private:
       bool has_children;
       const unsigned char* ptr;
   };
+  TagSection *m_section;
   typedef std::map<unsigned int, struct TagSection> CompilationUnit;
   CompilationUnit compilation_unit_;
-  Dwarf32::Tag m_stype;
   int64_t cu_base;
   int64_t m_next; // value of DW_AT_sibling
   int m_level;

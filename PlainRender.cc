@@ -227,7 +227,7 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, named *n, int level)
       } 
     } else
       dump_type(el->second->type_id_, tname, n);
-    res = cname + "::*" + tname;
+    res = tname + " " + cname + "::*";
     return true;
   }
   if ( el->second->type_ == ElementType::subroutine_type )

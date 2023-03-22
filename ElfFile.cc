@@ -405,7 +405,7 @@ bool ElfFile::LoadAbbrevTags(uint32_t abbrev_offset) {
     return true; \
     break;
 
-bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id, bool has_children) {
+bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
    bool ell = false;
   switch (tag) {
     CASE_REGISTER_NEW_TAG(DW_TAG_array_type, array_type)
@@ -428,7 +428,7 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id, bool has_childre
     CASE_REGISTER_NEW_TAG(DW_TAG_subroutine_type, subroutine_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_ptr_to_member_type, ptr2member)
     case Dwarf32::Tag::DW_TAG_namespace:
-      if ( has_children )
+      if ( m_section->has_children )
       {
         tree_builder->AddElement(TreeBuilder::ElementType::ns_start, tag_id, m_level);
         return true;
@@ -487,7 +487,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       return true;
     }
     case Dwarf32::Attribute::DW_AT_accessibility:
-      if ( m_stype == Dwarf32::Tag::DW_TAG_inheritance || m_stype == Dwarf32::Tag::DW_TAG_member )
+      if ( m_section->type == Dwarf32::Tag::DW_TAG_inheritance || m_section->type == Dwarf32::Tag::DW_TAG_member )
       {
         int a = (int)FormDataValue(form, info, info_bytes);
         tree_builder->SetParentAccess(a);
@@ -495,28 +495,28 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       }
     // Name
     case Dwarf32::Attribute::DW_AT_producer:
-      if ( m_stype == Dwarf32::Tag::DW_TAG_compile_unit )
+      if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
       {
         tree_builder->cu_producer = FormStringValue(form, info, info_bytes);
         return true;  
       }
       break;
     case Dwarf32::Attribute::DW_AT_comp_dir:
-      if ( m_stype == Dwarf32::Tag::DW_TAG_compile_unit )
+      if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
       {
         tree_builder->cu_comp_dir = FormStringValue(form, info, info_bytes);
         return true;  
       }
       break;
     case Dwarf32::Attribute::DW_AT_language:
-      if ( m_stype == Dwarf32::Tag::DW_TAG_compile_unit )
+      if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
       {
         tree_builder->cu_lang = (int)FormDataValue(form, info, info_bytes);
         return true;  
       }
       break;  
     case Dwarf32::Attribute::DW_AT_name:
-      if ( m_stype == Dwarf32::Tag::DW_TAG_compile_unit )
+      if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
       {
         tree_builder->cu_name = FormStringValue(form, info, info_bytes);
         return true;  
@@ -754,11 +754,10 @@ bool ElfFile::GetAllClasses() {
         fprintf(stderr, "ERR: Can't find tag number %X\n", info_number);
         return false;
       }
-      TagSection* section = &it_section->second;
-      const unsigned char* abbrev = section->ptr;
+      m_section = &it_section->second;
+      const unsigned char* abbrev = m_section->ptr;
       size_t abbrev_bytes = debug_abbrev_size_ - (abbrev - debug_abbrev_);
-      m_stype = section->type;
-      m_regged = RegisterNewTag(m_stype, tag_id, section->has_children);
+      m_regged = RegisterNewTag(m_section->type, tag_id);
       m_next = 0;
 
       if ( g_opt_d )
@@ -797,7 +796,7 @@ bool ElfFile::GetAllClasses() {
             goto skip_level;
         }
       }
-      if ( section->has_children )
+      if ( m_section->has_children )
       {
         m_level++;
         tree_builder->add2stack();
