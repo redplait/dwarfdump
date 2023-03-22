@@ -151,6 +151,8 @@ std::string JsonRender::GenerateJson(Element &e) {
       put(result, "this_arg", m.this_arg_);
     if ( m.def_ )
       put(result, "default", m.def_);
+    if ( m.expl_ )
+      put(result, "explicit", m.def_);
   }
   if (e.count_)
     put(result, "count", e.count_);

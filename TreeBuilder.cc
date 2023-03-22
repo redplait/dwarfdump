@@ -621,6 +621,14 @@ void TreeBuilder::SetArtiticial()
   m->art_ = true;
 }
 
+void TreeBuilder::SetExplicit()
+{
+  if ( !recent_ || current_element_type_ != ElementType::method )
+    return;
+  Method *m = static_cast<Method *>(recent_);
+  m->expl_ = true;
+}
+
 void TreeBuilder::SetDefaulted()
 {
   if ( !recent_ || current_element_type_ != ElementType::method )

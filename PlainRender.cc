@@ -399,6 +399,8 @@ void PlainRender::dump_method(Method *e, const Element *owner, std::string &res)
     res += "virtual ";
   if ( !e->this_arg_ )
     res += "static ";
+  if ( e->expl_ )
+    res += "explicit ";
   std::string tmp;
   if ( e->type_id_ )
   {
