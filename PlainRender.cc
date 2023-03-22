@@ -94,7 +94,8 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, named *n, int level)
   }
   if ( el->second->type_ == ElementType::typedef2 ||
        el->second->type_ == ElementType::base_type ||
-       el->second->type_ == ElementType::class_type
+       el->second->type_ == ElementType::class_type ||
+       el->second->type_ == ElementType::unspec_type
      )
   {
     res = el->second->name_;
@@ -490,7 +491,7 @@ void PlainRender::dump_types()
     if ( e.level_ > 1 )
       continue;
     // skip base types
-    if ( ElementType::base_type == e.type_ )
+    if ( ElementType::base_type == e.type_ || ElementType::unspec_type == e.type_ )
       continue;
     if ( ElementType::const_type == e.type_ )
       continue;

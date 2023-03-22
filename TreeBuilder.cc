@@ -59,6 +59,7 @@ bool TreeBuilder::get_replaced_name(uint64_t key, std::string &res)
      case ElementType::typedef2:
      case ElementType::class_type:
      case ElementType::base_type:
+     case ElementType::unspec_type:
        res = ci->second.name_;
        return true;
      case ElementType::enumerator_type:
@@ -122,7 +123,10 @@ int TreeBuilder::check_dumped_type(const char *name)
   {
     // we can`t use get_ramk here bcs we know only type and name
     // so we can safely replace only basic types
-    if ( current_element_type_ != typedef2 && current_element_type_ != base_type )
+    if ( current_element_type_ != typedef2 && 
+         current_element_type_ != base_type &&
+         current_element_type_ != unspec_type 
+       )
     {
       elements_.back().dumped_ = true;
       return 0;
@@ -892,6 +896,7 @@ const char* TreeBuilder::Element::TypeName() {
     case ElementType::subroutine: return "function";
     case ElementType::method: return "method";
     case ElementType::ptr2member: return "ptr2member";
+    case ElementType::unspec_type: return "unspec_type";
     case ElementType::ns_start: return "namespace";
     default: return "unk";
   }

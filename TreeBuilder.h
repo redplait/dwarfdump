@@ -37,6 +37,7 @@ public:
     subroutine,
     method,
     ptr2member,
+    unspec_type, // DW_TAG_unspecified_type
     ns_start,
     ns_end,
   };

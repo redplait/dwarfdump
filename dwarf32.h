@@ -226,6 +226,7 @@ namespace Dwarf32 {
     // DWARF 5
     DW_FORM_strx = 0x1a,
     DW_FORM_addrx = 0x1b,
+    DW_FORM_data16 = 0x1e,
     DW_FORM_implicit_const = 0x21,
     DW_FORM_strx1 = 0x25,
     DW_FORM_strx2 = 0x26,

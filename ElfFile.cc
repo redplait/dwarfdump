@@ -128,6 +128,10 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data,
       data += 8;
       bytes_available -= 8;
       break;
+    case Dwarf32::Form::DW_FORM_data16:
+      data += 16;
+      bytes_available -= 16;
+      break;
     case Dwarf32::Form::DW_FORM_sdata:
     case Dwarf32::Form::DW_FORM_addrx:
     case Dwarf32::Form::DW_FORM_strx:
@@ -446,6 +450,7 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
     CASE_REGISTER_NEW_TAG(DW_TAG_rvalue_reference_type, rvalue_ref_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_subroutine_type, subroutine_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_ptr_to_member_type, ptr2member)
+    CASE_REGISTER_NEW_TAG(DW_TAG_unspecified_type, unspec_type)
     case Dwarf32::Tag::DW_TAG_namespace:
       if ( m_section->has_children )
       {
