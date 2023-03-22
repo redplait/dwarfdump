@@ -71,7 +71,6 @@ uint32_t ElfFile::ULEB128(const unsigned char* &data, size_t& bytes_available) {
   return result;
 }
 
-// static
 void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, 
                                                       size_t& bytes_available) {
   uint32_t length = 0;
@@ -79,9 +78,9 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data,
   switch(form) {
     // Address
     case Dwarf32::Form::DW_FORM_addr:
-      data += sizeof(uint64_t);
-      bytes_available -= sizeof(uint64_t);
-        break;
+      data += address_size_;
+      bytes_available -= address_size_;
+    break;
 
     // Block
     case Dwarf32::Form::DW_FORM_block:
@@ -107,13 +106,20 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data,
 
     // Constant
     case Dwarf32::Form::DW_FORM_data1:
+    case Dwarf32::Form::DW_FORM_strx1:
       data++;
       bytes_available--;
       break;
     case Dwarf32::Form::DW_FORM_data2:
+    case Dwarf32::Form::DW_FORM_strx2:
       data += 2;
       bytes_available -= 2;
       break;
+    case Dwarf32::Form::DW_FORM_strx3:
+      data += 3;
+      bytes_available -= 3;
+      break;
+    case Dwarf32::Form::DW_FORM_strx4:  
     case Dwarf32::Form::DW_FORM_data4:
       data += 4;
       bytes_available -= 4;
@@ -123,6 +129,8 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data,
       bytes_available -= 8;
       break;
     case Dwarf32::Form::DW_FORM_sdata:
+    case Dwarf32::Form::DW_FORM_addrx:
+    case Dwarf32::Form::DW_FORM_strx:
       ElfFile::ULEB128(data, bytes_available);
       break;
     case Dwarf32::Form::DW_FORM_udata:
@@ -148,6 +156,7 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data,
       bytes_available--;
       break;
     case Dwarf32::Form::DW_FORM_flag_present:
+    case Dwarf32::Form::DW_FORM_implicit_const:
       break;
 
     // Reference
@@ -281,9 +290,12 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
   uint64_t value = 0;
 
   switch(form) {
+    case Dwarf32::Form::DW_FORM_flag_present:
+      fprintf(stderr, "ERR: DW_FORM_flag_present at %lX\n", info - debug_info_);
+      value = 1;
+     break;
     case Dwarf32::Form::DW_FORM_data1:
     case Dwarf32::Form::DW_FORM_ref1:
-    case Dwarf32::Form::DW_FORM_flag_present:
       value = *reinterpret_cast<const uint8_t*>(info);
       info++;
       bytes_available--;
@@ -305,10 +317,17 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
     case Dwarf32::Form::DW_FORM_data8:
     case Dwarf32::Form::DW_FORM_ref8:
     case Dwarf32::Form::DW_FORM_ref_sig8:
-    case Dwarf32::Form::DW_FORM_addr:
       value = *reinterpret_cast<const uint64_t*>(info);
       info += 8;
       bytes_available -= 8;
+      break;
+    case Dwarf32::Form::DW_FORM_addr:
+      if ( address_size_ == 8 )
+        value = *reinterpret_cast<const uint64_t*>(info);
+      else
+        value = *reinterpret_cast<const uint32_t*>(info);
+      info += address_size_;
+      bytes_available -= address_size_;
       break;
     case Dwarf32::Form::DW_FORM_sdata:
     case Dwarf32::Form::DW_FORM_udata:
@@ -718,6 +737,7 @@ bool ElfFile::GetAllClasses() {
     cu_base = cu_start - debug_info_;
     const Dwarf32::CompilationUnitHdr* unit_hdr =
         reinterpret_cast<const Dwarf32::CompilationUnitHdr*>(info);
+    address_size_ = unit_hdr->address_size;
     DBG_PRINTF("unit_length         = 0x%x\n", unit_hdr->unit_length);
     DBG_PRINTF("version             = %d\n", unit_hdr->version);
     DBG_PRINTF("debug_abbrev_offset = 0x%x\n", unit_hdr->debug_abbrev_offset);

@@ -224,7 +224,13 @@ namespace Dwarf32 {
     DW_FORM_flag_present,   // flag
     DW_FORM_ref_sig8 = 0x20,// reference
     // DWARF 5
+    DW_FORM_strx = 0x1a,
     DW_FORM_addrx = 0x1b,
+    DW_FORM_implicit_const = 0x21,
+    DW_FORM_strx1 = 0x25,
+    DW_FORM_strx2 = 0x26,
+    DW_FORM_strx3 = 0x27,
+    DW_FORM_strx4 = 0x28,
   };
 
   enum Accessibility {

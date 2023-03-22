@@ -16,8 +16,7 @@ public:
 
 private:
   static uint32_t ULEB128(const unsigned char* &data, size_t& bytes_available);
-  static void PassData(Dwarf32::Form form,
-      const unsigned char* &data, size_t& bytes_available);
+  void PassData(Dwarf32::Form form, const unsigned char* &data, size_t& bytes_available);
   uint64_t DecodeLocation(Dwarf32::Form form,
       const unsigned char* info, size_t bytes_available);
   uint64_t FormDataValue(Dwarf32::Form form,
@@ -47,6 +46,7 @@ private:
   TagSection *m_section;
   typedef std::map<unsigned int, struct TagSection> CompilationUnit;
   CompilationUnit compilation_unit_;
+  uint8_t address_size_;
   int64_t cu_base;
   int64_t m_next; // value of DW_AT_sibling
   int m_level;
