@@ -286,6 +286,17 @@ namespace Dwarf32 {
     DW_LANG_Fortran03 = 0x0022,
     DW_LANG_Fortran08 = 0x0023,
     DW_LANG_RenderScript = 0x0024,
+    // from https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/BinaryFormat/Dwarf.def
+    DW_LANG_BLISS = 0x25,
+    DW_LANG_Kotlin = 0x26,
+    DW_LANG_Zig = 0x27,
+    DW_LANG_Crystal = 0x28,
+    DW_LANG_C_plus_plus_17 = 0x2a,
+    DW_LANG_C_plus_plus_20 = 0x2b,
+    DW_LANG_C17 = 0x2c,
+    DW_LANG_Fortran18 = 0x2d,
+    DW_LANG_Ada2005 = 0x2e,
+    DW_LANG_Ada2012 = 0x2f,
 
     DW_LANG_lo_user = 0x8000,	/* Implementation-defined range start.  */
     DW_LANG_hi_user = 0xffff,	/* Implementation-defined range start.  */
@@ -300,6 +311,8 @@ namespace Dwarf32 {
     DW_LANG_HP_Pascal91  = 0x8005,
     DW_LANG_HP_IMacro    = 0x8006,
     DW_LANG_HP_Assembler = 0x8007,
+    DW_LANG_GOOGLE_RenderScript = 0x8e57,
+    DW_LANG_BORLAND_Delphi = 0xb000,
 
     /* Rust extension, but replaced in DWARF 5.  */
     DW_LANG_Rust_old = 0x9000

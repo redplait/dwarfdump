@@ -198,7 +198,19 @@ const char *get_cu_name(int c)
 	case Dwarf32::dwarf_source_language::DW_LANG_Fortran03:		return "Fortran 03";
 	case Dwarf32::dwarf_source_language::DW_LANG_Fortran08:		return "Fortran 08";
 	case Dwarf32::dwarf_source_language::DW_LANG_RenderScript:	return "RenderScript";
-	  /* MIPS extension.  */
+  case Dwarf32::dwarf_source_language::DW_LANG_BLISS:       return "BLISS";
+  case Dwarf32::dwarf_source_language::DW_LANG_Kotlin:      return "Kotlin";
+  case Dwarf32::dwarf_source_language::DW_LANG_Zig:         return "Zig";
+  case Dwarf32::dwarf_source_language::DW_LANG_Crystal:     return "Crystal";
+  case Dwarf32::dwarf_source_language::DW_LANG_C_plus_plus_17: return "C++17";
+  case Dwarf32::dwarf_source_language::DW_LANG_C_plus_plus_20: return "C++20";
+  case Dwarf32::dwarf_source_language::DW_LANG_C17:         return "C17";
+  case Dwarf32::dwarf_source_language::DW_LANG_Fortran18:   return "Fortran 2018";
+  case Dwarf32::dwarf_source_language::DW_LANG_Ada2005:     return "Ada 2005";
+  case Dwarf32::dwarf_source_language::DW_LANG_Ada2012:     return "Ada 2012";
+  case Dwarf32::dwarf_source_language::DW_LANG_GOOGLE_RenderScript: return "Google RenderScript";
+  case Dwarf32::dwarf_source_language::DW_LANG_BORLAND_Delphi: return "Delphi";
+	  /* asm  */
 	case Dwarf32::dwarf_source_language::DW_LANG_Mips_Assembler:	return "assembler";
 	  /* UPC extension.  */
 	case Dwarf32::dwarf_source_language::DW_LANG_Upc:		return "Unified Parallel C";
