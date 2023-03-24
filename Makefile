@@ -3,16 +3,16 @@ SRC=main.cc ElfFile.cc TreeBuilder.cc JsonRender.cc PlainRender.cc
 
 
 all: $(SRC)
-	g++ -O3 -I $(EHDR) $(SRC) -o dumper -Wall
+	g++ -O3 -I $(EHDR) $(SRC) -o dumper -Wall -lz
 
 dumper.d: $(SRC)
-	g++ -g -I $(EHDR) $(SRC) -o dumper.d -Wall
+	g++ -g -I $(EHDR) $(SRC) -o dumper.d -Wall -lz
 
 dumper.g: dumper.d	
 	objdump -g dumper.d > dumper.g
 
 dumper32.d: $(SRC)
-	g++ -m32 -g -I $(EHDR) $(SRC) -o dumper32.d -Wall
+	g++ -m32 -g -I $(EHDR) $(SRC) -o dumper32.d -Wall -lz
 
 dumper32.g: dumper32.d	
 	objdump -g dumper32.d > dumper32.g

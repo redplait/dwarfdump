@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <zlib.h>
 
 int g_opt_d = 0,
     g_opt_f = 0,
@@ -11,10 +12,79 @@ int g_opt_d = 0,
     g_opt_v = 0;
 FILE *g_outf = NULL;
 
+void dump2file(std::string &name, const void *data, size_t size)
+{
+  // printf("dump2file %s\n", name.c_str());
+  FILE *fp = fopen(name.c_str(), "w");
+  if ( fp == NULL )
+  {
+    fprintf(stderr, "cannot open %s, errno %d", name.c_str(), errno);
+    return;
+  }
+  fwrite(data, 1, size, fp);
+  fclose(fp);
+}
+
+const size_t czSize = 4 + sizeof(uint64_t);
+
+bool ElfFile::unzip_section(ELFIO::section *s, const unsigned char * &data, size_t &size)
+{
+  if ( s->get_size() < czSize )
+  {
+    fprintf(stderr, "section %s is too short, size %lX\n", s->get_name().c_str(), s->get_size());
+    return false;
+  }
+  // check signature - see https://blogs.oracle.com/solaris/post/elf-section-compression
+  const char *sdata = s->get_data();
+  if ( sdata[0] != 0x5a ||
+       sdata[1] != 0x4c ||
+       sdata[2] != 0x49 ||
+       sdata[3] != 0x42
+     )
+  {
+    fprintf(stderr, "section %s has unknown signature %2.2X %2.2X %2.2X %2.2X\n", s->get_name().c_str(), 
+      sdata[0], sdata[1], sdata[2], sdata[3]);
+    return false;
+  }
+  size = __builtin_bswap64(*(uint64_t *)(sdata + 4));
+  unsigned char *buf = (unsigned char *)malloc(size);
+  if ( !buf )
+  {
+    fprintf(stderr, "cannot alooc unompressed size %lX, section size %lX\n", size, s->get_size() - czSize);
+    return false;
+  }
+  if ( g_opt_d )
+  {
+    std::string tmp = "section.";
+    tmp += s->get_name();
+    tmp += ".comp";
+    dump2file(tmp, sdata, s->get_size());
+  }
+  memset(buf, 0, size);
+  int err = uncompress(buf, &size, (Bytef *)(sdata + czSize), s->get_size() - czSize);
+  if ( err != Z_OK )
+  {
+    fprintf(stderr, "uncompress failed, err %d\n", err);
+    free(buf);
+    return false;
+  }
+  data = buf;
+  if ( g_opt_d )
+  {
+    std::string tmp = "section.";
+    tmp += s->get_name();
+    tmp += ".ucomp";
+    dump2file(tmp, data, size);
+  }
+  return true;
+}
+
 ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   tree_builder(tb),
   debug_info_(nullptr), debug_info_size_(0),
-  debug_abbrev_(nullptr), debug_abbrev_size_(0) {
+  debug_abbrev_(nullptr), debug_abbrev_size_(0),
+  free_info(false), free_abbrev(false)
+{
   // read elf file
   if ( !reader.load(filepath.c_str()) )
   {
@@ -25,6 +95,10 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   success = true;
 
   // Search the .debug_info and .debug_abbrev
+  section *zinfo = nullptr;
+  section *zabbrev = nullptr;
+  tree_builder->debug_str_ = nullptr;
+  tree_builder->debug_str_size_ = 0;
   Elf_Half n = reader.sections.size();
   for ( Elf_Half i = 0; i < n; i++) {
     section *s = reader.sections[i];
@@ -38,13 +112,42 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
     } else if (!strcmp(name, ".debug_str")) {
       tree_builder->debug_str_ = reinterpret_cast<const char*>(s->get_data());
       tree_builder->debug_str_size_ = s->get_size();
-    }
+    } // check compressed versions
+    else if ( !strcmp(name, ".zdebug_info") )
+      zinfo = s;
+    else if ( !strcmp(name, ".zdebug_abbrev") )
+      zabbrev = s;
   }
-
+  // check if we need to decompress some sections
+  if ( zinfo )
+  {
+    if ( !unzip_section(zinfo, debug_info_, debug_info_size_) )
+    {
+      fprintf(stderr, "cannot unpack section %s\n", zinfo->get_name().c_str());
+      success = false;
+      return;
+    }
+    free_info = true;
+  }
+  if ( zabbrev )
+  {
+    if ( !unzip_section(zabbrev, debug_abbrev_, debug_abbrev_size_) )
+    {
+      fprintf(stderr, "cannot unpack section %s\n", zabbrev->get_name().c_str());
+      success = false;
+      return;
+    }
+    free_abbrev = true;
+  }
   success = (debug_info_ && debug_abbrev_);
 }
 
-ElfFile::~ElfFile() {
+ElfFile::~ElfFile() 
+{
+  if ( free_info && debug_info_ != nullptr )
+    free((void *)debug_info_);
+  if ( free_abbrev && debug_abbrev_ != nullptr )
+    free((void *)debug_abbrev_);
 }
 
 // static
@@ -298,6 +401,7 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
       fprintf(stderr, "ERR: DW_FORM_flag_present at %lX\n", info - debug_info_);
       value = 1;
      break;
+    case Dwarf32::Form::DW_FORM_flag:
     case Dwarf32::Form::DW_FORM_data1:
     case Dwarf32::Form::DW_FORM_ref1:
       value = *reinterpret_cast<const uint8_t*>(info);

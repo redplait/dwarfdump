@@ -15,6 +15,7 @@ public:
   bool GetAllClasses();
 
 private:
+  bool unzip_section(ELFIO::section *, const unsigned char * &data, size_t &);
   static uint32_t ULEB128(const unsigned char* &data, size_t& bytes_available);
   void PassData(Dwarf32::Form form, const unsigned char* &data, size_t& bytes_available);
   uint64_t DecodeLocation(Dwarf32::Form form,
@@ -51,4 +52,6 @@ private:
   int64_t m_next; // value of DW_AT_sibling
   int m_level;
   bool m_regged;
+  bool free_info;
+  bool free_abbrev;
 };

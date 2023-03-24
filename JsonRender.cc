@@ -20,7 +20,7 @@ void JsonRender::RenderUnit(int last)
 {
   auto json = GenerateJson();
   // if this was last unit - cut final comma
-  if ( last )
+  if ( last && !json.empty() )
   {
     json.pop_back();
     json.pop_back();
