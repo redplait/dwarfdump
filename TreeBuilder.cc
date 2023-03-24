@@ -337,7 +337,7 @@ bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level, bool ell)
   if ( !recent_->m_comp )
     recent_->m_comp = new Compound();
   
-  recent_->m_comp->params_.push_back({NULL, tag_id, 0, ell});
+  recent_->m_comp->params_.push_back({NULL, tag_id, 0, ell, false});
   return true;
 }
 
@@ -475,6 +475,23 @@ void TreeBuilder::SetLinkageName(const char* name) {
   return;
 }
 
+void TreeBuilder::SetVarParam(bool v)
+{
+  if (current_element_type_ != ElementType::formal_param) {
+    return;
+  }
+  if (!elements_.size()) {
+    fprintf(stderr, "Can't set an variable parameter if the element list is empty\n");
+    return;
+  }
+  auto top = m_stack.top();
+  if (!top->m_comp || top->m_comp->params_.empty()) {
+    fprintf(stderr, "Can't set the variable parameter if the params list is empty\n");
+    return;
+  }
+  top->m_comp->params_.back().var_ = v;
+}
+
 void TreeBuilder::SetElementName(const char* name) {
   if (current_element_type_ == ElementType::none) {
     return;
@@ -490,12 +507,19 @@ void TreeBuilder::SetElementName(const char* name) {
       fprintf(stderr, "Can't set the formal param name when stack is empty\n");
       return;
     }
-    if (!recent_ || !recent_->m_comp || recent_->m_comp->params_.empty()) {
+    auto top = m_stack.top();
+    // check that top is subroutine or method
+    if ( top->type_ != ElementType::subroutine && top->type_ != ElementType::method )
+    {
+      fprintf(stderr, "Can't set the formal param name if the top element is not function\n");
+      return;
+    }
+    if ( !top->m_comp || top->m_comp->params_.empty()) {
       fprintf(stderr, "Can't set the formal param name if the params list is empty\n");
       return;
     }
 
-    recent_->m_comp->params_.back().name = name;
+    top->m_comp->params_.back().name = name;
     return;    
   }
   if ( current_element_type_ == ElementType::enumerator )

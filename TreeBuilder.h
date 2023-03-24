@@ -75,6 +75,7 @@ public:
   void SetSpec(uint64_t);
   void SetAbs(uint64_t);
   void SetInlined(int);
+  void SetVarParam(bool);
 
   uint64_t get_replaced_type(uint64_t) const;
   int check_dumped_type(const char *);
@@ -128,6 +129,7 @@ protected:
     uint64_t param_id;
     uint64_t id;
     bool ellipsis;
+    bool var_; // from DW_AT_variable_parameter - go mostly?
   };
 
   struct Compound;
