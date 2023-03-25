@@ -79,6 +79,7 @@ public:
 
   uint64_t get_replaced_type(uint64_t) const;
   int check_dumped_type(const char *);
+  void collect_go_types();
   // renderer methods
   bool get_replaced_name(uint64_t, std::string &);
   // compilation unit data
@@ -86,6 +87,7 @@ public:
   const char *cu_comp_dir;
   const char *cu_producer;
   int cu_lang;
+  bool is_go() const;
   // for names with direct string - seems that if name lesser pointer size they are directed
   // so renderer should be able to distinguish if some name located in string pool
   // in other case this name should be considered as direct string
@@ -309,4 +311,6 @@ protected:
   // already dumped types
   std::map<UniqName, std::pair<uint64_t, size_t> > m_dumped_db;
   std::map<UniqName2, std::pair<uint64_t, size_t> > m_dumped_db2;
+  // go names
+  std::map<uint64_t, const char *> m_go_types;
 };

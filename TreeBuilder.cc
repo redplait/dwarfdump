@@ -4,6 +4,19 @@
 TreeBuilder::TreeBuilder() = default;
 TreeBuilder::~TreeBuilder() = default;
 
+void TreeBuilder::collect_go_types()
+{
+  for ( auto &e: elements_ )
+  {
+    if ( !e.name_ )
+      continue; // and type must be named
+    // no namespaces
+    if ( e.type_ == ns_start )
+      continue;
+    m_go_types[e.id_] = e.name_;
+  }
+} 
+
 // add dumped types to m_dumped_db
 int TreeBuilder::merge_dumped()
 {
@@ -153,6 +166,11 @@ uint64_t TreeBuilder::get_replaced_type(uint64_t id) const
   return ci->second.id;
 }
 
+bool TreeBuilder::is_go() const
+{
+  return cu_lang == Dwarf32::dwarf_source_language::DW_LANG_Go;
+}
+
 const char *get_cu_name(int c)
 {
   switch (c)
@@ -254,6 +272,8 @@ void TreeBuilder::ProcessUnit(int last)
   m_hdr_dumped = false;
   RenderUnit(last);
   merge_dumped();
+  if ( is_go() )
+    collect_go_types();
   elements_.clear();
   m_replaced.clear();
   cu_name = cu_comp_dir = cu_producer = NULL;

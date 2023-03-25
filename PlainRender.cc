@@ -88,6 +88,15 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, named *n, int level)
   auto el = m_els.find(key);
   if ( el == m_els.end() )
   {
+    if ( is_go() )
+    {
+      auto go_el = m_go_types.find(key);
+      if ( go_el != m_go_types.end() )
+      {
+        res = go_el->second;
+        return true;
+      }
+    }
     res = "missed type ";
     res += std::to_string(key);
     return true;
