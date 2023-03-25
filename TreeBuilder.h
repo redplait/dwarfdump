@@ -89,11 +89,11 @@ public:
   // for names with direct string - seems that if name lesser pointer size they are directed
   // so renderer should be able to distinguish if some name located in string pool
   // in other case this name should be considered as direct string
-  const char *debug_str_;
+  const unsigned char *debug_str_;
   size_t debug_str_size_;
   inline bool in_string_pool(const char *s)
   {
-    return (s >= debug_str_) && (s < debug_str_ + debug_str_size_);
+    return (s >= (const char *)debug_str_) && (s < (const char *)debug_str_ + debug_str_size_);
   }
 protected:
   virtual void RenderUnit(int last)

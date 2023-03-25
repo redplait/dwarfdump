@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <zlib.h>
+#include <elf.h>
 
 int g_opt_d = 0,
     g_opt_f = 0,
@@ -23,6 +24,67 @@ void dump2file(std::string &name, const void *data, size_t size)
   }
   fwrite(data, 1, size, fp);
   fclose(fp);
+}
+
+template <typename T>
+bool ElfFile::uncompressed_section(ELFIO::section *s, const unsigned char * &data, size_t &size)
+{
+  data = nullptr;
+  if ( s->get_size() < sizeof(T) )
+  {
+    fprintf(stderr, "compressed section %s is too short, size %lX\n", s->get_name().c_str(), s->get_size());
+    return false;
+  }
+  const char *sdata = s->get_data();
+  const T* hdr = (const T*)sdata;
+  size = hdr->ch_size;
+  if ( g_opt_d )
+    fprintf(stderr, "compressed section %s type %d size %lX\n", s->get_name().c_str(), hdr->ch_type, (Elf64_Xword)hdr->ch_size);
+  if ( hdr->ch_type != ELFCOMPRESS_ZLIB )
+  {
+    fprintf(stderr, "compressed section %s has unknown type %d\n", s->get_name().c_str(), hdr->ch_type);
+    return false;
+  }
+  unsigned char *buf = (unsigned char *)malloc(size);
+  if ( !buf )
+  {
+    fprintf(stderr, "cannot alooc unompressed size %lX, section size %lX\n", size, s->get_size() - sizeof(T));
+    return false;
+  }
+  if ( g_opt_d )
+  {
+    std::string tmp = "section.";
+    tmp += s->get_name();
+    tmp += ".comp";
+    dump2file(tmp, sdata, s->get_size());
+  }
+  memset(buf, 0, size);
+  int err = uncompress(buf, &size, (Bytef *)(sdata + sizeof(T)), s->get_size() - sizeof(T));
+  if ( err != Z_OK )
+  {
+    fprintf(stderr, "uncompress failed, err %d\n", err);
+    free(buf);
+    return false;
+  }
+  data = buf;
+  if ( g_opt_d )
+  {
+    std::string tmp = "section.";
+    tmp += s->get_name();
+    tmp += ".ucomp";
+    dump2file(tmp, data, size);
+  }
+  return true;
+}
+
+bool ElfFile::check_compressed_section(ELFIO::section *s, const unsigned char * &data, size_t &size)
+{
+  if ( ! (s->get_flags() & SHF_COMPRESSED) )
+    return false;
+  if ( reader.get_class() == ELFCLASS64 )
+    return uncompressed_section<Elf64_Chdr>(s, data, size);
+  else
+    return uncompressed_section<Elf32_Chdr>(s, data, size);
 }
 
 const size_t czSize = 4 + sizeof(uint64_t);
@@ -83,7 +145,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   tree_builder(tb),
   debug_info_(nullptr), debug_info_size_(0),
   debug_abbrev_(nullptr), debug_abbrev_size_(0),
-  free_info(false), free_abbrev(false)
+  free_info(false), free_abbrev(false), free_strings(false)
 {
   // read elf file
   if ( !reader.load(filepath.c_str()) )
@@ -97,6 +159,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   // Search the .debug_info and .debug_abbrev
   section *zinfo = nullptr;
   section *zabbrev = nullptr;
+  section *zstrings = nullptr;
   tree_builder->debug_str_ = nullptr;
   tree_builder->debug_str_size_ = 0;
   Elf_Half n = reader.sections.size();
@@ -106,17 +169,25 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
     if (!strcmp(name, ".debug_info")) {
       debug_info_ = reinterpret_cast<const unsigned char*>(s->get_data());
       debug_info_size_ = s->get_size();
+      if ( check_compressed_section(s, debug_info_, debug_info_size_) )
+        free_info = true;
     } else if (!strcmp(name, ".debug_abbrev")) {
       debug_abbrev_ = reinterpret_cast<const unsigned char*>(s->get_data());
       debug_abbrev_size_ = s->get_size();
+      if ( check_compressed_section(s, debug_abbrev_, debug_abbrev_size_) )
+        free_abbrev = true;
     } else if (!strcmp(name, ".debug_str")) {
-      tree_builder->debug_str_ = reinterpret_cast<const char*>(s->get_data());
+      tree_builder->debug_str_ = reinterpret_cast<const unsigned char*>(s->get_data());
       tree_builder->debug_str_size_ = s->get_size();
+      if ( check_compressed_section(s, tree_builder->debug_str_, tree_builder->debug_str_size_) )
+        free_strings = true;
     } // check compressed versions
     else if ( !strcmp(name, ".zdebug_info") )
       zinfo = s;
     else if ( !strcmp(name, ".zdebug_abbrev") )
       zabbrev = s;
+    else if ( !strcmp(name, ".zdebug_str") )
+      zstrings = s;
   }
   // check if we need to decompress some sections
   if ( zinfo )
@@ -139,6 +210,16 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
     }
     free_abbrev = true;
   }
+  if ( zstrings )
+  {
+    if ( !unzip_section(zstrings, tree_builder->debug_str_, tree_builder->debug_str_size_) )
+    {
+      fprintf(stderr, "cannot unpack section %s\n", zstrings->get_name().c_str());
+      success = false;
+      return;
+    }
+    free_strings = true;
+  }
   success = (debug_info_ && debug_abbrev_);
 }
 
@@ -148,6 +229,8 @@ ElfFile::~ElfFile()
     free((void *)debug_info_);
   if ( free_abbrev && debug_abbrev_ != nullptr )
     free((void *)debug_abbrev_);
+  if ( free_strings && tree_builder && tree_builder->debug_str_ != nullptr )
+    free((void *)tree_builder->debug_str_);
 }
 
 // static
@@ -466,7 +549,7 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
       str_pos = *reinterpret_cast<const uint32_t*>(info);
       info += sizeof(str_pos);
       bytes_available -= sizeof(str_pos);
-      str = &tree_builder->debug_str_[str_pos];
+      str = (const char*)&tree_builder->debug_str_[str_pos];
       break;
     case Dwarf32::Form::DW_FORM_string:
       str = reinterpret_cast<const char*>(info);
