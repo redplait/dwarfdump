@@ -11,6 +11,7 @@ int g_opt_d = 0,
     g_opt_k = 0,
     g_opt_l = 0,
     g_opt_L = 0,
+    g_opt_V = 0,
     g_opt_v = 0;
 FILE *g_outf = NULL;
 
@@ -387,6 +388,60 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data,
   }
 }
 
+// var addresses decoded as block + OP_addr
+uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* data, size_t bytes_available) 
+{
+  if ( form == Dwarf32::Form::DW_FORM_sec_offset )
+    return 0;
+  uint32_t length = 0;
+  // fprintf(stderr, "DecodeAddrLocation form %d\n", form);
+  switch(form)
+  {
+    case Dwarf32::Form::DW_FORM_exprloc:
+    case Dwarf32::Form::DW_FORM_block:
+      length = ElfFile::ULEB128(data, bytes_available);
+      break;
+    case Dwarf32::Form::DW_FORM_block1:
+      length = *reinterpret_cast<const uint8_t*>(data);
+      data += sizeof(uint8_t);
+      bytes_available -= sizeof(uint8_t);
+      break;
+    case Dwarf32::Form::DW_FORM_block2:
+      length = *reinterpret_cast<const uint16_t*>(data);
+      data += sizeof(uint16_t);
+      bytes_available -= sizeof(uint16_t);
+      break;
+    case Dwarf32::Form::DW_FORM_block4:
+      length = *reinterpret_cast<const uint32_t*>(data);
+      data += sizeof(uint32_t);
+      bytes_available -= sizeof(uint32_t);
+      break;
+    default:
+      fprintf(stderr, "DecodeAddrLocation: unknown form %X at %lX\n", form, data - debug_info_);
+      return 0;
+  }
+  const unsigned char *end = data + length;
+  while( data < end && bytes_available )
+  {
+    unsigned op = *data;
+    data++;
+    bytes_available--;
+    switch(op)
+    {
+      case Dwarf32::dwarf_ops::DW_OP_addr:
+        if ( address_size_ == 8 )
+          return *reinterpret_cast<const uint64_t*>(data);
+        else
+          return *reinterpret_cast<const uint32_t*>(data);
+       break;
+      default:
+        // fprintf(stderr, "DecodeAddrLocation: unknown op %X\n", op);
+        return 0;
+    }
+  }
+  return 0;
+}
+
 // seems that vtable_elem_location usually encoded not as simple DW_FORM_xxx (so we can`t use FormDataValue here)
 // but as DW_OP_constu inside block
 // so I ripped necessary part of code from binutils/dwarf.c function decode_location_expression in this method
@@ -634,6 +689,13 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
         return true;
       }
       break;
+    case Dwarf32::Tag::DW_TAG_variable:
+      if ( g_opt_V )
+      {
+        tree_builder->AddElement(TreeBuilder::ElementType::var_type, tag_id, m_level);
+        return true;
+      }
+      break;
     case Dwarf32::Tag::DW_TAG_namespace:
       if ( m_section->has_children )
       {
@@ -833,6 +895,13 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       uint64_t offset = FormDataValue(form, info, info_bytes);
       tree_builder->SetElementOffset(offset);
       return true;
+    }
+
+    case Dwarf32::Attribute::DW_AT_location: {
+      uint64_t offset = DecodeAddrLocation(form, info, info_bytes);
+      if ( offset && m_regged )
+        tree_builder->SetAddr(offset);
+      return false;
     }
 
     // Type

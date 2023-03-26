@@ -895,9 +895,10 @@ void TreeBuilder::SetSpec(uint64_t ct)
 }
 
 void TreeBuilder::SetAddr(uint64_t count) {
-  if (current_element_type_ != ElementType::subroutine) {
-    return;
-  }
+  if (current_element_type_ != ElementType::subroutine &&
+      current_element_type_ != ElementType::var_type
+     )
+     return;
   if (!elements_.size()) {
     fprintf(stderr, "Can't set address when element list is empty\n");
     return;
@@ -970,6 +971,7 @@ const char* TreeBuilder::Element::TypeName() {
     case ElementType::unspec_type: return "unspec_type";
     case ElementType::ns_start: return "namespace";
     case ElementType::lexical_block: return "lexical_block";
+    case ElementType::var_type: return "var";
     default: return "unk";
   }
 }

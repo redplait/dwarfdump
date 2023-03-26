@@ -39,6 +39,7 @@ public:
     ptr2member,
     unspec_type, // DW_TAG_unspecified_type
     lexical_block, // when -L option is set
+    var_type,
     ns_start,
     ns_end,
   };

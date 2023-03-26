@@ -37,6 +37,8 @@ std::string JsonRender::GenerateJson() {
   if ( elements_.empty() )
     return result;
   for ( auto &e: elements_ ) {
+    if ( e.type_ == ElementType::var_type && !e.addr_ )
+      continue;
     auto jres = GenerateJson(e);
     if ( !jres.empty() )
     {

@@ -3,7 +3,7 @@
 #include "JsonRender.h"
 #include "PlainRender.h"
 
-extern int g_opt_d, g_opt_f, g_opt_l, g_opt_v;
+extern int g_opt_d, g_opt_f, g_opt_l, g_opt_L, g_opt_v, g_opt_V;
 extern FILE *g_outf;
 
 int use_json = 0;
@@ -17,8 +17,10 @@ void usage(const char *prog)
   printf("-j - produce json\n");
   printf("-k - keep already dumped types\n");
   printf("-l - add levels\n");
+  printf("-L - process lexical blocks\n");
   printf("-o out-file\n");
   printf("-v - verbose mode\n");
+  printf("-V - dump vars\n");
   exit(6);
 }
 
@@ -28,7 +30,7 @@ int main(int argc, char* argv[])
   // read options
   while(1)
   {
-    int c = getopt(argc, argv, "dfjklvo:");
+    int c = getopt(argc, argv, "dfjklLvVo:");
     if ( c == -1 )
       break;
     switch(c)
@@ -43,7 +45,11 @@ int main(int argc, char* argv[])
         break;
       case 'l': g_opt_l = 1;
         break;
+      case 'L': g_opt_L = 1;
+        break;
       case 'v': g_opt_v = 1;
+        break;
+      case 'V': g_opt_V = 1;
         break;
       case 'o':
          if ( fp )
@@ -68,6 +74,7 @@ int main(int argc, char* argv[])
   std::string binary_path = std::string(argv[optind]);
   ElfFile file(binary_path, success, render);
   if (!success) {
+    fprintf(stderr, "cannot load %s\n", argv[optind]);
     delete render;
     return 2;
   }
