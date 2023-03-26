@@ -857,15 +857,20 @@ void TreeBuilder::SetContainingType(uint64_t ct)
 void TreeBuilder::SetAbs(uint64_t ct)
 {
   // formal paraameters also can have abstract_origin
-  if (current_element_type_ != ElementType::subroutine) {
+  if (current_element_type_ != ElementType::subroutine &&
+      current_element_type_ != ElementType::method &&
+      current_element_type_ != ElementType::var_type
+     )
     return;
-  }
   if (!elements_.size()) {
     fprintf(stderr, "Can't set abstract_origin when element list is empty\n");
     return;
   }
   // fprintf(g_outf, "SetAbs %lX to %lX\n", ct, elements_.back().id_);
-  elements_.back().abs_ = ct;
+  if ( recent_ )
+    recent_->abs_ = ct;
+  else
+    elements_.back().abs_ = ct;
 }
 
 void TreeBuilder::SetInlined(int ct)

@@ -82,8 +82,14 @@ void PlainRender::RenderUnit(int last)
     }
   }
   dump_types();
+  if ( !m_vars.empty() )
+  {
+    fprintf(g_outf, "/// vars\n");
+    dump_vars();
+  }
   m_els.clear();
   m_specs.clear();
+  m_vars.clear();
 }
 
 bool PlainRender::dump_type(uint64_t key, std::string &res, named *n, int level)
@@ -493,10 +499,59 @@ void PlainRender::dump_func(Element *e)
   fprintf(g_outf, ")");
 }
 
+void PlainRender::dump_var(Element *e)
+{
+  if ( e->link_name_ && e->link_name_ != e->name_ )
+    fprintf(g_outf, "// LinkageName: %s\n", e->link_name_);
+  std::string tname;
+  named n { e->name_ };
+  dump_type(e->type_id_, tname, &n);
+  auto tn = n.name();
+  if ( tn != nullptr )
+    fprintf(g_outf, "%s %s;\n", tname.c_str(), e->name_);
+  else
+    fprintf(g_outf, "%s;\n", tname.c_str());
+}
+
+void PlainRender::dump_vars()
+{
+  for ( auto &e: m_vars )
+  {
+    if ( e->addr_ )
+      fprintf(g_outf, "// Addr 0x%lX\n", e->addr_);
+    if ( g_opt_v )
+      fprintf(g_outf, "// TypeId %lX\n", e->id_);
+    if ( e->name_ )
+      dump_var(e);
+    else if ( e->spec_ )
+    {
+      auto el = m_els.find(e->spec_);
+      if ( el == m_els.end() )
+        fprintf(g_outf, "// cannot find var with spec %lX\n", e->spec_);
+      else
+        dump_var(el->second);
+    } else if ( e->abs_ )
+    {
+      auto el = m_els.find(e->abs_);
+      if ( el == m_els.end() )
+        fprintf(g_outf, "// cannot find var with abs %lX\n", e->abs_);
+      else
+        dump_var(el->second);
+    } else
+      fprintf(g_outf, "// unknown var id %lX\n", e->id_);
+  }
+}
+
 void PlainRender::dump_types()
 {
   for ( auto &e: elements_ )
   {
+    if ( ElementType::var_type == e.type_ )
+    {
+      if ( e.addr_ )
+        m_vars.push_back(&e);
+      continue;
+    }
     if ( ElementType::ns_end == e.type_ )
     {
       fprintf(g_outf, "}; // namespace %s\n", e.name_);
