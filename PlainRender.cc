@@ -46,6 +46,16 @@ void PlainRender::RenderUnit(int last)
     }
     if ( e.is_abs() )
       need_abs |= 1;
+    // add methods too
+    if ( e.has_methods() )
+      for ( auto &m: e.m_comp->methods_ )
+      {
+        m_els[m.id_] = &m;
+        if ( m.spec_ && m.addr_ )
+          m_specs[m.spec_].push_back(&m);
+        if ( m.is_abs() )
+          need_abs |= 1;
+      }
   }
   if ( need_abs )
   {
