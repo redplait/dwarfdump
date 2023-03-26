@@ -10,6 +10,7 @@ int g_opt_d = 0,
     g_opt_f = 0,
     g_opt_k = 0,
     g_opt_l = 0,
+    g_opt_L = 0,
     g_opt_v = 0;
 FILE *g_outf = NULL;
 
@@ -626,13 +627,19 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
     CASE_REGISTER_NEW_TAG(DW_TAG_subroutine_type, subroutine_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_ptr_to_member_type, ptr2member)
     CASE_REGISTER_NEW_TAG(DW_TAG_unspecified_type, unspec_type)
+    case Dwarf32::Tag::DW_TAG_lexical_block:
+      if ( g_opt_L && m_section->has_children )
+      {
+        tree_builder->AddElement(TreeBuilder::ElementType::lexical_block, tag_id, m_level);
+        return true;
+      }
+      break;
     case Dwarf32::Tag::DW_TAG_namespace:
       if ( m_section->has_children )
       {
         tree_builder->AddElement(TreeBuilder::ElementType::ns_start, tag_id, m_level);
         return true;
       }
-      tree_builder->AddNone();
       break;      
     case Dwarf32::Tag::DW_TAG_subprogram:
       if ( g_opt_f )
@@ -640,7 +647,6 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
         tree_builder->AddElement(TreeBuilder::ElementType::subroutine, tag_id, m_level);
         return true;
       }
-      tree_builder->AddNone();
       break;
     case Dwarf32::Tag::DW_TAG_unspecified_parameters:
       ell = true;
@@ -648,14 +654,11 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
       if ( g_opt_d )
         fprintf(g_outf, "param %lX regged %d\n", tag_id, m_regged);
       if ( m_regged )
-      {
         return tree_builder->AddFormalParam(tag_id, m_level, ell);
-      }
-      tree_builder->AddNone();
       break;
-    default:
-      tree_builder->AddNone();
+    default: ;
   }
+  tree_builder->AddNone();
   return false;
 }
 
@@ -730,7 +733,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       if ( Dwarf32::Attribute::DW_AT_linkage_name == attribute )
         tree_builder->SetLinkageName(name);
       else
-        tree_builder->SetElementName(name);
+        tree_builder->SetElementName(name, info - debug_info_);
       return true;
     }
     case Dwarf32::Attribute::DW_AT_explicit: {

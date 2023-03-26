@@ -420,7 +420,8 @@ void PlainRender::dump_method(Method *e, const Element *owner, std::string &res)
       tmp = "void";
   }
   res += tmp + " ";
-  res += e->name_;
+  if ( e->name_ )
+    res += e->name_;
   res += "(";
   if ( !e->m_comp || e->m_comp->params_.empty() )
     ;
@@ -497,6 +498,8 @@ void PlainRender::dump_types()
       fprintf(g_outf, "namespace %s {\n", e.name_);
       continue;
     }
+    if ( ElementType::lexical_block == e.type_ )
+      continue;
     if ( !e.name_ )
       continue;
     if ( e.level_ > 1 )

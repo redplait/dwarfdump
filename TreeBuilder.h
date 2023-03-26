@@ -38,6 +38,7 @@ public:
     method,
     ptr2member,
     unspec_type, // DW_TAG_unspecified_type
+    lexical_block, // when -L option is set
     ns_start,
     ns_end,
   };
@@ -51,7 +52,7 @@ public:
   void AddNone();
   void AddElement(ElementType element_type, uint64_t tag_id, int level);
   bool AddFormalParam(uint64_t tag_id, int level, bool);
-  void SetElementName(const char* name);
+  void SetElementName(const char* name, uint64_t off);
   void SetLinkageName(const char* name);
   void SetElementSize(uint64_t size);
   void SetElementOffset(uint64_t offset);

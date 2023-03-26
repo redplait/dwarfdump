@@ -11,7 +11,7 @@ void TreeBuilder::collect_go_types()
     if ( !e.name_ )
       continue; // and type must be named
     // no namespaces
-    if ( e.type_ == ns_start )
+    if ( e.type_ == ns_start || e.type_ == lexical_block )
       continue;
     m_go_types[e.id_] = e.name_;
   }
@@ -28,7 +28,7 @@ int TreeBuilder::merge_dumped()
     if ( !e.name_ )
       continue; // and type must be named
     // no namespaces
-    if ( e.type_ == ns_start )
+    if ( e.type_ == ns_start || e.type_ == ns_end || e.type_ == lexical_block )
       continue;
     // skip pure forward declarations
     if ( e.is_pure_decl() )
@@ -293,11 +293,14 @@ int TreeBuilder::add2stack()
     return 0;
   }
   auto &last = elements_.back();
-  if ( last.type_ == ns_start )
+  if ( last.type_ == ns_start && !recent_ )
   {
     ns_count++;
     if ( g_opt_v )
       fprintf(g_outf, "// ns_start %d at %lX\n", ns_count, last.id_);
+  } else if ( last.type_ == lexical_block && !recent_ ) {
+    // fprintf(g_outf, "// lexical_block %d at %lX\n", ns_count, last.id_);
+    ns_count++;
   }
   if ( recent_ )
     m_stack.push(recent_);
@@ -322,6 +325,10 @@ void TreeBuilder::pop_stack(uint64_t off)
     elements_.back().name_ = last->name_;
     if ( g_opt_v )
       fprintf(g_outf, "// ns_end %s %d off %lX\n", last->name_, ns_count, off);
+  } else if ( last->type_ == lexical_block )
+  {
+    // fprintf(g_outf, "// pop lexical_block %lX, ns_count %d\n", last->id_, ns_count);
+    ns_count--;
   }
   m_stack.pop();
   recent_ = nullptr;
@@ -346,8 +353,8 @@ bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level, bool ell)
     fprintf(stderr, "Can't add a formal parameter when stack is empty\n");
     return false;
   }
-  // fprintf(g_outf, "f level %d level %d\n", m_stack.top()->level_, level);
   auto top = m_stack.top();
+  // fprintf(g_outf, "f %lX level %d level %d ns_count %d\n", top->id_, top->level_, level, ns_count);
   if ( top->level_ != level - 1 )
     return false;
   if ( !top->m_comp )
@@ -390,6 +397,7 @@ void TreeBuilder::SetParentAccess(int a)
 
 void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int level) {
   level -= ns_count;
+  // fprintf(g_outf, "AddElement %d id %lX level %d ns_count %d\n", element_type, tag_id, level, ns_count);
   switch(element_type) {
     case ElementType::member:       // Member
       if (current_element_type_ == ElementType::none) {
@@ -508,12 +516,13 @@ void TreeBuilder::SetVarParam(bool v)
   top->m_comp->params_.back().var_ = v;
 }
 
-void TreeBuilder::SetElementName(const char* name) {
+void TreeBuilder::SetElementName(const char* name, uint64_t off) 
+{
   if (current_element_type_ == ElementType::none) {
     return;
   }
   if (!elements_.size()) {
-    fprintf(stderr, "Can't set an element name if the element list is empty\n");
+    fprintf(stderr, "Can't set an element name if the element list is empty, offset %lX\n", off);
     return;
   }
 
@@ -527,11 +536,11 @@ void TreeBuilder::SetElementName(const char* name) {
     // check that top is subroutine or method
     if ( top->type_ != ElementType::subroutine && top->type_ != ElementType::method )
     {
-      fprintf(stderr, "Can't set the formal param name if the top element is not function\n");
+      fprintf(stderr, "Can't set the formal param name if the top element is not function, offset %lX\n", off);
       return;
     }
     if ( !top->m_comp || top->m_comp->params_.empty()) {
-      fprintf(stderr, "Can't set the formal param name if the params list is empty\n");
+      fprintf(stderr, "Can't set the formal param name to %lX when the params list is empty, offset %lX\n", top->id_, off);
       return;
     }
 
@@ -960,6 +969,7 @@ const char* TreeBuilder::Element::TypeName() {
     case ElementType::ptr2member: return "ptr2member";
     case ElementType::unspec_type: return "unspec_type";
     case ElementType::ns_start: return "namespace";
+    case ElementType::lexical_block: return "lexical_block";
     default: return "unk";
   }
 }
