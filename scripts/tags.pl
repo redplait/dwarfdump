@@ -43,6 +43,14 @@ sub parse
         $f->{$form}++;
         next;
       }
+      # unknown AT value
+      if ( $str =~ /^\s+<[0-9a-f]+>\s+Unknown AT value: (\d+):/ )
+      {
+        $form = "unk_" . $1;
+        my $f = $db->{$tag}->[1];
+        $f->{$form}++;
+        next;
+      }
     }
   }
   close $fh;  
