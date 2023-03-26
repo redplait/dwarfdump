@@ -26,6 +26,14 @@ void dump2file(std::string &name, const void *data, size_t size)
   fclose(fp);
 }
 
+void dump2file(ELFIO::section *s, const char *pfx, const void *data, size_t size)
+{
+  std::string tmp = "section.";
+  tmp += s->get_name();
+  tmp += pfx;
+  dump2file(tmp, data, size);
+}
+
 template <typename T>
 bool ElfFile::uncompressed_section(ELFIO::section *s, const unsigned char * &data, size_t &size)
 {
@@ -52,12 +60,7 @@ bool ElfFile::uncompressed_section(ELFIO::section *s, const unsigned char * &dat
     return false;
   }
   if ( g_opt_d )
-  {
-    std::string tmp = "section.";
-    tmp += s->get_name();
-    tmp += ".comp";
-    dump2file(tmp, sdata, s->get_size());
-  }
+    dump2file(s, ".comp", sdata, s->get_size());
   memset(buf, 0, size);
   int err = uncompress(buf, &size, (Bytef *)(sdata + sizeof(T)), s->get_size() - sizeof(T));
   if ( err != Z_OK )
@@ -68,12 +71,7 @@ bool ElfFile::uncompressed_section(ELFIO::section *s, const unsigned char * &dat
   }
   data = buf;
   if ( g_opt_d )
-  {
-    std::string tmp = "section.";
-    tmp += s->get_name();
-    tmp += ".ucomp";
-    dump2file(tmp, data, size);
-  }
+    dump2file(s, ".ucomp", data, size);
   return true;
 }
 
@@ -116,12 +114,7 @@ bool ElfFile::unzip_section(ELFIO::section *s, const unsigned char * &data, size
     return false;
   }
   if ( g_opt_d )
-  {
-    std::string tmp = "section.";
-    tmp += s->get_name();
-    tmp += ".comp";
-    dump2file(tmp, sdata, s->get_size());
-  }
+    dump2file(s, ".comp", sdata, s->get_size());
   memset(buf, 0, size);
   int err = uncompress(buf, &size, (Bytef *)(sdata + czSize), s->get_size() - czSize);
   if ( err != Z_OK )
@@ -132,12 +125,7 @@ bool ElfFile::unzip_section(ELFIO::section *s, const unsigned char * &data, size
   }
   data = buf;
   if ( g_opt_d )
-  {
-    std::string tmp = "section.";
-    tmp += s->get_name();
-    tmp += ".ucomp";
-    dump2file(tmp, data, size);
-  }
+    dump2file(s, ".ucomp", data, size);
   return true;
 }
 

@@ -342,22 +342,18 @@ bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level, bool ell)
 {
   level -= ns_count;
   current_element_type_ = ElementType::formal_param;
-  if ( !recent_ )
-  {
-    fprintf(stderr, "Can't add a formal parameter %lX if the element list is empty\n", tag_id);
-    return false;
-  }
   if ( m_stack.empty() ) {
     fprintf(stderr, "Can't add a formal parameter when stack is empty\n");
     return false;
   }
   // fprintf(g_outf, "f level %d level %d\n", m_stack.top()->level_, level);
-  if ( recent_->level_ != level - 1 )
+  auto top = m_stack.top();
+  if ( top->level_ != level - 1 )
     return false;
-  if ( !recent_->m_comp )
-    recent_->m_comp = new Compound();
+  if ( !top->m_comp )
+    top->m_comp = new Compound();
   
-  recent_->m_comp->params_.push_back({NULL, tag_id, 0, ell, false});
+  top->m_comp->params_.push_back({NULL, tag_id, 0, ell, false});
   return true;
 }
 
@@ -805,11 +801,13 @@ void TreeBuilder::SetElementType(uint64_t type_id) {
         fprintf(stderr, "Can't set the formal param type when stack is empty\n");
         return;
       } else {
-        if (!recent_ || !recent_->m_comp || recent_->m_comp->params_.empty()) {
-          fprintf(stderr, "Can't set the formal param type if the members list is empty\n");
+        auto top = m_stack.top();
+        if (!top->m_comp || top->m_comp->params_.empty() )
+        {
+          fprintf(stderr, "Can't set the formal param type if the params list is empty\n");
           break;
         }
-        recent_->m_comp->params_.back().id = type_id;
+        top->m_comp->params_.back().id = type_id;
       }
       break;
     case ElementType::subrange_type:
