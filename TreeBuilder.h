@@ -5,8 +5,16 @@
 #include <vector>
 #include <stack>
 
-extern int g_opt_k, g_opt_l, g_opt_v;
+extern int g_opt_g, g_opt_k, g_opt_l, g_opt_v;
 extern FILE *g_outf;
+
+struct cu
+{
+  const char *cu_name;
+  const char *cu_comp_dir;
+  const char *cu_producer;
+  int cu_lang;
+};
 
 class TreeBuilder {
 public:
@@ -85,10 +93,7 @@ public:
   // renderer methods
   bool get_replaced_name(uint64_t, std::string &);
   // compilation unit data
-  const char *cu_name;
-  const char *cu_comp_dir;
-  const char *cu_producer;
-  int cu_lang;
+  struct cu cu;
   bool is_go() const;
   // for names with direct string - seems that if name lesser pointer size they are directed
   // so renderer should be able to distinguish if some name located in string pool
@@ -103,6 +108,7 @@ protected:
   virtual void RenderUnit(int last)
   {}
   void put_file_hdr();
+  void put_file_hdr(struct cu *);
   int merge_dumped();
   int can_have_methods(int level);
 
@@ -280,6 +286,25 @@ protected:
        def_(false),
        expl_(false)
     {}
+    void cpy(Method &e)
+    {
+      virt_ = e.virt_;
+      vtbl_index_ = e.vtbl_index_;
+      this_arg_ = e.this_arg_;
+      art_ = e.art_;
+      def_ = e.def_;
+      expl_ = e.expl_;
+    }
+    Method(Method &&e): Element(std::move(e))
+    {
+      cpy(e);
+    }
+    Method& operator=(Method &&e)
+    {
+      Element::operator=(std::move(e));
+      cpy(e);
+      return *this;
+    }
     int virt_;
     uint64_t vtbl_index_;
     uint64_t this_arg_;

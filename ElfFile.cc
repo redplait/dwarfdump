@@ -8,6 +8,7 @@
 
 int g_opt_d = 0,
     g_opt_f = 0,
+    g_opt_g = 0,
     g_opt_k = 0,
     g_opt_l = 0,
     g_opt_L = 0,
@@ -761,28 +762,28 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case Dwarf32::Attribute::DW_AT_producer:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
       {
-        tree_builder->cu_producer = FormStringValue(form, info, info_bytes);
+        tree_builder->cu.cu_producer = FormStringValue(form, info, info_bytes);
         return true;  
       }
       break;
     case Dwarf32::Attribute::DW_AT_comp_dir:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
       {
-        tree_builder->cu_comp_dir = FormStringValue(form, info, info_bytes);
+        tree_builder->cu.cu_comp_dir = FormStringValue(form, info, info_bytes);
         return true;  
       }
       break;
     case Dwarf32::Attribute::DW_AT_language:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
       {
-        tree_builder->cu_lang = (int)FormDataValue(form, info, info_bytes);
+        tree_builder->cu.cu_lang = (int)FormDataValue(form, info, info_bytes);
         return true;  
       }
       break;  
     case Dwarf32::Attribute::DW_AT_name:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
       {
-        tree_builder->cu_name = FormStringValue(form, info, info_bytes);
+        tree_builder->cu.cu_name = FormStringValue(form, info, info_bytes);
         return true;  
       }
     case Dwarf32::Attribute::DW_AT_linkage_name: {

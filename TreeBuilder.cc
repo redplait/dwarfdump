@@ -168,7 +168,7 @@ uint64_t TreeBuilder::get_replaced_type(uint64_t id) const
 
 bool TreeBuilder::is_go() const
 {
-  return cu_lang == Dwarf32::dwarf_source_language::DW_LANG_Go;
+  return cu.cu_lang == Dwarf32::dwarf_source_language::DW_LANG_Go;
 }
 
 const char *get_cu_name(int c)
@@ -236,29 +236,34 @@ const char *get_cu_name(int c)
   return nullptr;
 }
 
+void TreeBuilder::put_file_hdr(struct cu *c)
+{
+  if ( m_hdr_dumped )
+    return;
+  if ( c->cu_name )
+    fprintf(g_outf, "\n// Name: %s\n", c->cu_name);
+  if ( c->cu_comp_dir )
+    fprintf(g_outf, "// CompDir: %s\n", c->cu_comp_dir);
+  if ( c->cu_lang )
+  {
+    auto lang = get_cu_name(c->cu_lang);
+    if ( lang )
+      fprintf(g_outf, "// Language: %s\n", lang);
+    else
+      fprintf(g_outf, "// Language: 0x%X\n", c->cu_lang);
+  }
+  if ( c->cu_producer )
+    fprintf(g_outf, "// Producer: %s\n", c->cu_producer);
+  m_hdr_dumped = true;
+}
+
 void TreeBuilder::put_file_hdr()
 {
   if ( !g_opt_v )
     return;
   if ( elements_.empty() )
     return;
-  if ( m_hdr_dumped )
-    return;
-  m_hdr_dumped = true;
-  if ( cu_name )
-    fprintf(g_outf, "\n// Name: %s\n", cu_name);
-  if ( cu_comp_dir )
-    fprintf(g_outf, "// CompDir: %s\n", cu_comp_dir);
-  if ( cu_lang )
-  {
-    auto lang = get_cu_name(cu_lang);
-    if ( lang )
-      fprintf(g_outf, "// Language: %s\n", lang);
-    else
-      fprintf(g_outf, "// Language: 0x%X\n", cu_lang);
-  }
-  if ( cu_producer )
-    fprintf(g_outf, "// Producer: %s\n", cu_producer);
+  put_file_hdr(&cu);
 }
 
 // called on each processed compilation unit
@@ -271,13 +276,14 @@ void TreeBuilder::ProcessUnit(int last)
   }
   m_hdr_dumped = false;
   RenderUnit(last);
-  merge_dumped();
-  if ( is_go() )
+  if ( !g_opt_g )
+    merge_dumped();
+  if ( is_go() && !g_opt_g )
     collect_go_types();
   elements_.clear();
   m_replaced.clear();
-  cu_name = cu_comp_dir = cu_producer = NULL;
-  cu_lang = 0;
+  cu.cu_name = cu.cu_comp_dir = cu.cu_producer = NULL;
+  cu.cu_lang = 0;
   ns_count = 0;
   recent_ = nullptr;
 }

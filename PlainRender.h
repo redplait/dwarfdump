@@ -34,10 +34,12 @@ class PlainRender: public TreeBuilder
    std::map<uint64_t, Element *> m_els;
    std::map<uint64_t, std::list<Element *> > m_specs;
    std::list<Element *> m_vars;
+   std::list<std::pair<struct cu, std::list<Element> > > m_all;
 
    virtual void RenderUnit(int last);
+   void prepare(std::list<Element> &els);
    std::list<Element *> *get_specs(uint64_t);
-   void dump_types();
+   void dump_types(std::list<Element> &els, struct cu *);
    void dump_vars();
    void dump_var(Element *);
    void dump_enums(Element *);

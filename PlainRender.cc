@@ -33,10 +33,10 @@ std::list<TreeBuilder::Element *> *PlainRender::get_specs(uint64_t id)
   return &fi->second;
 }
 
-void PlainRender::RenderUnit(int last)
+void PlainRender::prepare(std::list<Element> &els)
 {
   int need_abs = 0;
-  for ( auto &e: elements_ )
+  for ( auto &e: els )
   {
     m_els[e.id_] = &e;
     if ( e.spec_ && e.addr_ )
@@ -60,7 +60,7 @@ void PlainRender::RenderUnit(int last)
   if ( need_abs )
   {
     // collect addresses for functions with abstract_origin
-    for ( auto &e: elements_ )
+    for ( auto &e: els )
     {
       if ( !e.is_abs() )
         continue;
@@ -81,15 +81,42 @@ void PlainRender::RenderUnit(int last)
         m_specs[f->second->spec_].push_back(&e);
     }
   }
-  dump_types();
-  if ( !m_vars.empty() )
+}
+
+void PlainRender::RenderUnit(int last)
+{
+  if ( !g_opt_g )
   {
-    fprintf(g_outf, "/// vars\n");
-    dump_vars();
+    prepare(elements_);
+    dump_types(elements_, &cu);
+    if ( !m_vars.empty() )
+    {
+      fprintf(g_outf, "/// vars\n");
+      dump_vars();
+    }
+    m_els.clear();
+    m_specs.clear();
+    m_vars.clear();
+  } else {
+    if ( !elements_.empty() )
+      m_all.push_back({ cu, std::move(elements_)});
+    if ( !last )
+      return;
+    for ( auto &p: m_all )
+      prepare(p.second);
+    for ( auto &p: m_all )
+    {
+      // fprintf(g_outf, "new unit %p\n", &p.first);
+      m_hdr_dumped = false;
+      dump_types(p.second, &p.first);
+      if ( !m_vars.empty() )
+      {
+        fprintf(g_outf, "/// vars\n");
+        dump_vars();
+        m_vars.clear();
+      }
+    }
   }
-  m_els.clear();
-  m_specs.clear();
-  m_vars.clear();
 }
 
 bool PlainRender::dump_type(uint64_t key, std::string &res, named *n, int level)
@@ -542,9 +569,9 @@ void PlainRender::dump_vars()
   }
 }
 
-void PlainRender::dump_types()
+void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
 {
-  for ( auto &e: elements_ )
+  for ( auto &e: els )
   {
     if ( ElementType::var_type == e.type_ )
     {
@@ -559,7 +586,7 @@ void PlainRender::dump_types()
     }
     if ( ElementType::ns_start == e.type_ )
     {
-      put_file_hdr();
+      put_file_hdr(rcu);
       fprintf(g_outf, "namespace %s {\n", e.name_);
       continue;
     }
@@ -580,7 +607,7 @@ void PlainRender::dump_types()
     const auto ci = m_replaced.find(e.id_);
     if ( ci != m_replaced.end() )
       continue;
-    put_file_hdr();
+    put_file_hdr(rcu);
     if ( e.addr_ )
       fprintf(g_outf, "// Addr 0x%lX\n", e.addr_);
     if ( e.size_ )
