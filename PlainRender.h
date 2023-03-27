@@ -41,6 +41,7 @@ class PlainRender: public TreeBuilder
    std::list<Element *> *get_specs(uint64_t);
    void dump_types(std::list<Element> &els, struct cu *);
    void dump_vars();
+   void cmn_vars();
    void dump_var(Element *);
    void dump_enums(Element *);
    void dump_fields(Element *);

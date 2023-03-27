@@ -83,20 +83,25 @@ void PlainRender::prepare(std::list<Element> &els)
   }
 }
 
+void PlainRender::cmn_vars()
+{
+  if ( !m_vars.empty() )
+  {
+    fprintf(g_outf, "/// vars\n");
+    dump_vars();
+    m_vars.clear();
+  }
+}
+
 void PlainRender::RenderUnit(int last)
 {
   if ( !g_opt_g )
   {
     prepare(elements_);
     dump_types(elements_, &cu);
-    if ( !m_vars.empty() )
-    {
-      fprintf(g_outf, "/// vars\n");
-      dump_vars();
-    }
+    cmn_vars();
     m_els.clear();
     m_specs.clear();
-    m_vars.clear();
   } else {
     if ( !elements_.empty() )
       m_all.push_back({ cu, std::move(elements_)});
@@ -109,12 +114,7 @@ void PlainRender::RenderUnit(int last)
       // fprintf(g_outf, "new unit %p\n", &p.first);
       m_hdr_dumped = false;
       dump_types(p.second, &p.first);
-      if ( !m_vars.empty() )
-      {
-        fprintf(g_outf, "/// vars\n");
-        dump_vars();
-        m_vars.clear();
-      }
+      cmn_vars();
     }
   }
 }

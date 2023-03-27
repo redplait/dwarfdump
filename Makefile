@@ -1,5 +1,5 @@
 EHDR = ../ELFIO
-SRC=main.cc ElfFile.cc TreeBuilder.cc JsonRender.cc PlainRender.cc
+SRC=main.cc regnames.cc ElfFile.cc TreeBuilder.cc JsonRender.cc PlainRender.cc
 
 
 all: $(SRC)

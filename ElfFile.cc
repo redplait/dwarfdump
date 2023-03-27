@@ -133,10 +133,10 @@ bool ElfFile::unzip_section(ELFIO::section *s, const unsigned char * &data, size
 }
 
 ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
-  tree_builder(tb),
+  tree_builder(tb), m_rnames(nullptr),
   debug_info_(nullptr), debug_info_size_(0),
   debug_abbrev_(nullptr), debug_abbrev_size_(0),
-  free_info(false), free_abbrev(false), free_strings(false)
+  free_info(false), free_abbrev(false), free_strings(false), free_loc(false)
 {
   // read elf file
   if ( !reader.load(filepath.c_str()) )
@@ -151,6 +151,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   section *zinfo = nullptr;
   section *zabbrev = nullptr;
   section *zstrings = nullptr;
+  section *zloc = nullptr;
   tree_builder->debug_str_ = nullptr;
   tree_builder->debug_str_size_ = 0;
   Elf_Half n = reader.sections.size();
@@ -172,6 +173,11 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       tree_builder->debug_str_size_ = s->get_size();
       if ( check_compressed_section(s, tree_builder->debug_str_, tree_builder->debug_str_size_) )
         free_strings = true;
+    } else if (!strcmp(name, ".debug_loc")) {
+      debug_loc_ = reinterpret_cast<const unsigned char*>(s->get_data());
+      debug_loc_size_ = s->get_size();
+      if ( check_compressed_section(s, debug_loc_, debug_loc_size_) )
+        free_loc = true;
     } // check compressed versions
     else if ( !strcmp(name, ".zdebug_info") )
       zinfo = s;
@@ -179,6 +185,8 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       zabbrev = s;
     else if ( !strcmp(name, ".zdebug_str") )
       zstrings = s;
+    else if ( !strcmp(name, ".zdebug_loc") )
+      zloc = s;
   }
   // check if we need to decompress some sections
   if ( zinfo )
@@ -211,6 +219,18 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
     }
     free_strings = true;
   }
+  if ( zloc )
+  {
+    if ( !unzip_section(zloc, debug_loc_, debug_loc_size_) )
+    {
+      fprintf(stderr, "cannot unpack section %s\n", zloc->get_name().c_str());
+      success = false;
+      return;
+    }
+    free_loc = true;
+  }
+  if ( debug_loc_ )
+    m_rnames = get_regnames(reader.get_machine());
   success = (debug_info_ && debug_abbrev_);
 }
 
@@ -222,6 +242,10 @@ ElfFile::~ElfFile()
     free((void *)debug_abbrev_);
   if ( free_strings && tree_builder && tree_builder->debug_str_ != nullptr )
     free((void *)tree_builder->debug_str_);
+  if ( free_loc && debug_loc_ != nullptr )
+    free((void *)debug_loc_);
+  if ( m_rnames )
+    delete m_rnames;
 }
 
 // static

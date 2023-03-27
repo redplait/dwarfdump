@@ -4,6 +4,7 @@
 #include <vector>
 #include <elfio/elfio.hpp>
 #include "dwarf32.h"
+#include "regnames.h"
 #include "TreeBuilder.h"
 
 using namespace ELFIO;
@@ -35,11 +36,14 @@ private:
 
   elfio reader;
   TreeBuilder *tree_builder;
+  RegNames *m_rnames;
 
   const unsigned char* debug_info_;
   size_t debug_info_size_;
   const unsigned char* debug_abbrev_;
   size_t debug_abbrev_size_;
+  const unsigned char *debug_loc_;
+  size_t debug_loc_size_;
 
   struct TagSection {
       unsigned int number;
@@ -58,4 +62,5 @@ private:
   bool free_info;
   bool free_abbrev;
   bool free_strings;
+  bool free_loc;
 };
