@@ -925,8 +925,10 @@ void TreeBuilder::SetSpec(uint64_t ct)
   elements_.back().spec_ = ct;
 }
 
-void TreeBuilder::SetAddr(uint64_t count) {
+void TreeBuilder::SetAddr(uint64_t count)
+{
   if (current_element_type_ != ElementType::subroutine &&
+      current_element_type_ != ElementType::method &&
       current_element_type_ != ElementType::var_type
      )
      return;
