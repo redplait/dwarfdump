@@ -4,6 +4,7 @@
 #include <list>
 #include <vector>
 #include <stack>
+#include "regnames.h"
 
 extern int g_opt_g, g_opt_k, g_opt_l, g_opt_v;
 extern FILE *g_outf;
@@ -126,6 +127,7 @@ public:
   // compilation unit data
   struct cu cu;
   bool is_go() const;
+  RegNames *m_rnames = nullptr;
   // for names with direct string - seems that if name lesser pointer size they are directed
   // so renderer should be able to distinguish if some name located in string pool
   // in other case this name should be considered as direct string

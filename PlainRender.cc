@@ -411,13 +411,15 @@ void PlainRender::dump_methods(Element *e)
   fprintf(g_outf, "// --- methods\n");
   for ( auto &en: e->m_comp->methods_ )
   {
-    std::string tmp;
+    std::string tmp, plocs;
     dump_method(&en, e, tmp);
     if ( g_opt_v )
       fprintf(g_outf, "// TypeId %lX\n", en.id_);
     if ( en.vtbl_index_ )
       fprintf(g_outf, "// Vtbl index %lX\n", en.vtbl_index_);
     dump_spec(&en);
+    if ( en.m_comp && dump_params_locations(en.m_comp->params_, plocs) )
+      fprintf(g_outf, "%s", plocs.c_str());
     fprintf(g_outf, "%s;\n", tmp.c_str());
   }
 }
@@ -503,10 +505,95 @@ std::string &PlainRender::render_params(Element *e, uint64_t this_arg, std::stri
   return s;
 }
 
+bool PlainRender::dump_params_locations(std::vector<FormalParam> &params, std::string &s)
+{
+  if ( params.empty() )
+    return false;
+  if ( std::all_of(params.cbegin(), params.cend(), [](const FormalParam &fp) -> bool { return fp.loc.locs.empty();}) )
+    return false;
+  bool res = false;
+  size_t idx = 0;
+  for ( auto &p: params )
+  {
+    idx++;
+    if ( p.loc.empty() )
+      continue;
+    res = true;
+    s += "// ";
+    if ( p.name != nullptr )
+      s += p.name;
+    else
+      s += "arg" + std::to_string(idx);
+    s += " id ";
+    char id_buf[40];
+    snprintf(id_buf, sizeof(id_buf), "%lX", p.param_id);
+    s += id_buf;
+    s += ": ";
+    for ( auto &l: p.loc.locs )
+    {
+      switch(l.type)
+      {
+        case deref: s += "OP_deref";
+         break;
+        case call_frame_cfa: s += "OP_call_frame_cfa";
+         break;
+        case reg: {
+          s += "OP_reg";
+          bool need_reg = true;          
+          if ( m_rnames != nullptr )
+          {
+            auto rn = m_rnames->reg_name(l.idx);
+            if ( rn )
+            {
+              need_reg = false;
+              s += " ";
+              s += rn;
+            }
+          }
+          if ( need_reg )
+            s += std::to_string(l.idx);
+         }
+         break;
+        case breg: {
+          s += "OP_breg";
+          bool need_reg = true;          
+          if ( m_rnames != nullptr )
+          {
+            auto rn = m_rnames->reg_name(l.idx);
+            if ( rn )
+            {
+              need_reg = false;
+              s += " ";
+              s += rn;
+            }
+          }
+          if ( need_reg )
+            s += std::to_string(l.idx);
+          s += " ";
+          s += std::to_string(l.offset);
+         }
+         break;
+        case fbreg:
+          s += "OP_fbreg ";
+          s += std::to_string(l.offset);
+         break;
+      }
+      s += " ";
+    }
+    s += "\n";
+  }
+  return res;
+}
+
 void PlainRender::dump_func(Element *e)
 {
   std::string tmp;
   dump_spec(e);
+  if ( e->m_comp && dump_params_locations(e->m_comp->params_, tmp) )
+  {
+    fprintf(g_outf, "%s", tmp.c_str());
+    tmp.clear();
+  }
   if ( e->type_id_ )
   {
     named n { e->name_ };

@@ -4,7 +4,6 @@
 #include <vector>
 #include <elfio/elfio.hpp>
 #include "dwarf32.h"
-#include "regnames.h"
 #include "TreeBuilder.h"
 
 using namespace ELFIO;
@@ -36,7 +35,6 @@ private:
 
   elfio reader;
   TreeBuilder *tree_builder;
-  RegNames *m_rnames;
 
   const unsigned char* debug_info_;
   size_t debug_info_size_;

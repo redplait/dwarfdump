@@ -133,7 +133,7 @@ bool ElfFile::unzip_section(ELFIO::section *s, const unsigned char * &data, size
 }
 
 ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
-  tree_builder(tb), m_rnames(nullptr),
+  tree_builder(tb),
   debug_info_(nullptr), debug_info_size_(0),
   debug_abbrev_(nullptr), debug_abbrev_size_(0),
   free_info(false), free_abbrev(false), free_strings(false), free_loc(false)
@@ -229,7 +229,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
     }
     free_loc = true;
   }
-  m_rnames = get_regnames(reader.get_machine());
+  tree_builder->m_rnames = get_regnames(reader.get_machine());
   success = (debug_info_ && debug_abbrev_);
 }
 
@@ -243,8 +243,6 @@ ElfFile::~ElfFile()
     free((void *)tree_builder->debug_str_);
   if ( free_loc && debug_loc_ != nullptr )
     free((void *)debug_loc_);
-  if ( m_rnames )
-    delete m_rnames;
 }
 
 // static

@@ -489,6 +489,8 @@ DW_OP (DW_OP_deref_type, 0xa6)
 DW_OP (DW_OP_xderef_type, 0xa7)
 DW_OP (DW_OP_convert, 0xa8)
 DW_OP (DW_OP_reinterpret, 0xa9)
-
+/* GNU extensions.  */
+DW_OP (DW_OP_GNU_push_tls_address, 0xe0)
+DW_OP (DW_OP_GNU_implicit_pointer, 0xf2)
   };
 };

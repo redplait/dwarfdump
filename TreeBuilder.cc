@@ -2,7 +2,12 @@
 #include "dwarf32.h"
 
 TreeBuilder::TreeBuilder() = default;
-TreeBuilder::~TreeBuilder() = default;
+
+TreeBuilder::~TreeBuilder()
+{
+  if ( m_rnames != nullptr )
+    delete m_rnames;
+}
 
 void TreeBuilder::collect_go_types()
 {
