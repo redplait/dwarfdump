@@ -229,8 +229,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
     }
     free_loc = true;
   }
-  if ( debug_loc_ )
-    m_rnames = get_regnames(reader.get_machine());
+  m_rnames = get_regnames(reader.get_machine());
   success = (debug_info_ && debug_abbrev_);
 }
 
@@ -417,7 +416,7 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data,
 uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* data, size_t bytes_available, param_loc *pl) 
 {
   ptrdiff_t doff = data - debug_info_;
-  // fprintf(stderr, "DecodeAddrLocation form %d\n", form);
+  // fprintf(stderr, "DecodeAddrLocation form %d off %lX\n", form, doff);
   if ( form == Dwarf32::Form::DW_FORM_sec_offset )
     return 0;
   uint32_t length = 0;
@@ -1005,17 +1004,20 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       return true;
     }
 
-    case Dwarf32::Attribute::DW_AT_location: {
+    case Dwarf32::Attribute::DW_AT_location:
       if ( !m_regged )
         return false;
-      param_loc loc;
-      uint64_t offset = DecodeAddrLocation(form, info, info_bytes, &loc);
-      if ( offset  )
-      {
-        tree_builder->SetAddr(offset);
+      else {
+        param_loc loc;
+        uint64_t offset = DecodeAddrLocation(form, info, info_bytes, &loc);
+        if ( tree_builder->is_formal_param() )
+        {
+          if ( !loc.empty() )
+            tree_builder->SetLocation(&loc);
+        } else if ( offset  )
+          tree_builder->SetAddr(offset);
+        return false;
       }
-      return false;
-    }
 
     // Type
     case Dwarf32::Attribute::DW_AT_type: {

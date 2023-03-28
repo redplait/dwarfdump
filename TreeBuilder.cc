@@ -505,11 +505,26 @@ void TreeBuilder::SetLinkageName(const char* name) {
   return;
 }
 
-void TreeBuilder::SetVarParam(bool v)
+void TreeBuilder::SetLocation(param_loc *pl)
 {
-  if (current_element_type_ != ElementType::formal_param) {
+  if (current_element_type_ != ElementType::formal_param)
+    return;
+  if (!elements_.size()) {
+    fprintf(stderr, "Can't set an parameter location if the element list is empty\n");
     return;
   }
+  auto top = m_stack.top();
+  if (!top->m_comp || top->m_comp->params_.empty()) {
+    fprintf(stderr, "Can't set the parameter location if the params list is empty\n");
+    return;
+  }
+  top->m_comp->params_.back().loc = *pl;
+}
+
+void TreeBuilder::SetVarParam(bool v)
+{
+  if (current_element_type_ != ElementType::formal_param)
+    return;
   if (!elements_.size()) {
     fprintf(stderr, "Can't set an variable parameter if the element list is empty\n");
     return;

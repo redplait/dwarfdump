@@ -27,10 +27,10 @@ struct one_param_loc
 struct param_loc
 {
   std::list<one_param_loc> locs;
-  uint64_t loc = 0; // if non-zero - offset into .debug_loc section
+  uint64_t loc_off = 0; // if non-zero - offset into .debug_loc section
   bool empty() const
   {
-    return locs.empty() && loc;
+    return locs.empty() && loc_off;
   }
 };
 
@@ -116,6 +116,7 @@ public:
   void SetAbs(uint64_t);
   void SetInlined(int);
   void SetVarParam(bool);
+  void SetLocation(param_loc *);
 
   uint64_t get_replaced_type(uint64_t) const;
   int check_dumped_type(const char *);
