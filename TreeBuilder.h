@@ -31,7 +31,7 @@ struct param_loc
   uint64_t loc_off = 0; // if non-zero - offset into .debug_loc section
   bool empty() const
   {
-    return locs.empty() && loc_off;
+    return locs.empty() && !loc_off;
   }
 };
 
