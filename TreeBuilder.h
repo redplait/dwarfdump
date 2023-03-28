@@ -16,6 +16,7 @@ enum param_op_type
   fbreg,
   deref,
   call_frame_cfa,
+  plus_uconst,
 };
 
 struct one_param_loc

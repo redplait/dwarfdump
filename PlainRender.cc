@@ -577,6 +577,10 @@ bool PlainRender::dump_params_locations(std::vector<FormalParam> &params, std::s
           s += "OP_fbreg ";
           s += std::to_string(l.offset);
          break;
+        case plus_uconst:
+          s += "OP_plus_uconst ";
+          s += std::to_string(l.offset);
+         break;
       }
       s += " ";
     }

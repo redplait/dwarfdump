@@ -269,8 +269,8 @@ uint32_t ElfFile::ULEB128(const unsigned char* &data, size_t& bytes_available) {
   return result;
 }
 
-void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, 
-                                                      size_t& bytes_available) {
+void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& bytes_available) 
+{
   uint32_t length = 0;
 
   switch(form) {
@@ -463,6 +463,9 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
           break;
         case Dwarf32::dwarf_ops::DW_OP_deref:
            pl->locs.push_back({ deref, 0, 0});
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_plus_uconst:
+           pl->locs.push_back({ plus_uconst, 0, (int)ElfFile::ULEB128(data, bytes_available)});
           break;
         case Dwarf32::dwarf_ops::DW_OP_piece:
          // TODO: should I mark this location as splitted in several places?
