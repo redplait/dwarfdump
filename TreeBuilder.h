@@ -8,6 +8,32 @@
 extern int g_opt_g, g_opt_k, g_opt_l, g_opt_v;
 extern FILE *g_outf;
 
+enum param_op_type
+{
+  reg = 1,
+  breg,
+  fbreg,
+  deref,
+  call_frame_cfa,
+};
+
+struct one_param_loc
+{
+  enum param_op_type type;
+  unsigned int idx;
+  int offset;
+};
+
+struct param_loc
+{
+  std::list<one_param_loc> locs;
+  uint64_t loc = 0; // if non-zero - offset into .debug_loc section
+  bool empty() const
+  {
+    return locs.empty() && loc;
+  }
+};
+
 struct cu
 {
   const char *cu_name;
@@ -54,6 +80,10 @@ public:
   inline bool is_enum() const
   {
     return current_element_type_ == enumerator;
+  }
+  inline bool is_formal_param() const
+  {
+    return current_element_type_ == formal_param;
   }
   void ProcessUnit(int last = 0);
   int add2stack();
@@ -140,6 +170,7 @@ protected:
     uint64_t id;
     bool ellipsis;
     bool var_; // from DW_AT_variable_parameter - go mostly?
+    param_loc loc;
   };
 
   struct Compound;

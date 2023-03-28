@@ -414,12 +414,13 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data,
 }
 
 // var addresses decoded as block + OP_addr
-uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* data, size_t bytes_available) 
+uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* data, size_t bytes_available, param_loc *pl) 
 {
+  ptrdiff_t doff = data - debug_info_;
+  // fprintf(stderr, "DecodeAddrLocation form %d\n", form);
   if ( form == Dwarf32::Form::DW_FORM_sec_offset )
     return 0;
   uint32_t length = 0;
-  // fprintf(stderr, "DecodeAddrLocation form %d\n", form);
   switch(form)
   {
     case Dwarf32::Form::DW_FORM_exprloc:
@@ -442,7 +443,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
       bytes_available -= sizeof(uint32_t);
       break;
     default:
-      fprintf(stderr, "DecodeAddrLocation: unknown form %X at %lX\n", form, data - debug_info_);
+      fprintf(stderr, "DecodeAddrLocation: unknown form %X at %lX\n", form, doff);
       return 0;
   }
   const unsigned char *end = data + length;
@@ -459,8 +460,90 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
         else
           return *reinterpret_cast<const uint32_t*>(data);
        break;
+      // from function decode_locdesc in read.c
+        case Dwarf32::dwarf_ops::DW_OP_call_frame_cfa:
+           pl->locs.push_back({ call_frame_cfa, 0, 0});
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_deref:
+           pl->locs.push_back({ deref, 0, 0});
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_piece:
+         // TODO: should I mark this location as splitted in several places?
+         ElfFile::ULEB128(data, bytes_available);
+         break;
+        case Dwarf32::dwarf_ops::DW_OP_reg0:
+        case Dwarf32::dwarf_ops::DW_OP_reg1:
+        case Dwarf32::dwarf_ops::DW_OP_reg2:
+        case Dwarf32::dwarf_ops::DW_OP_reg3:
+        case Dwarf32::dwarf_ops::DW_OP_reg4:
+        case Dwarf32::dwarf_ops::DW_OP_reg5:
+        case Dwarf32::dwarf_ops::DW_OP_reg6:
+        case Dwarf32::dwarf_ops::DW_OP_reg7:
+        case Dwarf32::dwarf_ops::DW_OP_reg8:
+        case Dwarf32::dwarf_ops::DW_OP_reg9:
+        case Dwarf32::dwarf_ops::DW_OP_reg10:
+        case Dwarf32::dwarf_ops::DW_OP_reg11:
+        case Dwarf32::dwarf_ops::DW_OP_reg12:
+        case Dwarf32::dwarf_ops::DW_OP_reg13:
+        case Dwarf32::dwarf_ops::DW_OP_reg14:
+        case Dwarf32::dwarf_ops::DW_OP_reg15:
+        case Dwarf32::dwarf_ops::DW_OP_reg16:
+        case Dwarf32::dwarf_ops::DW_OP_reg17:
+        case Dwarf32::dwarf_ops::DW_OP_reg18:
+        case Dwarf32::dwarf_ops::DW_OP_reg19:
+        case Dwarf32::dwarf_ops::DW_OP_reg20:
+        case Dwarf32::dwarf_ops::DW_OP_reg21:
+        case Dwarf32::dwarf_ops::DW_OP_reg22:
+        case Dwarf32::dwarf_ops::DW_OP_reg23:
+        case Dwarf32::dwarf_ops::DW_OP_reg24:
+        case Dwarf32::dwarf_ops::DW_OP_reg25:
+        case Dwarf32::dwarf_ops::DW_OP_reg26:
+        case Dwarf32::dwarf_ops::DW_OP_reg27:
+        case Dwarf32::dwarf_ops::DW_OP_reg28:
+        case Dwarf32::dwarf_ops::DW_OP_reg29:
+        case Dwarf32::dwarf_ops::DW_OP_reg30:
+        case Dwarf32::dwarf_ops::DW_OP_reg31:
+           pl->locs.push_back({ reg, op - Dwarf32::dwarf_ops::DW_OP_reg0, 0});
+         break;
+        case Dwarf32::dwarf_ops::DW_OP_breg0:
+        case Dwarf32::dwarf_ops::DW_OP_breg1:
+        case Dwarf32::dwarf_ops::DW_OP_breg2:
+        case Dwarf32::dwarf_ops::DW_OP_breg3:
+        case Dwarf32::dwarf_ops::DW_OP_breg4:
+        case Dwarf32::dwarf_ops::DW_OP_breg5:
+        case Dwarf32::dwarf_ops::DW_OP_breg6:
+        case Dwarf32::dwarf_ops::DW_OP_breg7:
+        case Dwarf32::dwarf_ops::DW_OP_breg8:
+        case Dwarf32::dwarf_ops::DW_OP_breg9:
+        case Dwarf32::dwarf_ops::DW_OP_breg10:
+        case Dwarf32::dwarf_ops::DW_OP_breg11:
+        case Dwarf32::dwarf_ops::DW_OP_breg12:
+        case Dwarf32::dwarf_ops::DW_OP_breg13:
+        case Dwarf32::dwarf_ops::DW_OP_breg14:
+        case Dwarf32::dwarf_ops::DW_OP_breg15:
+        case Dwarf32::dwarf_ops::DW_OP_breg16:
+        case Dwarf32::dwarf_ops::DW_OP_breg17:
+        case Dwarf32::dwarf_ops::DW_OP_breg18:
+        case Dwarf32::dwarf_ops::DW_OP_breg19:
+        case Dwarf32::dwarf_ops::DW_OP_breg20:
+        case Dwarf32::dwarf_ops::DW_OP_breg21:
+        case Dwarf32::dwarf_ops::DW_OP_breg22:
+        case Dwarf32::dwarf_ops::DW_OP_breg23:
+        case Dwarf32::dwarf_ops::DW_OP_breg24:
+        case Dwarf32::dwarf_ops::DW_OP_breg25:
+        case Dwarf32::dwarf_ops::DW_OP_breg26:
+        case Dwarf32::dwarf_ops::DW_OP_breg27:
+        case Dwarf32::dwarf_ops::DW_OP_breg28:
+        case Dwarf32::dwarf_ops::DW_OP_breg29:
+        case Dwarf32::dwarf_ops::DW_OP_breg30:
+        case Dwarf32::dwarf_ops::DW_OP_breg31:
+           pl->locs.push_back({ breg, op - Dwarf32::dwarf_ops::DW_OP_breg0, (int)ElfFile::ULEB128(data, bytes_available)});
+         break;
+        case Dwarf32::dwarf_ops::DW_OP_fbreg:
+           pl->locs.push_back({ fbreg, 0, (int)ElfFile::ULEB128(data, bytes_available)});
+         break;
       default:
-        // fprintf(stderr, "DecodeAddrLocation: unknown op %X\n", op);
+        fprintf(stderr, "DecodeAddrLocation: unknown op %X at %lX\n", op, doff);
         return 0;
     }
   }
@@ -537,7 +620,7 @@ uint64_t ElfFile::DecodeLocation(Dwarf32::Form form, const unsigned char* info, 
       }
 
       default:
-        fprintf(stderr, "DecodeLocation: unknown op %X\n", op);
+        fprintf(stderr, "DecodeLocation: unknown op %X at %lX\n", op, info - debug_info_);
         return 0;
     }
   }
@@ -923,9 +1006,14 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     }
 
     case Dwarf32::Attribute::DW_AT_location: {
-      uint64_t offset = DecodeAddrLocation(form, info, info_bytes);
-      if ( offset && m_regged )
+      if ( !m_regged )
+        return false;
+      param_loc loc;
+      uint64_t offset = DecodeAddrLocation(form, info, info_bytes, &loc);
+      if ( offset  )
+      {
         tree_builder->SetAddr(offset);
+      }
       return false;
     }
 

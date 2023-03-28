@@ -22,7 +22,7 @@ private:
   bool uncompressed_section(ELFIO::section *, const unsigned char * &data, size_t &);
   static uint32_t ULEB128(const unsigned char* &data, size_t& bytes_available);
   void PassData(Dwarf32::Form form, const unsigned char* &data, size_t& bytes_available);
-  uint64_t DecodeAddrLocation(Dwarf32::Form form, const unsigned char* info, size_t bytes_available);
+  uint64_t DecodeAddrLocation(Dwarf32::Form form, const unsigned char* info, size_t bytes_available, param_loc *);
   uint64_t DecodeLocation(Dwarf32::Form form, const unsigned char* info, size_t bytes_available);
   uint64_t FormDataValue(Dwarf32::Form form,
       const unsigned char* &info, size_t& bytes_available);
