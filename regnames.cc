@@ -246,6 +246,77 @@ static const char *const regnames_ppc[] =
   /* 109 */ "VRSAVE",
 };
 
+// mips register names ripped from llvm/lib/Target/Mips
+static const char *const regnames_mips[] =
+{
+  /* 0 */ "ZERO",
+  /* 1 */ "AT",
+  /* 2 */ "V0",
+  /* 3 */ "V1",
+  /* 4 */ "A0",
+  /* 5 */ "A1",
+  /* 6 */ "A2",
+  /* 7 */ "A3",
+  /* 8 */ "T0",
+  /* 9 */ "T1",
+  /* 10 */ "T2",
+  /* 11 */ "T3",
+  /* 12 */ "T4",
+  /* 13 */ "T5",
+  /* 14 */ "T6",
+  /* 15 */ "T7",
+  /* 16 */ "S0",
+  /* 17 */ "S1",
+  /* 18 */ "S2",
+  /* 19 */ "S3",
+  /* 20 */ "S4",
+  /* 21 */ "S5",
+  /* 22 */ "S6",
+  /* 23 */ "S7",
+  /* 24 */ "T8",
+  /* 25 */ "T9",
+  /* 26 */ "K0",
+  /* 27 */ "K1",
+  /* 28 */ "GP",
+  /* 29 */ "SP",
+  /* 30 */ "FP",
+  /* 31 */ "RA",
+  /* 32 */ "D0",
+  /* 33 */ "D1",
+  /* 34 */ "D2",
+  /* 35 */ "D3",
+  /* 36 */ "D4",
+  /* 37 */ "D5",
+  /* 38 */ "D6",
+  /* 39 */ "D7",
+  /* 40 */ "D8",
+  /* 41 */ "D9",
+  /* 42 */ "D10",
+  /* 43 */ "D11",
+  /* 44 */ "D12",
+  /* 45 */ "D13",
+  /* 46 */ "D14",
+  /* 47 */ "D15",
+  /* 48 */ "D16",
+  /* 49 */ "D17",
+  /* 50 */ "D18",
+  /* 51 */ "D19",
+  /* 52 */ "D20",
+  /* 53 */ "D21",
+  /* 54 */ "D22",
+  /* 55 */ "D23",
+  /* 56 */ "D24",
+  /* 57 */ "D25",
+  /* 58 */ "D26",
+  /* 59 */ "D27",
+  /* 60 */ "D28",
+  /* 61 */ "D29",
+  /* 62 */ "D30",
+  /* 63 */ "D31",
+  /* 64 */ "HI0",
+  /* 65 */ "LO0",  
+};
+
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
 RegNames *get_regnames(ELFIO::Elf_Half mac)
@@ -278,6 +349,10 @@ RegNames *get_regnames(ELFIO::Elf_Half mac)
     case ELFIO::EM_PPC:
     case ELFIO::EM_PPC64: // TODO - perhaps they have different registers set?
        res = new tableRegNames(regnames_ppc, ARRAY_SIZE(regnames_ppc));
+       return res;
+      break;
+    case ELFIO::EM_MIPS:
+       res = new tableRegNames(regnames_mips, ARRAY_SIZE(regnames_mips));
        return res;
       break;
   } 
