@@ -38,7 +38,11 @@ std::string JsonRender::GenerateJson() {
     return result;
   for ( auto &e: elements_ ) {
     if ( e.type_ == ElementType::var_type && !e.addr_ )
-      continue;
+    {
+      auto ti = m_tls.find(e.id_);
+      if ( ti == m_tls.end() )
+        continue;
+    }
     auto jres = GenerateJson(e);
     if ( !jres.empty() )
     {
@@ -140,6 +144,12 @@ std::string JsonRender::GenerateJson(Element &e) {
     put(result, "addr", e.addr_);
   if ( e.inlined_ )
     put(result, "inline", e.inlined_);
+  if ( e.type_ == ElementType::var_type )
+  {
+    auto ti = m_tls.find(e.id_);
+    if ( ti != m_tls.end() )
+      put(result, "tls_index", ti->second);
+  }
   if ( e.type_ == ElementType::method )
   {
     if ( g_opt_l )

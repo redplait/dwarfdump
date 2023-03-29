@@ -510,6 +510,18 @@ void TreeBuilder::SetLinkageName(const char* name) {
   return;
 }
 
+void TreeBuilder::SetTlsIndex(param_loc *pl)
+{
+  if (current_element_type_ != ElementType::var_type)
+    return;
+  if (!elements_.size()) {
+    fprintf(stderr, "Can't set an tls index if the element list is empty\n");
+    return;
+  }
+  auto &top = elements_.back();
+  m_tls[top.id_] = pl->locs.front().offset;
+}
+
 void TreeBuilder::SetLocation(param_loc *pl)
 {
   if (current_element_type_ != ElementType::formal_param)

@@ -580,6 +580,10 @@ bool PlainRender::dump_params_locations(std::vector<FormalParam> &params, std::s
         case plus_uconst:
           s += "OP_plus_uconst ";
           s += std::to_string(l.offset);
+         break; 
+        case tls_index:
+          s += "TlsIndex ";
+          s += std::to_string(l.offset);
          break;
       }
       s += " ";
@@ -637,6 +641,9 @@ void PlainRender::dump_vars()
   {
     if ( e->addr_ )
       fprintf(g_outf, "// Addr 0x%lX\n", e->addr_);
+    auto ti = m_tls.find(e->id_);
+    if ( ti != m_tls.end() )
+      fprintf(g_outf, "// TlsIndex 0x%X\n", ti->second);
     if ( g_opt_v )
       fprintf(g_outf, "// TypeId %lX\n", e->id_);
     if ( e->name_ )
@@ -668,6 +675,11 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
     {
       if ( e.addr_ )
         m_vars.push_back(&e);
+      else {
+        auto ti = m_tls.find(e.id_);
+        if ( ti != m_tls.end() )
+          m_vars.push_back(&e);
+      }
       continue;
     }
     if ( ElementType::ns_end == e.type_ )

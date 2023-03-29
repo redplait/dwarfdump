@@ -444,6 +444,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
       return 0;
   }
   const unsigned char *end = data + length;
+  int value = 0;
   while( data < end && bytes_available )
   {
     unsigned op = *data;
@@ -467,6 +468,49 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
         case Dwarf32::dwarf_ops::DW_OP_plus_uconst:
            pl->locs.push_back({ plus_uconst, 0, (int)ElfFile::ULEB128(data, bytes_available)});
           break;
+        case Dwarf32::dwarf_ops::DW_OP_const1u:
+           value = (int)*reinterpret_cast<const uint8_t*>(data);
+           bytes_available -= 1;
+           data += 1;
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_const1s:
+           value = (int)*reinterpret_cast<const int8_t*>(data);
+           bytes_available -= 1;
+           data += 1;
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_const2u:
+           value = (int)*reinterpret_cast<const uint16_t*>(data);
+           bytes_available -= 2;
+           data += 2;
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_const2s:
+           value = (int)*reinterpret_cast<const int16_t*>(data);
+           bytes_available -= 2;
+           data += 2;
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_const4u:
+           value = (int)*reinterpret_cast<const uint32_t*>(data);
+           bytes_available -= 4;
+           data += 4;
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_const4s:
+           value = (int)*reinterpret_cast<const int32_t*>(data);
+           bytes_available -= 4;
+           data += 4;
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_const8u:
+           value = (int)*reinterpret_cast<const uint64_t*>(data);
+           bytes_available -= 8;
+           data += 8;
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_const8s:
+           value = (int)*reinterpret_cast<const int64_t*>(data);
+           bytes_available -= 8;
+           data += 8;
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_GNU_push_tls_address:
+           pl->locs.push_back({ tls_index, 0, value});
+          break;          
         case Dwarf32::dwarf_ops::DW_OP_piece:
          // TODO: should I mark this location as splitted in several places?
          ElfFile::ULEB128(data, bytes_available);
@@ -1015,7 +1059,9 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         {
           if ( !loc.empty() )
             tree_builder->SetLocation(&loc);
-        } else if ( offset  )
+        } else if ( loc.is_tls() )
+          tree_builder->SetTlsIndex(&loc);
+        else if ( offset  )
           tree_builder->SetAddr(offset);
         return false;
       }

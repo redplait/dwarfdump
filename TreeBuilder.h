@@ -17,6 +17,7 @@ enum param_op_type
   deref,
   call_frame_cfa,
   plus_uconst,
+  tls_index,
 };
 
 struct one_param_loc
@@ -30,9 +31,13 @@ struct param_loc
 {
   std::list<one_param_loc> locs;
   uint64_t loc_off = 0; // if non-zero - offset into .debug_loc section
-  bool empty() const
+  inline bool empty() const
   {
     return locs.empty() && !loc_off;
+  }
+  inline bool is_tls() const
+  {
+    return 1 == locs.size() && locs.front().type == tls_index;
   }
 };
 
@@ -119,6 +124,7 @@ public:
   void SetInlined(int);
   void SetVarParam(bool);
   void SetLocation(param_loc *);
+  void SetTlsIndex(param_loc *);
 
   uint64_t get_replaced_type(uint64_t) const;
   int check_dumped_type(const char *);
@@ -375,4 +381,6 @@ protected:
   std::map<UniqName2, std::pair<uint64_t, size_t> > m_dumped_db2;
   // go names
   std::map<uint64_t, const char *> m_go_types;
+  // tls indexes
+  std::map<uint64_t, int> m_tls;
 };
