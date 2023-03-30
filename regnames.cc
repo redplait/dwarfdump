@@ -1,5 +1,65 @@
 #include "regnames.h"
 
+struct ArmRegNames: public RegNames
+{
+  virtual const char *reg_name(unsigned int regno)
+  {
+    switch(regno)
+    {
+     case 0: return "R0";
+     case 1: return "R1";
+     case 2: return "R2";
+     case 3: return "R3";
+     case 4: return "R4";
+     case 5: return "R5";
+     case 6: return "R6";
+     case 7: return "R7";
+     case 8: return "R8";
+     case 9: return "R9";
+     case 10: return "R10";
+     case 11: return "R11";
+     case 12: return "R12";
+     case 13: return "SP";
+     case 14: return "LR";
+     case 15: return "ZR";
+     case 143: return "RA_AUTH_CODE";
+     case 256: return "D0";
+     case 257: return "D1";
+     case 258: return "D2";
+     case 259: return "D3";
+     case 260: return "D4";
+     case 261: return "D5";
+     case 262: return "D6";
+     case 263: return "D7";
+     case 264: return "D8";
+     case 265: return "D9";
+     case 266: return "D10";
+     case 267: return "D11";
+     case 268: return "D12";
+     case 269: return "D13";
+     case 270: return "D14";
+     case 271: return "D15";
+     case 272: return "D16";
+     case 273: return "D17";
+     case 274: return "D18";
+     case 275: return "D19";
+     case 276: return "D20";
+     case 277: return "D21";
+     case 278: return "D22";
+     case 279: return "D23";
+     case 280: return "D24";
+     case 281: return "D25";
+     case 282: return "D26";
+     case 283: return "D27";
+     case 284: return "D28";
+     case 285: return "D29";
+     case 286: return "D30";
+     case 287: return "D31";
+    }
+    return NULL;
+  }
+};
+
 struct tableRegNames: public RegNames
 {
   tableRegNames(const char * const* tab, size_t size)
@@ -500,6 +560,10 @@ RegNames *get_regnames(ELFIO::Elf_Half mac)
        res = new tableRegNames(dwarf_regnames_x86_64, ARRAY_SIZE(dwarf_regnames_x86_64));
        return res;
       break;
+    case ELFIO::EM_ARM:
+       res = new ArmRegNames();
+       return res;
+       break;
     case ELFIO::EM_AARCH64:
        res = new tableRegNames(dwarf_regnames_aarch64, ARRAY_SIZE(dwarf_regnames_aarch64));
        return res;
