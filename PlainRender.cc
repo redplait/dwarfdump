@@ -287,6 +287,8 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, named *n, int level)
   {
     auto sname = n->name();
     n->used_ = true;
+    if ( el->second->m_comp )
+      dump_params_locations(el->second->m_comp->params_, res, level);
     if ( el->second->type_id_ )
     {
       std::string tmp;
@@ -505,7 +507,7 @@ std::string &PlainRender::render_params(Element *e, uint64_t this_arg, std::stri
   return s;
 }
 
-bool PlainRender::dump_params_locations(std::vector<FormalParam> &params, std::string &s)
+bool PlainRender::dump_params_locations(std::vector<FormalParam> &params, std::string &s, int level)
 {
   if ( params.empty() )
     return false;
@@ -519,6 +521,8 @@ bool PlainRender::dump_params_locations(std::vector<FormalParam> &params, std::s
     if ( p.loc.empty() )
       continue;
     res = true;
+    if ( level )
+      add_margin(s, level);
     s += "// ";
     if ( p.name != nullptr )
       s += p.name;

@@ -53,7 +53,7 @@ class PlainRender: public TreeBuilder
    std::string &render_field(Element *e, std::string &s, int level);
    std::string &render_fields(Element *e, std::string &s, int level);
    std::string &render_params(Element *e, uint64_t this_arg, std::string &s);
-   bool dump_params_locations(std::vector<FormalParam> &, std::string &);
+   bool dump_params_locations(std::vector<FormalParam> &, std::string &, int level = 0);
    bool dump_type(uint64_t, std::string &, named *, int level = 0);
    bool is_constructor(const Element *e, const Element *owner) const;
 };
