@@ -317,7 +317,7 @@ static const char *const regnames_mips[] =
   /* 65 */ "LO0",  
 };
 
-// mips register names ripped from llvm/lib/Target/LoongArch
+// loongarch register names ripped from llvm/lib/Target/LoongArch
 static const char *const regnames_loongarch[] =
 {
   /* 0 */ "R0",
@@ -386,6 +386,99 @@ static const char *const regnames_loongarch[] =
   /* 63 */ "F31"
 };
 
+// sparc register names ripped from llvm/lib/Target/Sparc
+static const char *const regnames_sparc[] =
+{
+  /* 0 */ "G0",
+  /* 1 */ "G1",
+  /* 2 */ "G2",
+  /* 3 */ "G3",
+  /* 4 */ "G4",
+  /* 5 */ "G5",
+  /* 6 */ "G6" ,
+  /* 7 */ "G7",
+  /* 8 */ "O0",
+  /* 9 */ "O1",
+  /* 10 */ "O2",
+  /* 11 */ "O3",
+  /* 12 */ "O4",
+  /* 13 */ "O5",
+  /* 14 */ "O6",
+  /* 15 */ "O7",
+  /* 16 */ "L0",
+  /* 17 */ "L1",
+  /* 18 */ "L2",
+  /* 19 */ "L3",
+  /* 20 */ "L4",
+  /* 21 */ "L5",
+  /* 22 */ "L6",
+  /* 23 */ "L7",
+  /* 24 */ "I0",
+  /* 25 */ "I1",
+  /* 26 */ "I2",
+  /* 27 */ "I3",
+  /* 28 */ "I4",
+  /* 29 */ "I5",
+  /* 30 */ "I6",
+  /* 31 */ "I7",
+  /* 32 */ "F0",
+  /* 33 */ "F1",
+  /* 34 */ "F2",
+  /* 35 */ "F3",
+  /* 36 */ "F4",
+  /* 37 */ "F5",
+  /* 38 */ "F6",
+  /* 39 */ "F7",
+  /* 40 */ "F8",
+  /* 41 */ "F9",
+  /* 42 */ "F10",
+  /* 43 */ "F11",
+  /* 44 */ "F12",
+  /* 45 */ "F13",
+  /* 46 */ "F14",
+  /* 47 */ "F15",
+  /* 48 */ "F16",
+  /* 49 */ "F17",
+  /* 50 */ "F18",
+  /* 51 */ "F19",
+  /* 52 */ "F20",
+  /* 53 */ "F21",
+  /* 54 */ "F22",
+  /* 55 */ "F23",
+  /* 56 */ "F24",
+  /* 57 */ "F25",
+  /* 58 */ "F26",
+  /* 59 */ "F27",
+  /* 60 */ "F28",
+  /* 61 */ "F29",
+  /* 62 */ "F30",
+  /* 63 */ "F31",
+  /* 64 */ "Y",
+  /* 65 */ NULL,
+  /* 66 */ NULL,
+  /* 67 */ NULL,
+  /* 68 */ NULL,
+  /* 69 */ NULL,
+  /* 70 */ NULL,
+  /* 71 */ NULL,
+  /* 72 */ "D0",
+  /* 73 */ "D1",
+  /* 74 */ "D2",
+  /* 75 */ "D3",
+  /* 76 */ "D4",
+  /* 77 */ "D5",
+  /* 78 */ "D6",
+  /* 79 */ "D7",
+  /* 80 */ "D8",
+  /* 81 */ "D9",
+  /* 82 */ "D10",
+  /* 83 */ "D11",
+  /* 84 */ "D12",
+  /* 85 */ "D13",
+  /* 86 */ "D14",
+  /* 87 */ "D15",
+};
+
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
 RegNames *get_regnames(ELFIO::Elf_Half mac)
@@ -422,6 +515,10 @@ RegNames *get_regnames(ELFIO::Elf_Half mac)
       break;
     case ELFIO::EM_MIPS:
        res = new tableRegNames(regnames_mips, ARRAY_SIZE(regnames_mips));
+       return res;
+      break;
+    case ELFIO::EM_SPARCV9:
+       res = new tableRegNames(regnames_sparc, ARRAY_SIZE(regnames_sparc));
        return res;
       break;
     case 258:
