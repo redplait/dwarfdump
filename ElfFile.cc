@@ -549,6 +549,9 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
         case Dwarf32::dwarf_ops::DW_OP_reg31:
            pl->locs.push_back({ reg, op - Dwarf32::dwarf_ops::DW_OP_reg0, 0});
          break;
+        case Dwarf32::dwarf_ops::DW_OP_regx:
+           pl->locs.push_back({ reg, ElfFile::ULEB128(data, bytes_available), 0});
+         break;
         case Dwarf32::dwarf_ops::DW_OP_breg0:
         case Dwarf32::dwarf_ops::DW_OP_breg1:
         case Dwarf32::dwarf_ops::DW_OP_breg2:
@@ -583,6 +586,12 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
         case Dwarf32::dwarf_ops::DW_OP_breg31:
            pl->locs.push_back({ breg, op - Dwarf32::dwarf_ops::DW_OP_breg0, (int)ElfFile::ULEB128(data, bytes_available)});
          break;
+        case Dwarf32::dwarf_ops::DW_OP_bregx: {
+          auto reg = ElfFile::ULEB128(data, bytes_available);
+          int off = (int)ElfFile::ULEB128(data, bytes_available);
+          pl->locs.push_back({ breg, reg, off });
+          break;
+        }
         case Dwarf32::dwarf_ops::DW_OP_fbreg:
            pl->locs.push_back({ fbreg, 0, (int)ElfFile::ULEB128(data, bytes_available)});
          break;
