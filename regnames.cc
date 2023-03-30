@@ -317,6 +317,75 @@ static const char *const regnames_mips[] =
   /* 65 */ "LO0",  
 };
 
+// mips register names ripped from llvm/lib/Target/LoongArch
+static const char *const regnames_loongarch[] =
+{
+  /* 0 */ "R0",
+  /* 1 */ "R1",
+  /* 2 */ "R2",
+  /* 3 */ "R3",
+  /* 4 */ "R4",
+  /* 5 */ "R5",
+  /* 6 */ "R6",
+  /* 7 */ "R7",
+  /* 8 */ "R8",
+  /* 9 */ "R9",
+  /* 10 */ "R10",
+  /* 11 */ "R11",
+  /* 12 */ "R12",
+  /* 13 */ "R13",
+  /* 14 */ "R14",
+  /* 15 */ "R15",
+  /* 16 */ "R16",
+  /* 17 */ "R17",
+  /* 18 */ "R18",
+  /* 19 */ "R19",
+  /* 20 */ "R20",
+  /* 21 */ "R21",
+  /* 22 */ "R22",
+  /* 23 */ "R23",
+  /* 24 */ "R24",
+  /* 25 */ "R25",
+  /* 26 */ "R26",
+  /* 27 */ "R27",
+  /* 28 */ "R28",
+  /* 29 */ "R29",
+  /* 30 */ "R30",
+  /* 31 */ "R31",
+  /* 32 */ "F0",
+  /* 33 */ "F1",
+  /* 34 */ "F2",
+  /* 35 */ "F3",
+  /* 36 */ "F4",
+  /* 37 */ "F5",
+  /* 38 */ "F6",
+  /* 39 */ "F7",
+  /* 40 */ "F8",
+  /* 41 */ "F9",
+  /* 42 */ "F10",
+  /* 43 */ "F11",
+  /* 44 */ "F12",
+  /* 45 */ "F13",
+  /* 46 */ "F14",
+  /* 47 */ "F15",
+  /* 48 */ "F16",
+  /* 49 */ "F17",
+  /* 50 */ "F18",
+  /* 51 */ "F19",
+  /* 52 */ "F20",
+  /* 53 */ "F21",
+  /* 54 */ "F22",
+  /* 55 */ "F23",
+  /* 56 */ "F24",
+  /* 57 */ "F25",
+  /* 58 */ "F26",
+  /* 59 */ "F27",
+  /* 60 */ "F28",
+  /* 61 */ "F29",
+  /* 62 */ "F30",
+  /* 63 */ "F31"
+};
+
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
 RegNames *get_regnames(ELFIO::Elf_Half mac)
@@ -353,6 +422,10 @@ RegNames *get_regnames(ELFIO::Elf_Half mac)
       break;
     case ELFIO::EM_MIPS:
        res = new tableRegNames(regnames_mips, ARRAY_SIZE(regnames_mips));
+       return res;
+      break;
+    case 258:
+       res = new tableRegNames(regnames_loongarch, ARRAY_SIZE(regnames_loongarch));
        return res;
       break;
   } 
