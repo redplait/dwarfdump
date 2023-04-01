@@ -80,7 +80,7 @@ sub parse
           my $v = $2;
           if ( $v =~ /^0x/ )
           {
-            $s = int($v);
+            $s = hex($v);
           } else {
             $s = int($v);
           }
