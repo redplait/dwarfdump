@@ -77,7 +77,13 @@ sub parse
         # gather line and column
         if ( $attr eq 'decl_line' )
         {
-          $s = int($2);
+          my $v = $2;
+          if ( $v =~ /^0x/ )
+          {
+            $s = int($v);
+          } else {
+            $s = int($v);
+          }
           next;
         }
         if ( $attr eq 'decl_column' )
@@ -94,9 +100,14 @@ sub parse
           next;
         }
         # name
-        if ( $attr eq 'name' && $rest =~ /: ([^:]+)$/ )
+        if ( $attr eq 'name' )
         {
-          $name = $1;
+          if ( $rest =~ /: ([^:]+)$/ )
+          {
+            $name = $1;
+          } else {
+            $name = $rest;
+          }
           next;
         }
       }
