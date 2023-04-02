@@ -843,6 +843,9 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
     CASE_REGISTER_NEW_TAG(DW_TAG_subroutine_type, subroutine_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_ptr_to_member_type, ptr2member)
     CASE_REGISTER_NEW_TAG(DW_TAG_unspecified_type, unspec_type)
+    CASE_REGISTER_NEW_TAG(DW_TAG_variant_part, variant_type)
+    case Dwarf32::Tag::DW_TAG_variant:
+      return tree_builder->AddVariant();
     case Dwarf32::Tag::DW_TAG_lexical_block:
       if ( g_opt_L && m_section->has_children )
       {
@@ -983,6 +986,20 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         tree_builder->SetInlined((int)v);
       return true;
     }
+    case Dwarf32::Attribute::DW_AT_discr: {
+      uint64_t addr = FormDataValue(form, info, info_bytes);
+      if ( m_regged )
+      {
+        if (form != Dwarf32::Form::DW_FORM_ref_addr) {
+          // The offset is relative to the current compilation unit, we make it
+          // absolute
+          addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
+        }
+        // fprintf(stderr, "discr %lX form %d at %lX\n", addr, form, info - debug_info_);  
+        tree_builder->SetDiscr(addr);
+      }
+      return true;
+    }
     case Dwarf32::Attribute::DW_AT_abstract_origin: {
       uint64_t addr = FormDataValue(form, info, info_bytes);
       if ( m_regged )
@@ -1083,6 +1100,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         // absolute
         id += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
       }
+      // fprintf(stderr, "type %lX form %d at %lX\n", id, form, info - debug_info_);
       if ( m_regged )
         tree_builder->SetElementType(id);
       return true;

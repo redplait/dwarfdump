@@ -167,6 +167,18 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, named *n, int level)
     }
     return true;
   }
+  if ( el->second->type_ == ElementType::variant_type )
+  {
+    res = "variant ";
+    if ( el->second->m_comp != nullptr )
+    {
+      res += "{\n";
+      render_fields(el->second, res, level + 1);
+      add_margin(res, level);
+      res += "}";
+    }
+    return true;
+  }
   if ( el->second->type_ == ElementType::union_type )
   {
     res = "union ";
@@ -341,7 +353,7 @@ std::string &PlainRender::render_field(Element *e, std::string &s, int level)
   auto name = n.name();
   if ( name != nullptr )
   {
-     s += " ";
+    s += " ";
     s += name;
   }
   // pdbdump format for bit fields :offset:size

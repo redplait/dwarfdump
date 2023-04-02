@@ -355,6 +355,16 @@ int TreeBuilder::can_have_methods(int level)
   return (level > 1);
 }
 
+bool TreeBuilder::AddVariant()
+{
+  if ( m_stack.empty() ) {
+    fprintf(stderr, "Can't add a variant when stack is empty\n");
+    return false;
+  }
+  auto top = m_stack.top();
+  return top->type_ == ElementType::variant_type;
+}
+
 // formal parameter - level should be +1 to parent
 bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level, bool ell) 
 {
@@ -373,6 +383,17 @@ bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level, bool ell)
   
   top->m_comp->params_.push_back({NULL, tag_id, 0, ell, false});
   return true;
+}
+
+void TreeBuilder::SetDiscr(uint64_t v)
+{
+  if ( current_element_type_ != ElementType::variant_type )
+    return;
+  if ( elements_.empty() ) {
+    fprintf(stderr, "Can't add a discr when element list is empty\n");
+    return;
+  }
+  elements_.back().type_id_ = v;
 }
 
 void TreeBuilder::SetParentAccess(int a)
@@ -410,6 +431,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
   level -= ns_count;
   // fprintf(g_outf, "AddElement %d id %lX level %d ns_count %d\n", element_type, tag_id, level, ns_count);
   switch(element_type) {
+    case ElementType::variant_type:
     case ElementType::member:       // Member
       if (current_element_type_ == ElementType::none) {
         return;
@@ -422,10 +444,17 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         fprintf(stderr, "Can't add a member if the element list is empty\n");
         return;
       } else {
-        auto top = m_stack.top();
+        auto &top = m_stack.top();
         if ( !top->m_comp )
           top->m_comp = new Compound();
         top->m_comp->members_.push_back(Element(element_type, tag_id, level, get_owner()));
+      }
+      if ( element_type == ElementType::variant_type )
+      {
+        auto &top = m_stack.top();
+        top->m_comp->members_.back().type_id_ = tag_id;
+        elements_.push_back(Element(element_type, tag_id, level, get_owner()));
+        recent_ = nullptr;
       }
       break;
     case ElementType::inheritance:    // Parent
@@ -473,7 +502,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
     case ElementType::subroutine:
       if ( can_have_methods(level) )
       {
-        auto top = m_stack.top();
+        auto &top = m_stack.top();
         if ( !top->m_comp )
           top->m_comp = new Compound();
         top->m_comp->methods_.push_back(Method(tag_id, level, get_owner()));
@@ -1017,6 +1046,7 @@ const char* TreeBuilder::Element::TypeName() {
     case ElementType::ns_start: return "namespace";
     case ElementType::lexical_block: return "lexical_block";
     case ElementType::var_type: return "var";
+    case ElementType::variant_type: return "variant_type";
     default: return "unk";
   }
 }

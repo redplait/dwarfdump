@@ -81,6 +81,7 @@ public:
     unspec_type, // DW_TAG_unspecified_type
     lexical_block, // when -L option is set
     var_type,
+    variant_type, // DW_TAG_variant_part
     ns_start,
     ns_end,
   };
@@ -97,6 +98,7 @@ public:
   void pop_stack(uint64_t);
   void AddNone();
   void AddElement(ElementType element_type, uint64_t tag_id, int level);
+  bool AddVariant();
   bool AddFormalParam(uint64_t tag_id, int level, bool);
   void SetElementName(const char* name, uint64_t off);
   void SetLinkageName(const char* name);
@@ -121,6 +123,7 @@ public:
   void SetExplicit();
   void SetSpec(uint64_t);
   void SetAbs(uint64_t);
+  void SetDiscr(uint64_t);
   void SetInlined(int);
   void SetVarParam(bool);
   void SetLocation(param_loc *);
