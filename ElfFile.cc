@@ -247,7 +247,7 @@ ElfFile::~ElfFile()
 
 // static
 uint32_t ElfFile::ULEB128(const unsigned char* &data, size_t& bytes_available) {
-  uint32_t result = 0;
+  uint64_t result = 0;
 
   unsigned int shift = 0;
   while (bytes_available > 0) {
@@ -267,6 +267,24 @@ uint32_t ElfFile::ULEB128(const unsigned char* &data, size_t& bytes_available) {
   }
 
   return result;
+}
+
+int64_t ElfFile::SLEB128(const unsigned char* &data, size_t& bytes_available) {
+  uint64_t result = 0;
+  unsigned char byte = 0;
+  unsigned int shift = 0;
+  while (bytes_available > 0) {
+    byte = *data;
+    data++;
+    bytes_available--;
+    result |= (byte & 0x7f) << shift;
+    shift+=7;
+    if ( !(byte & 0x80) )
+      break;
+  }
+  if ( shift < 8 * sizeof(result) && (byte & 0x40) )
+    result |= -(((uint64_t) 1) << shift);
+  return (int64_t)result;
 }
 
 void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& bytes_available) 
@@ -550,7 +568,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
            pl->locs.push_back({ reg, op - Dwarf32::dwarf_ops::DW_OP_reg0, 0});
          break;
         case Dwarf32::dwarf_ops::DW_OP_regx:
-           pl->locs.push_back({ reg, ElfFile::ULEB128(data, bytes_available), 0});
+           pl->locs.push_back({ reg, (unsigned int)ElfFile::ULEB128(data, bytes_available), 0});
          break;
         case Dwarf32::dwarf_ops::DW_OP_breg0:
         case Dwarf32::dwarf_ops::DW_OP_breg1:
@@ -584,16 +602,16 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
         case Dwarf32::dwarf_ops::DW_OP_breg29:
         case Dwarf32::dwarf_ops::DW_OP_breg30:
         case Dwarf32::dwarf_ops::DW_OP_breg31:
-           pl->locs.push_back({ breg, op - Dwarf32::dwarf_ops::DW_OP_breg0, (int)ElfFile::ULEB128(data, bytes_available)});
+           pl->locs.push_back({ breg, op - Dwarf32::dwarf_ops::DW_OP_breg0, (int)ElfFile::SLEB128(data, bytes_available)});
          break;
         case Dwarf32::dwarf_ops::DW_OP_bregx: {
           auto reg = ElfFile::ULEB128(data, bytes_available);
-          int off = (int)ElfFile::ULEB128(data, bytes_available);
-          pl->locs.push_back({ breg, reg, off });
+          int off = ElfFile::SLEB128(data, bytes_available);
+          pl->locs.push_back({ breg, (unsigned int)reg, off });
           break;
         }
         case Dwarf32::dwarf_ops::DW_OP_fbreg:
-           pl->locs.push_back({ fbreg, 0, (int)ElfFile::ULEB128(data, bytes_available)});
+           pl->locs.push_back({ fbreg, 0, (int)ElfFile::SLEB128(data, bytes_available)});
          break;
       default:
         fprintf(stderr, "DecodeAddrLocation: unknown op %X at %lX\n", op, doff);
@@ -726,6 +744,8 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
       bytes_available -= address_size_;
       break;
     case Dwarf32::Form::DW_FORM_sdata:
+      value = (uint64_t)ElfFile::ULEB128(info, bytes_available);
+      break;
     case Dwarf32::Form::DW_FORM_udata:
     case Dwarf32::Form::DW_FORM_ref_udata:
     case Dwarf32::Form::DW_FORM_indirect:
