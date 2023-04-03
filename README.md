@@ -6,3 +6,4 @@ dwarf definitions in some compilers
  * llvm [Dwarf.def](https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/BinaryFormat/Dwarf.def)
  * [go](https://github.com/golang/go/blob/master/src/debug/dwarf/const.go)
  * [TinyCC](https://github.com/TinyCC/tinycc/blob/mob/dwarf.h)
+ * [haskell](https://hackage.haskell.org/package/dwarf-el-0.3/docs/src/)
