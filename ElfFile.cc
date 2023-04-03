@@ -744,8 +744,6 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
       bytes_available -= address_size_;
       break;
     case Dwarf32::Form::DW_FORM_sdata:
-      value = (uint64_t)ElfFile::ULEB128(info, bytes_available);
-      break;
     case Dwarf32::Form::DW_FORM_udata:
     case Dwarf32::Form::DW_FORM_ref_udata:
     case Dwarf32::Form::DW_FORM_indirect:
