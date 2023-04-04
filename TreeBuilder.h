@@ -138,6 +138,7 @@ public:
   struct cu cu;
   bool is_go() const;
   RegNames *m_rnames = nullptr;
+  ISectionNames *m_snames = nullptr;
   // for names with direct string - seems that if name lesser pointer size they are directed
   // so renderer should be able to distinguish if some name located in string pool
   // in other case this name should be considered as direct string

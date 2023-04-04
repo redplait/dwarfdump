@@ -8,12 +8,13 @@
 
 using namespace ELFIO;
 
-class ElfFile {
+class ElfFile : public ISectionNames 
+{
 public:
   ElfFile(std::string filepath, bool& success, TreeBuilder *);
   ~ElfFile();
   bool GetAllClasses();
-
+  virtual const char *find_sname(uint64_t);
 private:
   bool unzip_section(ELFIO::section *, const unsigned char * &data, size_t &);
   bool check_compressed_section(ELFIO::section *, const unsigned char * &data, size_t &);

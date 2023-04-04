@@ -230,6 +230,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
     free_loc = true;
   }
   tree_builder->m_rnames = get_regnames(reader.get_machine());
+  tree_builder->m_snames = this;
   success = (debug_info_ && debug_abbrev_);
 }
 
@@ -243,6 +244,20 @@ ElfFile::~ElfFile()
     free((void *)tree_builder->debug_str_);
   if ( free_loc && debug_loc_ != nullptr )
     free((void *)debug_loc_);
+}
+
+const char *ElfFile::find_sname(uint64_t addr)
+{
+  Elf_Half n = reader.sections.size();
+  for ( Elf_Half i = 0; i < n; i++) 
+  {
+    section *s = reader.sections[i];
+    auto s_addr = s->get_address();
+    if ( (addr >= s_addr) && (addr < s_addr + s->get_size())
+       )
+      return s->get_name().c_str();
+  }
+  return nullptr;
 }
 
 // static
