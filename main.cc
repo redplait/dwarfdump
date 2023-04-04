@@ -3,7 +3,7 @@
 #include "JsonRender.h"
 #include "PlainRender.h"
 
-extern int g_opt_d, g_opt_f, g_opt_g, g_opt_l, g_opt_L, g_opt_v, g_opt_V;
+extern int g_opt_d, g_opt_f, g_opt_g, g_opt_l, g_opt_L, g_opt_s, g_opt_v, g_opt_V;
 extern FILE *g_outf;
 
 int use_json = 0;
@@ -20,6 +20,7 @@ void usage(const char *prog)
   printf("-l - add levels\n");
   printf("-L - process lexical blocks\n");
   printf("-o out-file\n");
+  printf("-s - dump section names\n");
   printf("-v - verbose mode\n");
   printf("-V - dump vars\n");
   exit(6);
@@ -31,7 +32,7 @@ int main(int argc, char* argv[])
   // read options
   while(1)
   {
-    int c = getopt(argc, argv, "dfgjklLvVo:");
+    int c = getopt(argc, argv, "dfgjklLsvVo:");
     if ( c == -1 )
       break;
     switch(c)
@@ -49,6 +50,8 @@ int main(int argc, char* argv[])
       case 'l': g_opt_l = 1;
         break;
       case 'L': g_opt_L = 1;
+        break;
+      case 's': g_opt_s = 1;
         break;
       case 'v': g_opt_v = 1;
         break;

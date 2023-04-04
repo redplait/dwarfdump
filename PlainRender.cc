@@ -411,7 +411,13 @@ void PlainRender::dump_spec(Element *en)
     fprintf(g_outf, "// specification\n");
   for ( auto e: *slist )
   {
-    fprintf(g_outf, "//  addr %lX type_id %lX", e->addr_, e->id_);
+    const char *s_name = nullptr;
+    if ( g_opt_s && m_snames != nullptr )
+      s_name = m_snames->find_sname(e->addr_);
+    if ( s_name == nullptr )
+      fprintf(g_outf, "//  Addr %lX type_id %lX", e->addr_, e->id_);
+    else
+      fprintf(g_outf, "//  Addr %lX %s type_id %lX", e->addr_, s_name, e->id_);  
     if ( e->link_name_ )
       fprintf(g_outf, " %s", e->link_name_);
     fprintf(g_outf, "\n");
@@ -656,7 +662,15 @@ void PlainRender::dump_vars()
   for ( auto &e: m_vars )
   {
     if ( e->addr_ )
-      fprintf(g_outf, "// Addr 0x%lX\n", e->addr_);
+    {
+      const char *s_name = nullptr;
+      if ( g_opt_s && m_snames != nullptr )
+        s_name = m_snames->find_sname(e->addr_);
+      if ( s_name == nullptr )
+        fprintf(g_outf, "// Addr 0x%lX\n", e->addr_);
+      else
+        fprintf(g_outf, "// Addr 0x%lX %s\n", e->addr_, s_name);
+    }
     auto ti = m_tls.find(e->id_);
     if ( ti != m_tls.end() )
       fprintf(g_outf, "// TlsIndex 0x%X\n", ti->second);
@@ -728,7 +742,15 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
       continue;
     put_file_hdr(rcu);
     if ( e.addr_ )
-      fprintf(g_outf, "// Addr 0x%lX\n", e.addr_);
+    {
+      const char *s_name = nullptr;
+      if ( g_opt_s && m_snames != nullptr )
+        s_name = m_snames->find_sname(e.addr_);
+      if ( s_name == nullptr )
+        fprintf(g_outf, "// Addr 0x%lX\n", e.addr_);
+      else
+        fprintf(g_outf, "// Addr 0x%lX %s\n", e.addr_, s_name);
+    }
     if ( e.size_ )
       fprintf(g_outf, "// Size 0x%lX\n", e.size_);
     if ( g_opt_v )

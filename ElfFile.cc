@@ -11,6 +11,7 @@ int g_opt_d = 0,
     g_opt_g = 0,
     g_opt_k = 0,
     g_opt_l = 0,
+    g_opt_s = 0,
     g_opt_L = 0,
     g_opt_V = 0,
     g_opt_v = 0;

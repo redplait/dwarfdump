@@ -6,7 +6,7 @@
 #include <stack>
 #include "regnames.h"
 
-extern int g_opt_g, g_opt_k, g_opt_l, g_opt_v;
+extern int g_opt_g, g_opt_k, g_opt_l, g_opt_s, g_opt_v;
 extern FILE *g_outf;
 
 enum param_op_type

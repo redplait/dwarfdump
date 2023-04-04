@@ -141,7 +141,15 @@ std::string JsonRender::GenerateJson(Element &e) {
   if (e.size_)
     put(result, "size", e.size_);
   if ( e.addr_ )
+  {
     put(result, "addr", e.addr_);
+    if ( g_opt_s && m_snames != nullptr )
+    {
+      auto sname = m_snames->find_sname(e.addr_);
+      if ( sname != nullptr )
+        put(result, "section", sname);
+    }
+  }
   if ( e.inlined_ )
     put(result, "inline", e.inlined_);
   if ( e.type_ == ElementType::var_type )
