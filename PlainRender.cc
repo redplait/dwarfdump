@@ -701,6 +701,8 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
 {
   for ( auto &e: els )
   {
+    if ( g_opt_k && e.dumped_ && !should_keep(&e) )
+      continue;
     if ( ElementType::var_type == e.type_ )
     {
       if ( e.addr_ )
@@ -733,8 +735,6 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
     if ( ElementType::base_type == e.type_ || ElementType::unspec_type == e.type_ )
       continue;
     if ( ElementType::const_type == e.type_ )
-      continue;
-    if ( g_opt_k && e.dumped_ && !should_keep(&e) )
       continue;
     // skip replaced types
     const auto ci = m_replaced.find(e.id_);
