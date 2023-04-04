@@ -58,6 +58,7 @@ public:
     none,
     array_type,
     class_type,
+    interface_type,
     enumerator_type,
     enumerator,
     member,
@@ -293,8 +294,9 @@ protected:
     inline bool can_have_decl() const
     {
       return (type_ == ElementType::class_type) ||
+             (type_ == ElementType::interface_type)  ||
              (type_ == ElementType::enumerator_type) ||
-             (type_ == ElementType::structure_type) ||
+             (type_ == ElementType::structure_type)  ||
              (type_ == ElementType::union_type)
       ;
     }

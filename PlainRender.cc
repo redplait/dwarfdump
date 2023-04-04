@@ -147,6 +147,7 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, named *n, int level)
   if ( el->second->type_ == ElementType::typedef2 ||
        el->second->type_ == ElementType::base_type ||
        el->second->type_ == ElementType::class_type ||
+       el->second->type_ == ElementType::interface_type ||
        el->second->type_ == ElementType::unspec_type
      )
   {
@@ -697,6 +698,28 @@ void PlainRender::dump_vars()
   }
 }
 
+int PlainRender::dump_parents(Element &e)
+{
+  if ( e.m_comp && !e.m_comp->parents_.empty() )
+  {
+    fprintf(g_outf, " :\n");
+    for ( size_t pi = 0; pi < e.m_comp->parents_.size(); pi++ )
+    {
+      fprintf(g_outf, "// offset %lX\n", e.m_comp->parents_[pi].offset);
+      std::string pname;
+      named pn;
+      dump_type(e.m_comp->parents_[pi].id, pname, &pn);
+      fprintf(g_outf, "%s%s", access_name(e.m_comp->parents_[pi].access), pname.c_str());
+      if ( pi != e.m_comp->parents_.size() - 1 )
+        fprintf(g_outf, ",\n");
+      else
+        fprintf(g_outf, "\n");
+    }
+    return 1;
+  }
+  return 0;
+}
+
 void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
 {
   for ( auto &e: els )
@@ -771,6 +794,7 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
         fprintf(g_outf, "struct %s", e.name_);
         if ( e.is_pure_decl() )
           break;
+        dump_parents(e);
         fprintf(g_outf, " {\n");
         dump_fields(&e);
         dump_methods(&e);
@@ -785,26 +809,12 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
         dump_methods(&e);
         fprintf(g_outf, "}");
         break;
+      case ElementType::interface_type:
       case ElementType::class_type:
-        fprintf(g_outf, "class %s", e.name_);
+        fprintf(g_outf, "%s %s", (e.type_ == ElementType::class_type) ? "class" : "interface", e.name_);
         if ( e.is_pure_decl() )
           break;
-        if ( e.m_comp && !e.m_comp->parents_.empty() )
-        {
-          fprintf(g_outf, " :\n");
-          for ( size_t pi = 0; pi < e.m_comp->parents_.size(); pi++ )
-          {
-            fprintf(g_outf, "// offset %lX\n", e.m_comp->parents_[pi].offset);
-            std::string pname;
-            named pn;
-            dump_type(e.m_comp->parents_[pi].id, pname, &pn);
-            fprintf(g_outf, "%s%s", access_name(e.m_comp->parents_[pi].access), pname.c_str());
-            if ( pi != e.m_comp->parents_.size() - 1 )
-              fprintf(g_outf, ",\n");
-            else
-              fprintf(g_outf, "\n");
-          }
-        }
+        dump_parents(e);
         fprintf(g_outf, "{\n");
         dump_fields(&e);
         dump_methods(&e);

@@ -859,6 +859,7 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
   switch (tag) {
     CASE_REGISTER_NEW_TAG(DW_TAG_array_type, array_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_class_type, class_type)
+    CASE_REGISTER_NEW_TAG(DW_TAG_interface_type, interface_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_enumeration_type, enumerator_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_enumerator, enumerator)
     CASE_REGISTER_NEW_TAG(DW_TAG_member, member)

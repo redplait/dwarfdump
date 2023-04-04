@@ -76,6 +76,7 @@ bool TreeBuilder::get_replaced_name(uint64_t key, std::string &res)
    {
      case ElementType::typedef2:
      case ElementType::class_type:
+     case ElementType::interface_type:
      case ElementType::base_type:
      case ElementType::unspec_type:
        res = ci->second.name_;
@@ -900,6 +901,7 @@ void TreeBuilder::SetElementType(uint64_t type_id) {
 void TreeBuilder::SetAlignment(uint64_t v)
 {
   if ( current_element_type_ == ElementType::class_type ||
+       current_element_type_ == ElementType::interface_type ||
        current_element_type_ == ElementType::structure_type ||
        current_element_type_ == ElementType::union_type
   )
@@ -1025,6 +1027,7 @@ const char* TreeBuilder::Element::TypeName() {
     case ElementType::none: return "none";
     case ElementType::array_type: return "array";
     case ElementType::class_type: return "class";
+    case ElementType::interface_type: return "interface";
     case ElementType::enumerator_type: return "enumerator";
     case ElementType::member: return "member";
     case ElementType::pointer_type: return "pointer";
