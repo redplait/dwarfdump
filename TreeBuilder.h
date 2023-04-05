@@ -69,10 +69,14 @@ public:
     inheritance,
     subrange_type,
     base_type,
+    // there are 7 modifier/qualifier type tags
     const_type,
     volatile_type,
     restrict_type,
-    reference_type,
+    atomic_type, // _Atomic - since C11
+    immutable_type,
+    // I don`t have samples for DW_TAG_packed_type & DW_TAG_shared_type
+    reference_type, 
     rvalue_ref_type,
     subroutine_type,
     formal_param,

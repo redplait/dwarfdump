@@ -873,6 +873,8 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
     CASE_REGISTER_NEW_TAG(DW_TAG_const_type, const_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_volatile_type, volatile_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_restrict_type, restrict_type)
+    CASE_REGISTER_NEW_TAG(DW_TAG_atomic_type, atomic_type)
+    CASE_REGISTER_NEW_TAG(DW_TAG_immutable_type, immutable_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_reference_type, reference_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_rvalue_reference_type, rvalue_ref_type)
     CASE_REGISTER_NEW_TAG(DW_TAG_subroutine_type, subroutine_type)

@@ -235,6 +235,22 @@ bool PlainRender::dump_type(uint64_t key, std::string &res, named *n, int level)
     res += tmp;
     return true;
   }
+  if ( el->second->type_ == ElementType::atomic_type )
+  {
+    std::string tmp;
+    dump_type(el->second->type_id_, tmp, n);
+    res = "_Atomic ";
+    res += tmp;
+    return true;
+  }
+  if ( el->second->type_ == ElementType::immutable_type )
+  {
+    std::string tmp;
+    dump_type(el->second->type_id_, tmp, n);
+    res = "immutable "; // ??
+    res += tmp;
+    return true;
+  }
   if ( el->second->type_ == ElementType::restrict_type )
   {
     std::string tmp;
@@ -720,6 +736,14 @@ int PlainRender::dump_parents(Element &e)
   return 0;
 }
 
+void PlainRender::dump_complex_type(Element &e)
+{
+  fprintf(g_outf, " {\n");
+  dump_fields(&e);
+  dump_methods(&e);
+  fprintf(g_outf, "}");
+}
+
 void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
 {
   for ( auto &e: els )
@@ -795,19 +819,13 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
         if ( e.is_pure_decl() )
           break;
         dump_parents(e);
-        fprintf(g_outf, " {\n");
-        dump_fields(&e);
-        dump_methods(&e);
-        fprintf(g_outf, "}");
+        dump_complex_type(e);
         break;
       case ElementType::union_type:
         fprintf(g_outf, "union %s", e.name_);
         if ( e.is_pure_decl() )
           break;
-        fprintf(g_outf, " {\n");
-        dump_fields(&e);
-        dump_methods(&e);
-        fprintf(g_outf, "}");
+        dump_complex_type(e);  
         break;
       case ElementType::interface_type:
       case ElementType::class_type:
@@ -815,10 +833,7 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
         if ( e.is_pure_decl() )
           break;
         dump_parents(e);
-        fprintf(g_outf, "{\n");
-        dump_fields(&e);
-        dump_methods(&e);
-        fprintf(g_outf, "}");
+        dump_complex_type(e);
         break;
       case ElementType::subroutine:
         dump_func(&e);

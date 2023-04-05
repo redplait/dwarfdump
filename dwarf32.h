@@ -78,6 +78,7 @@ namespace Dwarf32 {
 
     // DWARF 5
     DW_TAG_atomic_type = 0x47,
+    DW_TAG_immutable_type = 0x4b,
 
     DW_TAG_lo_user = 0x4080,
     DW_TAG_hi_user = 0xffff

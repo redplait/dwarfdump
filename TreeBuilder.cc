@@ -1039,6 +1039,8 @@ const char* TreeBuilder::Element::TypeName() {
     case ElementType::const_type: return "const";
     case ElementType::volatile_type: return "volatile";
     case ElementType::restrict_type: return "restrict";
+    case ElementType::atomic_type: return "atomic";
+    case ElementType::immutable_type: return "immutable";
     case ElementType::reference_type: return "reference";
     case ElementType::rvalue_ref_type: return "rvalue_reference";
     case ElementType::subroutine_type: return "function_type";
