@@ -561,11 +561,31 @@ void TreeBuilder::SetLocation(param_loc *pl)
     return;
   }
   auto top = m_stack.top();
+  if ( recent_ )
+    top = recent_;
   if (!top->m_comp || top->m_comp->params_.empty()) {
     fprintf(stderr, "Can't set the parameter location if the params list is empty\n");
     return;
   }
   top->m_comp->params_.back().loc = *pl;
+}
+
+void TreeBuilder::SetOptionalParam()
+{
+  if (current_element_type_ != ElementType::formal_param)
+    return;
+  if (!elements_.size()) {
+    fprintf(stderr, "Can't set an optional parameter if the element list is empty\n");
+    return;
+  }
+  auto top = m_stack.top();
+  if ( recent_ )
+    top = recent_;
+  if (!top->m_comp || top->m_comp->params_.empty()) {
+    fprintf(stderr, "Can't set the optional parameter if the params list is empty\n");
+    return;
+  }
+  top->m_comp->params_.back().optional_ = true;
 }
 
 void TreeBuilder::SetVarParam(bool v)
@@ -577,6 +597,8 @@ void TreeBuilder::SetVarParam(bool v)
     return;
   }
   auto top = m_stack.top();
+  if ( recent_ )
+    top = recent_;
   if (!top->m_comp || top->m_comp->params_.empty()) {
     fprintf(stderr, "Can't set the variable parameter if the params list is empty\n");
     return;

@@ -131,6 +131,7 @@ public:
   void SetDiscr(uint64_t);
   void SetInlined(int);
   void SetVarParam(bool);
+  void SetOptionalParam();
   void SetLocation(param_loc *);
   void SetTlsIndex(param_loc *);
 
@@ -188,7 +189,8 @@ protected:
     uint64_t param_id;
     uint64_t id;
     bool ellipsis;
-    bool var_; // from DW_AT_variable_parameter - go mostly?
+    bool var_ = false; // from DW_AT_variable_parameter - go mostly?
+    bool optional_ = false; // DW_AT_is_optional
     param_loc loc;
   };
 

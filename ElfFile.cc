@@ -1004,6 +1004,10 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         tree_builder->SetExplicit();
       return true;
     }
+    case Dwarf32::Attribute::DW_AT_is_optional:
+      if ( m_regged )
+        tree_builder->SetOptionalParam();
+      return true;     
     case Dwarf32::Attribute::DW_AT_variable_parameter: {
       uint64_t v = FormDataValue(form, info, info_bytes);
       if ( m_regged && v )

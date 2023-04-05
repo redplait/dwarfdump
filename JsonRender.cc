@@ -201,6 +201,8 @@ std::string JsonRender::GenerateJson(Element &e) {
         put(result, "id", e.m_comp->params_[i].param_id);
       if ( e.m_comp->params_[i].var_ )
         put(result, "variable", e.m_comp->params_[i].var_);
+      if ( e.m_comp->params_[i].optional_ )
+        put(result, "optinal", e.m_comp->params_[i].optional_);
       if (e.m_comp->params_[i].ellipsis)
       {
         put(result, "ellipsis", e.m_comp->params_[i].ellipsis);
