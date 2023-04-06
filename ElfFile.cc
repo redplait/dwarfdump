@@ -270,6 +270,115 @@ ElfFile::~ElfFile()
   free_section(debug_loc_, free_loc);
 }
 
+bool ElfFile::read_debug_lines()
+{
+  if ( debug_line_ == nullptr )
+    return false;
+  auto ptr = debug_line_;
+  size_t ba = debug_line_size_;
+  memset(&m_li, 0, sizeof(m_li));
+  if ( ba < 4 )
+    return false;
+  m_li.li_length = *(const uint32_t *)(ptr);
+  ptr += 4;
+  ba -= 4;
+  if ( 0xffffffff == m_li.li_length )
+  {
+    if ( ba < 8 )
+      return false;
+    m_li.li_length = *(const uint64_t *)(ptr);
+    ptr += 8;
+    ba -= 8;
+    m_li.li_offset_size = 8;    
+  } else
+    m_li.li_offset_size = 4;
+  // version
+  if ( ba < 2 )
+    return false;
+  m_li.li_version = *(const uint16_t *)(ptr);
+  ptr += 2;
+  ba -= 2;
+  if ( m_li.li_version >= 5 )
+  {
+    if ( ba < 2 )
+      return false;
+    m_li.li_address_size = *static_cast<const uint8_t *>(ptr);
+    ptr++;
+    m_li.li_segment_size = *static_cast<const uint8_t *>(ptr);
+    ptr++;
+    ba -= 2;    
+  }
+  // prolog_length
+  if ( ba < m_li.li_offset_size )
+    return false;
+  if ( 4 == m_li.li_offset_size )
+  {
+    m_li.li_prologue_length = *(const uint32_t *)(ptr);
+  } else {
+    m_li.li_prologue_length = *(const uint64_t *)(ptr);
+  }
+  ptr += m_li.li_offset_size;
+  ba -= m_li.li_offset_size;
+  // min_insn_length
+  if ( !ba )
+    return false;
+  m_li.li_min_insn_length = *static_cast<const uint8_t *>(ptr);
+  ptr++;
+  ba--;
+  if ( m_li.li_version >= 4 )
+  {
+    if ( !ba )
+      return false;
+    m_li.li_max_ops_per_insn = *static_cast<const uint8_t *>(ptr);
+    ptr++;
+    ba--;
+    if ( !m_li.li_max_ops_per_insn )
+      return false; 
+  } else 
+    m_li.li_max_ops_per_insn = 1;
+  if ( ba < 4 )
+    return false;
+  m_li.li_default_is_stmt = *static_cast<const uint8_t *>(ptr);
+  ptr++;
+  m_li.li_line_base = *(const int8_t *)(ptr);
+  ptr++;
+  m_li.li_line_range = *static_cast<const uint8_t *>(ptr);
+  ptr++;
+  m_li.li_opcode_base = *static_cast<const uint8_t *>(ptr);
+  ptr++;
+  DBG_PRINTF("Length: %lX\n", m_li.li_length);
+  DBG_PRINTF("version: %d\n", m_li.li_version);
+  if ( m_li.li_version >= 5 )
+  {
+    DBG_PRINTF("address size: %d\n", m_li.li_address_size);
+    DBG_PRINTF("segment selector: %d bytes\n", m_li.li_segment_size);
+  }
+  DBG_PRINTF("prolog length: %ld\n", m_li.li_prologue_length);
+  DBG_PRINTF("min insn length: %d\n", m_li.li_min_insn_length);
+  if ( m_li.li_version >= 4 )
+    DBG_PRINTF("max insn length: %d\n", m_li.li_max_ops_per_insn);
+  DBG_PRINTF("default_is_stmt: %d\n", m_li.li_default_is_stmt);
+  DBG_PRINTF("line base: %d\n", m_li.li_line_base);
+  DBG_PRINTF("line range %d\n", m_li.li_line_range);
+  DBG_PRINTF("opcode base: %d\n", m_li.li_opcode_base);
+  reset_state_machine(m_li.li_default_is_stmt);
+  return true;
+}
+
+void ElfFile::reset_state_machine(int is_stmt)
+{
+  m_smr.address = 0;
+  m_smr.view = 0;
+  m_smr.op_index = 0;
+  m_smr.file = 1;
+  m_smr.line = 1;
+  m_smr.column = 0;
+  m_smr.is_stmt = is_stmt;
+  m_smr.basic_block = 0;
+  m_smr.end_sequence = 0;
+  m_smr.last_file_entry = 0;
+}
+
 const char *ElfFile::find_sname(uint64_t addr)
 {
   Elf_Half n = reader.sections.size();
@@ -1242,7 +1351,10 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
   return false;
 }
 
-bool ElfFile::GetAllClasses() {
+bool ElfFile::GetAllClasses() 
+{
+  if ( !read_debug_lines() )
+    free_section(debug_line_, free_line);
   const unsigned char* info = reinterpret_cast<const unsigned char*>(debug_info_);
   size_t info_bytes = debug_info_size_;
 

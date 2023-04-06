@@ -22,8 +22,22 @@ typedef struct
   unsigned char  li_line_range;
   unsigned char  li_opcode_base;
   unsigned int   li_offset_size;
-}
-DWARF2_Internal_LineInfo;
+} DWARF2_Internal_LineInfo;
+
+struct State_Machine_Registers
+{
+  uint64_t address;
+  unsigned int view;
+  unsigned int file;
+  unsigned int line;
+  unsigned int column;
+  int is_stmt;
+  int basic_block;
+  unsigned char op_index;
+  unsigned char end_sequence;
+  /* This variable hold the number of the last entry seen in the File Table.  */
+  unsigned int last_file_entry;
+};
 
 class ElfFile : public ISectionNames 
 {
@@ -52,6 +66,8 @@ private:
     uint64_t tag_id, Dwarf32::Form form, const unsigned char* &info, 
     size_t& info_bytes, const void* unit_base);
   void free_section(const unsigned char *&s, bool);
+  bool read_debug_lines();
+  void reset_state_machine (int is_stmt);
 
   elfio reader;
   TreeBuilder *tree_builder;
@@ -80,6 +96,7 @@ private:
   int64_t m_next; // value of DW_AT_sibling
   int m_level;
   DWARF2_Internal_LineInfo m_li;
+  State_Machine_Registers m_smr;
   bool m_regged;
   bool free_info;
   bool free_abbrev;
