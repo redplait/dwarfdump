@@ -8,6 +8,23 @@
 
 using namespace ELFIO;
 
+typedef struct
+{
+  uint64_t	 li_length;
+  unsigned short li_version;
+  unsigned char  li_address_size;
+  unsigned char  li_segment_size;
+  uint64_t	 li_prologue_length;
+  unsigned char  li_min_insn_length;
+  unsigned char  li_max_ops_per_insn;
+  unsigned char  li_default_is_stmt;
+  int            li_line_base;
+  unsigned char  li_line_range;
+  unsigned char  li_opcode_base;
+  unsigned int   li_offset_size;
+}
+DWARF2_Internal_LineInfo;
+
 class ElfFile : public ISectionNames 
 {
 public:
@@ -34,6 +51,7 @@ private:
   bool LogDwarfInfo(Dwarf32::Attribute attribute, 
     uint64_t tag_id, Dwarf32::Form form, const unsigned char* &info, 
     size_t& info_bytes, const void* unit_base);
+  void free_section(const unsigned char *&s, bool);
 
   elfio reader;
   TreeBuilder *tree_builder;
@@ -44,6 +62,9 @@ private:
   size_t debug_abbrev_size_;
   const unsigned char *debug_loc_;
   size_t debug_loc_size_;
+  // for file names we need section .debug_line
+  const unsigned char *debug_line_;
+  size_t debug_line_size_;
 
   struct TagSection {
       unsigned int number;
@@ -58,9 +79,11 @@ private:
   int64_t cu_base;
   int64_t m_next; // value of DW_AT_sibling
   int m_level;
+  DWARF2_Internal_LineInfo m_li;
   bool m_regged;
   bool free_info;
   bool free_abbrev;
   bool free_strings;
   bool free_loc;
+  bool free_line;
 };

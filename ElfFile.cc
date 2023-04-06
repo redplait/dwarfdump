@@ -137,7 +137,8 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   tree_builder(tb),
   debug_info_(nullptr), debug_info_size_(0),
   debug_abbrev_(nullptr), debug_abbrev_size_(0),
-  free_info(false), free_abbrev(false), free_strings(false), free_loc(false)
+  debug_line_(nullptr), debug_line_size_(0),
+  free_info(false), free_abbrev(false), free_strings(false), free_loc(false), free_line(false)
 {
   // read elf file
   if ( !reader.load(filepath.c_str()) )
@@ -153,6 +154,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   section *zabbrev = nullptr;
   section *zstrings = nullptr;
   section *zloc = nullptr;
+  section *zline = nullptr;
   tree_builder->debug_str_ = nullptr;
   tree_builder->debug_str_size_ = 0;
   Elf_Half n = reader.sections.size();
@@ -179,6 +181,11 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       debug_loc_size_ = s->get_size();
       if ( check_compressed_section(s, debug_loc_, debug_loc_size_) )
         free_loc = true;
+    } else if (!strcmp(name, ".debug_line")) {
+      debug_line_ = reinterpret_cast<const unsigned char*>(s->get_data());
+      debug_line_size_ = s->get_size();
+      if ( check_compressed_section(s, debug_line_, debug_line_size_) )
+        free_line = true;
     } // check compressed versions
     else if ( !strcmp(name, ".zdebug_info") )
       zinfo = s;
@@ -188,6 +195,8 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       zstrings = s;
     else if ( !strcmp(name, ".zdebug_loc") )
       zloc = s;
+    else if ( !strcmp(name, ".zdebug_line") )
+      zline = s;
   }
   // check if we need to decompress some sections
   if ( zinfo )
@@ -230,21 +239,35 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
     }
     free_loc = true;
   }
+  if ( zline )
+  {
+    if ( !unzip_section(zline, debug_line_, debug_line_size_) )
+    {
+      fprintf(stderr, "cannot unpack section %s\n", zline->get_name().c_str());
+      success = false;
+      return;
+    }
+    free_line = true;
+  }
   tree_builder->m_rnames = get_regnames(reader.get_machine());
   tree_builder->m_snames = this;
   success = (debug_info_ && debug_abbrev_);
 }
 
+void ElfFile::free_section(const unsigned char *&s, bool f)
+{
+  if ( f && s != nullptr )
+    free((void *)s);
+  s = nullptr;
+}
+
 ElfFile::~ElfFile() 
 {
-  if ( free_info && debug_info_ != nullptr )
-    free((void *)debug_info_);
-  if ( free_abbrev && debug_abbrev_ != nullptr )
-    free((void *)debug_abbrev_);
-  if ( free_strings && tree_builder && tree_builder->debug_str_ != nullptr )
-    free((void *)tree_builder->debug_str_);
-  if ( free_loc && debug_loc_ != nullptr )
-    free((void *)debug_loc_);
+  free_section(debug_info_, free_info);
+  free_section(debug_abbrev_, free_abbrev);
+  if ( tree_builder )
+    free_section(tree_builder->debug_str_, free_strings);
+  free_section(debug_loc_, free_loc);
 }
 
 const char *ElfFile::find_sname(uint64_t addr)
