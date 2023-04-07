@@ -8,6 +8,7 @@
 
 int g_opt_d = 0,
     g_opt_f = 0,
+    g_opt_F = 0,
     g_opt_g = 0,
     g_opt_k = 0,
     g_opt_l = 0,
@@ -181,7 +182,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       debug_loc_size_ = s->get_size();
       if ( check_compressed_section(s, debug_loc_, debug_loc_size_) )
         free_loc = true;
-    } else if (!strcmp(name, ".debug_line")) {
+    } else if (g_opt_F && !strcmp(name, ".debug_line")) {
       debug_line_ = reinterpret_cast<const unsigned char*>(s->get_data());
       debug_line_size_ = s->get_size();
       if ( check_compressed_section(s, debug_line_, debug_line_size_) )
@@ -195,7 +196,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       zstrings = s;
     else if ( !strcmp(name, ".zdebug_loc") )
       zloc = s;
-    else if ( !strcmp(name, ".zdebug_line") )
+    else if ( g_opt_F && !strcmp(name, ".zdebug_line") )
       zline = s;
   }
   // check if we need to decompress some sections
@@ -268,6 +269,7 @@ ElfFile::~ElfFile()
   if ( tree_builder )
     free_section(tree_builder->debug_str_, free_strings);
   free_section(debug_loc_, free_loc);
+  free_section(debug_line_, free_line);
 }
 
 bool ElfFile::read_debug_lines()
@@ -408,7 +410,8 @@ bool ElfFile::read_debug_lines()
         size = ULEB128(ptr, ba);
         // put to file names map
         m_dl_files[last_file_entry] = { (unsigned int)dir, name };
-        fprintf(g_outf, "file %d dir %ld size %ld time %ld %s\n", last_file_entry, dir, size, time, name);
+        if ( g_opt_d )
+          fprintf(g_outf, "file %d dir %ld size %ld time %ld %s\n", last_file_entry, dir, size, time, name);
       }     
       /* Skip the NULL at the end of the table.  */
 	    if ( ptr < m_curr_lines )
@@ -422,6 +425,21 @@ bool ElfFile::read_debug_lines()
     fprintf(stderr, "debug_section_with_follow for version %d is not supported\n", m_li.li_version);
     return true; // safe to skip this unit bcs m_curr_lines points to next one
   }
+  return true;
+}
+
+bool ElfFile::get_filename(unsigned int fid, std::string &res)
+{
+  auto fiter = m_dl_files.find(fid);
+  if ( fiter == m_dl_files.end() )
+    return false;
+  auto diter = m_dl_dirs.find(fiter->second.first);
+  if ( diter != m_dl_dirs.end() )
+  {
+    res = diter->second;
+    res += '/'; // add dirs separator
+  }
+  res += fiter->second.second;
   return true;
 }
 

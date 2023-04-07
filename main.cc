@@ -3,7 +3,7 @@
 #include "JsonRender.h"
 #include "PlainRender.h"
 
-extern int g_opt_d, g_opt_f, g_opt_g, g_opt_l, g_opt_L, g_opt_s, g_opt_v, g_opt_V;
+extern int g_opt_d, g_opt_f, g_opt_F, g_opt_g, g_opt_l, g_opt_L, g_opt_s, g_opt_v, g_opt_V;
 extern FILE *g_outf;
 
 int use_json = 0;
@@ -14,6 +14,7 @@ void usage(const char *prog)
   printf("Options:\n");
   printf("-d - dump debug info\n");
   printf("-f - add functions\n");
+  printf("-F - dump file names for decl_file attribute\n");
   printf("-g - dump all elements in last pass\n");
   printf("-j - produce json\n");
   printf("-k - keep already dumped types\n");
@@ -32,7 +33,7 @@ int main(int argc, char* argv[])
   // read options
   while(1)
   {
-    int c = getopt(argc, argv, "dfgjklLsvVo:");
+    int c = getopt(argc, argv, "dfFgjklLsvVo:");
     if ( c == -1 )
       break;
     switch(c)
@@ -40,6 +41,8 @@ int main(int argc, char* argv[])
       case 'd': g_opt_d = 1;
         break;
       case 'f': g_opt_f = 1;
+        break;
+      case 'F': g_opt_F = 1;
         break;
       case 'j': use_json = 1;
         break; 

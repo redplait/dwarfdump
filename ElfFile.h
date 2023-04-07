@@ -90,6 +90,7 @@ private:
     m_dl_dirs.clear();
     m_dl_files.clear();
   }
+  bool get_filename(unsigned int fid, std::string &);
   bool m_regged;
   // free sections flags
   bool free_info;
