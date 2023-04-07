@@ -115,6 +115,8 @@ std::string JsonRender::GenerateJson(Element &e) {
   put(result, "type", e.TypeName());
   if ( e.dumped_ )
     put(result, "dumped", e.dumped_);
+  if ( !e.filename_.empty() )
+    put(result, "file", e.filename_.c_str());
   if ( e.type_ == ElementType::ptr2member && e.cont_type_ )
     put(result, "cont_type", e.cont_type_);
   if ( e.owner_ != nullptr )

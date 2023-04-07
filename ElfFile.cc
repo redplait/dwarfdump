@@ -416,7 +416,7 @@ bool ElfFile::read_debug_lines()
       /* Skip the NULL at the end of the table.  */
 	    if ( ptr < m_curr_lines )
       {
-		    ptr++;
+        ptr++;
         ba--;
       }
     }
@@ -1195,6 +1195,19 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         tree_builder->SetElementName(name, info - debug_info_);
       return true;
     }
+    case Dwarf32::Attribute::DW_AT_decl_file:
+      if ( g_opt_F && m_regged && tree_builder->need_filename() )
+      {
+        auto fid = FormDataValue(form, info, info_bytes);
+        if ( fid )
+        {
+          std::string fname;
+          if ( get_filename(fid, fname) )
+            tree_builder->SetFilename(fname);
+        }
+        return true;
+      }
+      return false;
     case Dwarf32::Attribute::DW_AT_explicit: {
       if ( m_regged )
         tree_builder->SetExplicit();

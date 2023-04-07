@@ -664,6 +664,8 @@ void PlainRender::dump_var(Element *e)
 {
   if ( e->link_name_ && e->link_name_ != e->name_ )
     fprintf(g_outf, "// LinkageName: %s\n", e->link_name_);
+  if ( !e->filename_.empty() )
+    fprintf(g_outf, "// FileName: %s\n", e->filename_.c_str());
   std::string tname;
   named n { e->name_ };
   dump_type(e->type_id_, tname, &n);
@@ -804,6 +806,8 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
       fprintf(g_outf, "// TypeId %lX\n", e.id_);
     if ( e.link_name_ && e.link_name_ != e.name_ )
       fprintf(g_outf, "// LinkageName: %s\n", e.link_name_);
+    if ( !e.filename_.empty() )
+      fprintf(g_outf, "// FileName: %s\n", e.filename_.c_str());
     switch(e.type_)
     {
       case ElementType::enumerator_type:

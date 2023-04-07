@@ -525,10 +525,25 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
   current_element_type_ = element_type; 
 }
 
-void TreeBuilder::SetLinkageName(const char* name) {
-  if (current_element_type_ == ElementType::none) {
+void TreeBuilder::SetFilename(std::string &fn)
+{
+  if (current_element_type_ == ElementType::none)
+    return;
+  if (!elements_.size()) {
+    fprintf(stderr, "Can't set an file name if the element list is empty\n");
     return;
   }
+  if ( recent_ )
+    recent_->filename_ = std::move(fn);
+  else
+    elements_.back().filename_ = std::move(fn);
+
+}
+
+void TreeBuilder::SetLinkageName(const char* name)
+{
+  if (current_element_type_ == ElementType::none)
+    return;
   if (!elements_.size()) {
     fprintf(stderr, "Can't set an linkage name if the element list is empty\n");
     return;
@@ -537,7 +552,6 @@ void TreeBuilder::SetLinkageName(const char* name) {
     recent_->link_name_ = name;
   else
     elements_.back().link_name_ = name;
-  return;
 }
 
 void TreeBuilder::SetTlsIndex(param_loc *pl)

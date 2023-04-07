@@ -90,6 +90,21 @@ public:
     ns_start,
     ns_end,
   };
+  inline bool need_filename() const
+  {
+    switch(current_element_type_)
+    {
+      case none:
+      case enumerator:
+      case inheritance:
+      case formal_param:
+      case ns_start:
+      case ns_end:
+      case lexical_block:
+       return false;
+      default: return true;
+    }
+  }
   inline bool is_enum() const
   {
     return current_element_type_ == enumerator;
@@ -105,6 +120,7 @@ public:
   void AddElement(ElementType element_type, uint64_t tag_id, int level);
   bool AddVariant();
   bool AddFormalParam(uint64_t tag_id, int level, bool);
+  void SetFilename(std::string &);
   void SetElementName(const char* name, uint64_t off);
   void SetLinkageName(const char* name);
   void SetElementSize(uint64_t size);
@@ -204,6 +220,7 @@ protected:
       type_ = e.type_;
       id_ = e.id_;
       level_ = e.level_;
+      filename_ = std::move(e.filename_);
       name_ = e.name_;
       link_name_ = e.link_name_;
       size_ = e.size_;
@@ -273,6 +290,7 @@ protected:
     ElementType type_;
     uint64_t id_;
     int level_;
+    std::string filename_; // when -F option was used
     const char* name_;
     const char *link_name_;
     size_t size_;
