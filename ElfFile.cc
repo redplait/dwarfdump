@@ -274,14 +274,17 @@ bool ElfFile::read_debug_lines()
 {
   if ( debug_line_ == nullptr )
     return false;
-  auto ptr = debug_line_;
-  size_t ba = debug_line_size_;
-  memset(&m_li, 0, sizeof(m_li));
+  auto ptr = m_curr_lines;
+  size_t ba = debug_line_size_ - (m_curr_lines - debug_line_);
+  size_t addr_size = 0;
+  // printf("read_debug_lines: %lX ba %lX\n", m_curr_lines - debug_line_, ba);
+  reset_lines();
   if ( ba < 4 )
     return false;
   m_li.li_length = *(const uint32_t *)(ptr);
   ptr += 4;
   ba -= 4;
+  addr_size = 4;
   if ( 0xffffffff == m_li.li_length )
   {
     if ( ba < 8 )
@@ -289,6 +292,7 @@ bool ElfFile::read_debug_lines()
     m_li.li_length = *(const uint64_t *)(ptr);
     ptr += 8;
     ba -= 8;
+    addr_size += 8;
     m_li.li_offset_size = 8;    
   } else
     m_li.li_offset_size = 4;
@@ -361,22 +365,64 @@ bool ElfFile::read_debug_lines()
   DBG_PRINTF("line base: %d\n", m_li.li_line_base);
   DBG_PRINTF("line range %d\n", m_li.li_line_range);
   DBG_PRINTF("opcode base: %d\n", m_li.li_opcode_base);
-  reset_state_machine(m_li.li_default_is_stmt);
+  m_curr_lines += addr_size + m_li.li_length;
+  // contents of the Directory table
+  ptr += m_li.li_opcode_base - 1;
+  if ( m_li.li_version < 5 )
+  {
+    // process Dir Name table
+    if ( *ptr )
+    {
+      unsigned int last_dir_entry = 0;
+      while( ptr < m_curr_lines && *ptr != 0 )
+      {
+        last_dir_entry++;
+        m_dl_dirs[last_dir_entry] = (const char *)ptr;
+        if ( g_opt_d )
+          fprintf(g_outf, "dir %d %s\n", last_dir_entry, ptr);
+        size_t len = strlen((const char *)ptr);
+        ptr += 1 + len;
+        ba -= 1 + len;
+      }
+      /* Skip the NULL at the end of the table.  */
+	    if ( ptr < m_curr_lines )
+      {
+		    ptr++;
+        ba--;
+      }
+    }
+    // process File Name table
+    if ( *ptr )
+    {
+      unsigned int last_file_entry = 0;
+      while( ptr < m_curr_lines && *ptr != 0 )
+      {
+        last_file_entry++;
+        const char *name = (const char *)ptr;
+        size_t len = strlen((const char *)ptr);
+        ptr += 1 + len;
+        ba -= 1 + len;
+        uint64_t dir, time, size;
+        dir = ULEB128(ptr, ba);
+        time = ULEB128(ptr, ba);
+        size = ULEB128(ptr, ba);
+        // put to file names map
+        m_dl_files[last_file_entry] = { (unsigned int)dir, name };
+        fprintf(g_outf, "file %d dir %ld size %ld time %ld %s\n", last_file_entry, dir, size, time, name);
+      }     
+      /* Skip the NULL at the end of the table.  */
+	    if ( ptr < m_curr_lines )
+      {
+		    ptr++;
+        ba--;
+      }
+    }
+  } else {
+    // TODO: implement load_debug_section_with_follow
+    fprintf(stderr, "debug_section_with_follow for version %d is not supported\n", m_li.li_version);
+    return true; // safe to skip this unit bcs m_curr_lines points to next one
+  }
   return true;
-}
-
-void ElfFile::reset_state_machine(int is_stmt)
-{
-  m_smr.address = 0;
-  m_smr.view = 0;
-  m_smr.op_index = 0;
-  m_smr.file = 1;
-  m_smr.line = 1;
-  m_smr.column = 0;
-  m_smr.is_stmt = is_stmt;
-  m_smr.basic_block = 0;
-  m_smr.end_sequence = 0;
-  m_smr.last_file_entry = 0;
 }
 
 const char *ElfFile::find_sname(uint64_t addr)
@@ -1353,10 +1399,9 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
 
 bool ElfFile::GetAllClasses() 
 {
-  if ( !read_debug_lines() )
-    free_section(debug_line_, free_line);
   const unsigned char* info = reinterpret_cast<const unsigned char*>(debug_info_);
   size_t info_bytes = debug_info_size_;
+  m_curr_lines = debug_line_;
 
   while (info_bytes > 0) {
     // process previous compilation unit
@@ -1374,6 +1419,9 @@ bool ElfFile::GetAllClasses()
     const unsigned char* info_end = info + unit_hdr->unit_length + sizeof(uint32_t);
     info += sizeof(Dwarf32::CompilationUnitHdr);
     info_bytes -= sizeof(Dwarf32::CompilationUnitHdr);
+    // read debug lines
+    if ( !read_debug_lines() )
+      free_section(debug_line_, free_line);
 
     if (!LoadAbbrevTags(unit_hdr->debug_abbrev_offset)) {
       fprintf(stderr, "ERR: Can't load the compilation\n");

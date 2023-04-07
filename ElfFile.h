@@ -24,21 +24,6 @@ typedef struct
   unsigned int   li_offset_size;
 } DWARF2_Internal_LineInfo;
 
-struct State_Machine_Registers
-{
-  uint64_t address;
-  unsigned int view;
-  unsigned int file;
-  unsigned int line;
-  unsigned int column;
-  int is_stmt;
-  int basic_block;
-  unsigned char op_index;
-  unsigned char end_sequence;
-  /* This variable hold the number of the last entry seen in the File Table.  */
-  unsigned int last_file_entry;
-};
-
 class ElfFile : public ISectionNames 
 {
 public:
@@ -67,7 +52,6 @@ private:
     size_t& info_bytes, const void* unit_base);
   void free_section(const unsigned char *&s, bool);
   bool read_debug_lines();
-  void reset_state_machine (int is_stmt);
 
   elfio reader;
   TreeBuilder *tree_builder;
@@ -95,9 +79,19 @@ private:
   int64_t cu_base;
   int64_t m_next; // value of DW_AT_sibling
   int m_level;
+  // file and dir names from .debug_line
   DWARF2_Internal_LineInfo m_li;
-  State_Machine_Registers m_smr;
+  const unsigned char *m_curr_lines;  
+  std::map<uint, const char *> m_dl_dirs;
+  std::map<uint, std::pair<uint, const char *> > m_dl_files;
+  inline void reset_lines()
+  {
+    memset(&m_li, 0, sizeof(m_li));
+    m_dl_dirs.clear();
+    m_dl_files.clear();
+  }
   bool m_regged;
+  // free sections flags
   bool free_info;
   bool free_abbrev;
   bool free_strings;
