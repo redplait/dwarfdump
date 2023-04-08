@@ -8,6 +8,13 @@
 
 using namespace ELFIO;
 
+struct saved_section
+{
+  std::string name;
+  uint64_t offset;
+  uint64_t len;
+};
+
 typedef struct
 {
   uint64_t	 li_length;
@@ -24,12 +31,13 @@ typedef struct
   unsigned int   li_offset_size;
 } DWARF2_Internal_LineInfo;
 
-class ElfFile : public ISectionNames 
+class ElfFile : public ISectionNames
 {
 public:
   ElfFile(std::string filepath, bool& success, TreeBuilder *);
   ~ElfFile();
   bool GetAllClasses();
+  bool SaveSections(std::string &fname);
   virtual const char *find_sname(uint64_t);
 private:
   bool unzip_section(ELFIO::section *, const unsigned char * &data, size_t &);
@@ -91,6 +99,8 @@ private:
     m_dl_files.clear();
   }
   bool get_filename(unsigned int fid, std::string &);
+  // sections from original elf file
+  std::vector<saved_section> m_orig_sects;
   bool m_regged;
   // free sections flags
   bool free_info;

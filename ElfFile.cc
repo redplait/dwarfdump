@@ -443,8 +443,35 @@ bool ElfFile::get_filename(unsigned int fid, std::string &res)
   return true;
 }
 
+bool ElfFile::SaveSections(std::string &fn)
+{
+  elfio orig;
+  if ( !orig.load(fn.c_str()) )
+  {
+    fprintf(stderr, "SaveSections: failed to open '%s'\n", fn.c_str());
+    return false;
+  }
+  Elf_Half n = orig.sections.size();
+  for ( Elf_Half i = 0; i < n; i++) 
+  {
+    section *s = orig.sections[i];
+    m_orig_sects.push_back({ s->get_name(), s->get_address(), s->get_size()});
+  }
+  return !m_orig_sects.empty();
+}
+
 const char *ElfFile::find_sname(uint64_t addr)
 {
+  if ( !m_orig_sects.empty() )
+  {
+    for ( auto &s: m_orig_sects )
+    {
+      if ( (addr >= s.offset) && (addr < s.offset + s.len)
+         )
+        return s.name.c_str();
+    }
+    return nullptr;    
+  }
   Elf_Half n = reader.sections.size();
   for ( Elf_Half i = 0; i < n; i++) 
   {

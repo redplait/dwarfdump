@@ -16,6 +16,7 @@ void usage(const char *prog)
   printf("-f - add functions\n");
   printf("-F - dump file names for decl_file attribute\n");
   printf("-g - dump all elements in last pass\n");
+  printf("-I - original elf file for .debug\n");
   printf("-j - produce json\n");
   printf("-k - keep already dumped types\n");
   printf("-l - add levels\n");
@@ -30,10 +31,11 @@ void usage(const char *prog)
 int main(int argc, char* argv[]) 
 {
   FILE *fp = NULL;
+  std::string iname;
   // read options
   while(1)
   {
-    int c = getopt(argc, argv, "dfFgjklLsvVo:");
+    int c = getopt(argc, argv, "dfFgjklLsvVo:I:");
     if ( c == -1 )
       break;
     switch(c)
@@ -67,6 +69,9 @@ int main(int argc, char* argv[])
          if ( NULL == fp )
            fprintf(stderr, "cannot open file %s, error %s", optarg, strerror(errno));
         break;
+      case 'I':
+         iname = optarg;
+        break;
       default:
         usage(argv[0]);
     }
@@ -87,6 +92,10 @@ int main(int argc, char* argv[])
     delete render;
     return 2;
   }
+
+  // save sections for original stripped elf file
+  if ( !iname.empty() )
+    file.SaveSections(iname);
 
   // setup g_outf
   g_outf = (fp == NULL) ? stdout : fp;
