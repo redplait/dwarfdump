@@ -81,6 +81,7 @@ private:
       const unsigned char* ptr;
   };
   TagSection *m_section;
+  int64_t m_implicit_const;
   typedef std::map<unsigned int, struct TagSection> CompilationUnit;
   CompilationUnit compilation_unit_;
   uint8_t address_size_;
