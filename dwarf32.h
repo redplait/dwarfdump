@@ -2,12 +2,32 @@
 #include <stdint.h>
 
 namespace Dwarf32 {
+
   struct CompilationUnitHdr {
     uint32_t unit_length;
     uint16_t version;
     uint32_t debug_abbrev_offset;
     uint8_t address_size;
   } __attribute__((packed, aligned(1)));
+
+  struct CompilationUnitHdr5 {
+    uint32_t unit_length;
+    uint16_t version;
+    uint8_t unit_type;
+    uint8_t address_size;
+    uint32_t debug_abbrev_offset;
+  } __attribute__((packed, aligned(1)));
+
+  enum unit_type {
+   DW_UT_compile = 0x01,
+   DW_UT_type = 0x02,
+   DW_UT_partial = 0x03,
+   DW_UT_skeleton = 0x04,
+   DW_UT_split_compile = 0x05,
+   DW_UT_split_type = 0x06,
+   DW_UT_lo_user = 0x80,
+   DW_UT_hi_user = 0xff
+  };
 
   enum Tag {
     DW_TAG_padding = 0x00,
