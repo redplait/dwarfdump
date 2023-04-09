@@ -82,6 +82,38 @@ std::string &JsonRender::put(std::string &res, const char *name, bool v)
   return res;
 }
 
+template <>
+std::string &JsonRender::put(std::string &res, const char *name, const void *v)
+{
+  char buf[32];
+  snprintf(buf, sizeof(buf), "0x%p", v);
+  res += "\"";
+  res += name;
+  res += "\":\"";
+  res += buf;
+  res += "\",";
+  return res;
+}
+
+
+void JsonRender::RenderGoAttrs(std::string &res, uint64_t id)
+{
+  auto giter = m_go_attrs.find(id);
+  if ( giter == m_go_attrs.end() )
+    return;
+  auto &g = giter->second;
+  if ( g.kind )
+    put(res, "go_kind", g.kind);
+  if ( g.key )
+    put(res, "go_key", g.key);
+  if ( g.elem )
+    put(res, "go_elem", g.elem);
+  if ( g.rt_type )
+    put(res, "go_rt_type", g.rt_type);
+  if ( g.dict_index )
+    put(res, "go_index", g.dict_index);
+}
+
 std::string JsonRender::GenerateJson(Element &e) {
   std::string result;
 
@@ -105,6 +137,7 @@ std::string JsonRender::GenerateJson(Element &e) {
       put(result, "bit_offset", e.bit_offset_);
       put(result, "bit_size", e.bit_size_);
     }
+    RenderGoAttrs(result, e.type_id_);
     result += "\"offset\":"+std::to_string(e.offset_);
     result += "}";
     return result;
@@ -115,6 +148,7 @@ std::string JsonRender::GenerateJson(Element &e) {
   put(result, "type", e.TypeName());
   if ( e.dumped_ )
     put(result, "dumped", e.dumped_);
+  RenderGoAttrs(result, e.type_id_);  
   if ( !e.filename_.empty() )
     put(result, "file", e.filename_.c_str());
   if ( e.type_ == ElementType::ptr2member && e.cont_type_ )

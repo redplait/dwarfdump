@@ -5,6 +5,7 @@
 #include <vector>
 #include <stack>
 #include "regnames.h"
+#include "GoTypes.h"
 
 extern int g_opt_g, g_opt_k, g_opt_l, g_opt_s, g_opt_v;
 extern FILE *g_outf;
@@ -151,6 +152,12 @@ public:
   void SetOptionalParam();
   void SetLocation(param_loc *);
   void SetTlsIndex(param_loc *);
+  // go extended attributes - stored in m_go_attrs
+  void SetGoKind(uint64_t, int);
+  void SetGoKey(uint64_t, int);
+  void SetGoDictIndex(uint64_t, int);
+  void SetGoElem(uint64_t, uint64_t);
+  void SetGoRType(uint64_t, const void *);
 
   uint64_t get_replaced_type(uint64_t) const;
   int check_dumped_type(const char *);
@@ -410,8 +417,9 @@ protected:
   // already dumped types
   std::map<UniqName, std::pair<uint64_t, size_t> > m_dumped_db;
   std::map<UniqName2, std::pair<uint64_t, size_t> > m_dumped_db2;
-  // go names
+  // go names - actually this is only for backward refs, for forward use -g option
   std::map<uint64_t, const char *> m_go_types;
+  std::map<uint64_t, go_ext_attr>  m_go_attrs;
   // tls indexes
   std::map<uint64_t, int> m_tls;
 };

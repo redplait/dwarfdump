@@ -54,9 +54,9 @@ private:
   const char* FormStringValue(Dwarf32::Form form,
       const unsigned char* &info, size_t& bytes_available);
   bool LoadAbbrevTags(uint32_t abbrev_offset);
-  bool RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id);
+  bool RegisterNewTag(Dwarf32::Tag tag);
   bool LogDwarfInfo(Dwarf32::Attribute attribute, 
-    uint64_t tag_id, Dwarf32::Form form, const unsigned char* &info, 
+    Dwarf32::Form form, const unsigned char* &info, 
     size_t& info_bytes, const void* unit_base);
   void free_section(const unsigned char *&s, bool);
   bool read_debug_lines();
@@ -82,6 +82,7 @@ private:
   };
   TagSection *m_section;
   int64_t m_implicit_const;
+  uint64_t m_tag_id;
   typedef std::map<unsigned int, struct TagSection> CompilationUnit;
   CompilationUnit compilation_unit_;
   uint8_t address_size_;

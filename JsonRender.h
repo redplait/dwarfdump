@@ -7,6 +7,7 @@ class JsonRender: public TreeBuilder
     std::string GenerateJson();
   protected:
     virtual void RenderUnit(int last);
+    void RenderGoAttrs(std::string &, uint64_t id);
     static std::string EscapeJsonString(const char* str);
     std::string GenerateJson(Element &);
     template <class T>

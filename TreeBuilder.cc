@@ -285,7 +285,10 @@ void TreeBuilder::ProcessUnit(int last)
   m_hdr_dumped = false;
   RenderUnit(last);
   if ( !g_opt_g )
+  {
     merge_dumped();
+    m_go_attrs.clear();
+  }
   if ( is_go() && !g_opt_g )
     collect_go_types();
   elements_.clear();

@@ -1083,11 +1083,11 @@ bool ElfFile::LoadAbbrevTags(uint32_t abbrev_offset) {
 
 #define CASE_REGISTER_NEW_TAG(tag_type, element_type)                         \
   case Dwarf32::Tag::tag_type:                                                \
-    tree_builder->AddElement(TreeBuilder::ElementType::element_type, tag_id, m_level); \
+    tree_builder->AddElement(TreeBuilder::ElementType::element_type, m_tag_id, m_level); \
     return true; \
     break;
 
-bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
+bool ElfFile::RegisterNewTag(Dwarf32::Tag tag) {
    bool ell = false;
   switch (tag) {
     CASE_REGISTER_NEW_TAG(DW_TAG_array_type, array_type)
@@ -1119,28 +1119,28 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
     case Dwarf32::Tag::DW_TAG_lexical_block:
       if ( g_opt_L && m_section->has_children )
       {
-        tree_builder->AddElement(TreeBuilder::ElementType::lexical_block, tag_id, m_level);
+        tree_builder->AddElement(TreeBuilder::ElementType::lexical_block, m_tag_id, m_level);
         return true;
       }
       break;
     case Dwarf32::Tag::DW_TAG_variable:
       if ( g_opt_V )
       {
-        tree_builder->AddElement(TreeBuilder::ElementType::var_type, tag_id, m_level);
+        tree_builder->AddElement(TreeBuilder::ElementType::var_type, m_tag_id, m_level);
         return true;
       }
       break;
     case Dwarf32::Tag::DW_TAG_namespace:
       if ( m_section->has_children )
       {
-        tree_builder->AddElement(TreeBuilder::ElementType::ns_start, tag_id, m_level);
+        tree_builder->AddElement(TreeBuilder::ElementType::ns_start, m_tag_id, m_level);
         return true;
       }
       break;      
     case Dwarf32::Tag::DW_TAG_subprogram:
       if ( g_opt_f )
       {
-        tree_builder->AddElement(TreeBuilder::ElementType::subroutine, tag_id, m_level);
+        tree_builder->AddElement(TreeBuilder::ElementType::subroutine, m_tag_id, m_level);
         return true;
       }
       break;
@@ -1148,9 +1148,9 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
       ell = true;
     case Dwarf32::Tag::DW_TAG_formal_parameter:
       if ( g_opt_d )
-        fprintf(g_outf, "param %lX regged %d\n", tag_id, m_regged);
+        fprintf(g_outf, "param %lX regged %d\n", m_tag_id, m_regged);
       if ( m_regged )
-        return tree_builder->AddFormalParam(tag_id, m_level, ell);
+        return tree_builder->AddFormalParam(m_tag_id, m_level, ell);
       break;
     default: ;
   }
@@ -1159,8 +1159,9 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
 }
 
 bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute, 
-                uint64_t tag_id, Dwarf32::Form form, const unsigned char* &info, 
-                size_t& info_bytes, const void* unit_base) {           
+        Dwarf32::Form form, const unsigned char* &info, 
+        size_t& info_bytes, const void* unit_base) 
+{           
   switch((unsigned int)attribute) {
     case Dwarf32::Attribute::DW_AT_sibling:
       m_next = FormDataValue(form, info, info_bytes);
@@ -1191,7 +1192,17 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         tree_builder->SetParentAccess(a);
         return true;
       }
+    // go extended attributes
     // see https://github.com/golang/go/blob/master/src/cmd/internal/dwarf/dwarf.go#L321
+    case 0x2900:
+      if ( m_regged && tree_builder->is_go() )
+      {
+        int kind = FormDataValue(form, info, info_bytes);
+        if ( kind )
+          tree_builder->SetGoKind(m_tag_id, kind);
+        return true;
+      }
+      return false;
     case 0x2905:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit && tree_builder->is_go() )
       {
@@ -1545,7 +1556,7 @@ bool ElfFile::GetAllClasses()
 
     // For all compilation tags
     while (info < info_end) {
-      uint64_t tag_id = info - debug_info_; 
+      m_tag_id = info - debug_info_; 
       uint32_t info_number = ElfFile::ULEB128(info, info_bytes);
       DBG_PRINTF(".info+%lx\t Info Number %X\n", info-debug_info_, info_number);
       if (!info_number) { // reserved
@@ -1566,11 +1577,11 @@ bool ElfFile::GetAllClasses()
       m_section = &it_section->second;
       const unsigned char* abbrev = m_section->ptr;
       size_t abbrev_bytes = debug_abbrev_size_ - (abbrev - debug_abbrev_);
-      m_regged = RegisterNewTag(m_section->type, tag_id);
+      m_regged = RegisterNewTag(m_section->type);
       m_next = 0;
 
       if ( g_opt_d )
-        fprintf(g_outf, "%d GetAllClasses %lx size %lx regged %d\n", m_level, tag_id, abbrev_bytes,m_regged);
+        fprintf(g_outf, "%d GetAllClasses %lx size %lx regged %d\n", m_level, m_tag_id, abbrev_bytes, m_regged);
 
       // For all attributes
       while (*abbrev) 
@@ -1585,8 +1596,7 @@ bool ElfFile::GetAllClasses()
         if ( g_opt_d )
           fprintf(g_outf,".info+%lx\t %02x %02x\n", info-debug_info_, 
                                                 abbrev_attribute, abbrev_form);
-        bool logged = LogDwarfInfo(abbrev_attribute, 
-          tag_id, abbrev_form, info, info_bytes, cu_start);
+        bool logged = LogDwarfInfo(abbrev_attribute, abbrev_form, info, info_bytes, cu_start);
         if (!logged) {
           DBG_PRINTF("abbrev_form %X\n", abbrev_form);
           ElfFile::PassData(abbrev_form, info, info_bytes);
