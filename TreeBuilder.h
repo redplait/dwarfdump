@@ -46,6 +46,7 @@ struct cu
   const char *cu_name;
   const char *cu_comp_dir;
   const char *cu_producer;
+  const char *cu_package;
   int cu_lang;
 };
 

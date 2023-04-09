@@ -1071,7 +1071,7 @@ bool ElfFile::LoadAbbrevTags(uint32_t abbrev_offset) {
     while (abbrev_bytes > 0 && abbrev[0]) { // For all attributes
       ElfFile::ULEB128(abbrev, abbrev_bytes);
       unsigned long form = ElfFile::ULEB128(abbrev, abbrev_bytes);
-      if (form == Dwarf32::DW_FORM_implicit_const)
+      if (form == Dwarf32::Form::DW_FORM_implicit_const)
         ElfFile::SLEB128(abbrev, abbrev_bytes);
     }
     abbrev += 2;
@@ -1161,7 +1161,7 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag, uint64_t tag_id) {
 bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute, 
                 uint64_t tag_id, Dwarf32::Form form, const unsigned char* &info, 
                 size_t& info_bytes, const void* unit_base) {           
-  switch(attribute) {
+  switch((unsigned int)attribute) {
     case Dwarf32::Attribute::DW_AT_sibling:
       m_next = FormDataValue(form, info, info_bytes);
      return true;
@@ -1191,6 +1191,14 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         tree_builder->SetParentAccess(a);
         return true;
       }
+    // see https://github.com/golang/go/blob/master/src/cmd/internal/dwarf/dwarf.go#L321
+    case 0x2905:
+      if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit && tree_builder->is_go() )
+      {
+        tree_builder->cu.cu_package = FormStringValue(form, info, info_bytes);
+        return true;
+      }
+      return false;
     // Name
     case Dwarf32::Attribute::DW_AT_producer:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
@@ -1571,14 +1579,14 @@ bool ElfFile::GetAllClasses()
             ElfFile::ULEB128(abbrev, abbrev_bytes));
         Dwarf32::Form abbrev_form = 
             static_cast<Dwarf32::Form>(ElfFile::ULEB128(abbrev, abbrev_bytes));
-        if ( abbrev_form == Dwarf32::DW_FORM_implicit_const )
+        if ( abbrev_form == Dwarf32::Form::DW_FORM_implicit_const )
           m_implicit_const = ElfFile::SLEB128(abbrev, abbrev_bytes);
 
         if ( g_opt_d )
           fprintf(g_outf,".info+%lx\t %02x %02x\n", info-debug_info_, 
                                                 abbrev_attribute, abbrev_form);
         bool logged = LogDwarfInfo(abbrev_attribute, 
-          tag_id, abbrev_form, info, info_bytes, unit_hdr);
+          tag_id, abbrev_form, info, info_bytes, cu_start);
         if (!logged) {
           DBG_PRINTF("abbrev_form %X\n", abbrev_form);
           ElfFile::PassData(abbrev_form, info, info_bytes);

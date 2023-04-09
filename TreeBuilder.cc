@@ -258,6 +258,8 @@ void TreeBuilder::put_file_hdr(struct cu *c)
     else
       fprintf(g_outf, "// Language: 0x%X\n", c->cu_lang);
   }
+  if ( c->cu_package )
+    fprintf(g_outf, "// Package: %s\n", c->cu_package);
   if ( c->cu_producer )
     fprintf(g_outf, "// Producer: %s\n", c->cu_producer);
   m_hdr_dumped = true;
@@ -288,7 +290,7 @@ void TreeBuilder::ProcessUnit(int last)
     collect_go_types();
   elements_.clear();
   m_replaced.clear();
-  cu.cu_name = cu.cu_comp_dir = cu.cu_producer = NULL;
+  cu.cu_name = cu.cu_comp_dir = cu.cu_producer = cu.cu_package = NULL;
   cu.cu_lang = 0;
   ns_count = 0;
   recent_ = nullptr;
