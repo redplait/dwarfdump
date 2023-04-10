@@ -10,10 +10,40 @@ use Data::Dumper;
 # index 1 - hash for form names -> form count
 my %g_kinds;
 
+my @kind_names = qw(
+  kindZero
+  kindBool
+	kindInt
+	kindInt8
+	kindInt16
+	kindInt32
+	kindInt64
+	kindUint
+	kindUint8
+	kindUint16
+	kindUint32
+	kindUint64
+	kindUintptr
+	kindFloat32
+	kindFloat64
+	kindComplex64
+	kindComplex128
+	kindArray
+	kindChan
+	kindFunc
+	kindInterface
+	kindMap
+	kindPtr
+	kindSlice
+	kindString
+	kindStruct
+	kindUnsafePointer  
+);
+
 sub parse
 {
   my($fname, $db) = @_;
-  my($fh, $str, $tag, $form, $kind);
+  my($fh, $str, $tag, $form, $kind, $go_attr);
   open($fh, '<', $fname) or die("cannot open $fname, error $!\n");
   my $state = 0;
   while( $str = <$fh> )
@@ -32,21 +62,35 @@ sub parse
         next;
       }
       # unknown AT value
-      if ( $str =~ /^\s+<[0-9a-f]+>\s+Unknown AT value: (\d+):\s+(\d+)$/ )
+      if ( $str =~ /^\s+<[0-9a-f]+>\s+Unknown AT value: (\d+):\s+(\S+)$/ )
       {
-        $kind = int($1);
-        if ( 2900 == $kind )
+        $go_attr = int($1);
+        if ( 2900 == $go_attr )
         {
           $kind = int($2);
-          if ( exists $g_kinds{$kind} )
+          my $nkind = $kind_names[$kind];
+          if ( exists $g_kinds{$nkind} )
           {
-            $g_kinds{$kind}->[0]++;
-            my $t = $g_kinds{$kind}->[1];
+            $g_kinds{$nkind}->[0]++;
+            my $t = $g_kinds{$nkind}->[1];
             $t->{$tag}++;
           } else {
             my %tmp = ( $tag => 1);
-            $g_kinds{$kind} = [1, \%tmp ];
+            $g_kinds{$nkind} = [1, \%tmp ];
           }
+          next;
+        }
+        # skip DW_AT_go_package_name
+        next if ( $go_attr == 2905 );
+        # add attr -> kind
+        if ( exists $db->{$go_attr} )
+        {
+          $db->{$go_attr}->[0]++;
+          my $t = $db->{$go_attr}->[1];
+          $t->{ $kind_names[$kind] }++;
+        } else {
+          my %tmp = ( $kind_names[$kind] => 1);
+          $db->{$go_attr} = [1, \%tmp ];
         }
         next;
       }
@@ -94,3 +138,5 @@ foreach my $a ( @ARGV )
 }
 printf("--- kinds:\n");
 dump_kinds(\%g_kinds);
+printf("--- attrs:\n");
+dump_kinds(\%db);
