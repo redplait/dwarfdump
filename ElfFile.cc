@@ -1194,6 +1194,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       }
     // go extended attributes
     // see https://github.com/golang/go/blob/master/src/cmd/internal/dwarf/dwarf.go#L321
+    // DW_AT_go_kind - DW_FORM_data1
     case 0x2900:
       if ( m_regged && tree_builder->is_go() )
       {
@@ -1203,10 +1204,57 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         return true;
       }
       return false;
+      // DW_AT_go_package_name
     case 0x2905:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit && tree_builder->is_go() )
       {
         tree_builder->cu.cu_package = FormStringValue(form, info, info_bytes);
+        return true;
+      }
+      return false;
+      // DW_AT_go_key - DW_FORM_ref_addr
+    case 0x2901:
+      if ( m_regged && tree_builder->is_go() )
+      {
+        uint64_t addr = FormDataValue(form, info, info_bytes);
+        if (form != Dwarf32::Form::DW_FORM_ref_addr) {
+          // The offset is relative to the current compilation unit, we make it
+          // absolute
+          addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
+        }
+        tree_builder->SetGoKey(m_tag_id, addr);  
+        return true;
+      }
+      return false;
+      // DW_AT_go_elem - DW_FORM_ref_addr
+    case 0x2902:
+      if ( m_regged && tree_builder->is_go() )
+      {
+        uint64_t addr = FormDataValue(form, info, info_bytes);
+        if (form != Dwarf32::Form::DW_FORM_ref_addr) {
+          // The offset is relative to the current compilation unit, we make it
+          // absolute
+          addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
+        }
+        tree_builder->SetGoElem(m_tag_id, addr);  
+        return true;
+      }
+      return false;
+      // DW_AT_go_runtime_type - DW_FORM_addr
+    case 0x2904:
+      if ( m_regged && tree_builder->is_go() )
+      {
+        uint64_t addr = FormDataValue(form, info, info_bytes);
+        tree_builder->SetGoRType(m_tag_id, (const void *)addr);  
+        return true;
+      }
+      return false;
+      // DW_AT_go_dict_index - DW_FORM_udata
+    case 0x2906:
+      if ( m_regged && tree_builder->is_go() )
+      {
+        uint64_t addr = FormDataValue(form, info, info_bytes);
+        tree_builder->SetGoDictIndex(m_tag_id, addr);  
         return true;
       }
       return false;

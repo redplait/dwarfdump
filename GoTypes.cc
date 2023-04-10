@@ -53,7 +53,7 @@ void TreeBuilder::SetGoKind(uint64_t id, int v)
     giter->second.kind = v;
 }
 
-void TreeBuilder::SetGoKey(uint64_t id, int v)
+void TreeBuilder::SetGoKey(uint64_t id, uint64_t v)
 {
   auto giter = m_go_attrs.find(id);
   if ( giter == m_go_attrs.end() )

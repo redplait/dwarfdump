@@ -154,7 +154,7 @@ public:
   void SetTlsIndex(param_loc *);
   // go extended attributes - stored in m_go_attrs
   void SetGoKind(uint64_t, int);
-  void SetGoKey(uint64_t, int);
+  void SetGoKey(uint64_t, uint64_t);
   void SetGoDictIndex(uint64_t, int);
   void SetGoElem(uint64_t, uint64_t);
   void SetGoRType(uint64_t, const void *);
