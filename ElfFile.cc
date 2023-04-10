@@ -1245,7 +1245,8 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       if ( m_regged && tree_builder->is_go() )
       {
         uint64_t addr = FormDataValue(form, info, info_bytes);
-        tree_builder->SetGoRType(m_tag_id, (const void *)addr);  
+        if ( addr )
+          tree_builder->SetGoRType(m_tag_id, (const void *)addr);  
         return true;
       }
       return false;
@@ -1254,7 +1255,8 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       if ( m_regged && tree_builder->is_go() )
       {
         uint64_t addr = FormDataValue(form, info, info_bytes);
-        tree_builder->SetGoDictIndex(m_tag_id, addr);  
+        if ( addr )
+          tree_builder->SetGoDictIndex(m_tag_id, addr);  
         return true;
       }
       return false;

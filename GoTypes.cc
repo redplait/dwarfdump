@@ -22,15 +22,15 @@ static const char *const kind_names[] = {
  "Float64",
  "Complex64",
  "Complex128",
- "Array",
+ "Array", // 17
  "Chan",
- "Func",
+ "Func", // 19
  "Interface",
  "Map",
- "Ptr",
+ "Ptr", // 22
  "Slice",
  "String",
- "Struct",
+ "Struct", // 25
  "UnsafePointer",
 };
 
