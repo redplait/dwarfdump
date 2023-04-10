@@ -4,7 +4,7 @@
 struct go_ext_attr
 {
   int kind = 0;       // value of DW_AT_go_kind
-  int key = 0;        // value of DW_AT_go_key
+  uint64_t key = 0;   // value of DW_AT_go_key
   uint64_t elem = 0;  // DW_AT_go_elem - tag id
   const void *rt_type = nullptr; // DW_AT_go_runtime_type
   int emb_field = 0;  // value of DW_AT_go_embedded_field - DW_FORM_flag
