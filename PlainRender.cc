@@ -1,5 +1,6 @@
 #include "PlainRender.h"
 #include "dwarf32.h"
+#include "debug.h"
 #include <string.h>
 
 static const char *s_marg = "  ";
@@ -119,7 +120,7 @@ void PlainRender::RenderUnit(int last)
   }
 }
 
-bool PlainRender::dump_type(uint64_t key, std::string &res, named *n, int level)
+bool PlainRender::dump_type(uint64_t key, OUT std::string &res, named *n, int level)
 {
   if ( get_replaced_name(key, res) )
     return true;
