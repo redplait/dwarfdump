@@ -1192,6 +1192,17 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         tree_builder->SetParentAccess(a);
         return true;
       }
+    // param direction - see http://redplait.blogspot.com/2023/04/custom-attributes-in-gcc-and-dwarf.html
+    case 0x28ff:
+      if ( m_regged )
+      {
+         auto c = FormDataValue(form, info, info_bytes);
+         if ( c )
+           tree_builder->SetParamDirection((unsigned char)c);
+         return true;
+      }
+      return false;
+     break;
     // go extended attributes
     // see https://github.com/golang/go/blob/master/src/cmd/internal/dwarf/dwarf.go#L321
     // DW_AT_go_kind - DW_FORM_data1

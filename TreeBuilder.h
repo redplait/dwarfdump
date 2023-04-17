@@ -132,6 +132,7 @@ public:
   void SetConstValue(uint64_t count);
   void SetAlignment(uint64_t);
   void SetAddr(uint64_t);
+  void SetParamDirection(unsigned char);
   void SetContainingType(uint64_t);
   void SetBitSize(int);
   void SetBitOffset(int);
@@ -212,6 +213,7 @@ protected:
     const char *name;
     uint64_t param_id;
     uint64_t id;
+    unsigned char pdir = 0; // param direction - 2 in 3 out
     bool ellipsis;
     bool var_ = false; // from DW_AT_variable_parameter - go mostly?
     bool optional_ = false; // DW_AT_is_optional

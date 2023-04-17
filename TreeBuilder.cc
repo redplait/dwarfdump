@@ -589,6 +589,24 @@ void TreeBuilder::SetLocation(param_loc *pl)
   top->m_comp->params_.back().loc = *pl;
 }
 
+void TreeBuilder::SetParamDirection(unsigned char c)
+{
+  if (current_element_type_ != ElementType::formal_param)
+    return;
+  if (!elements_.size()) {
+    fprintf(stderr, "Can't set an param direction if the element list is empty\n");
+    return;
+  }
+  auto &top = m_stack.top();
+  if ( recent_ )
+    top = recent_;
+  if (!top->m_comp || top->m_comp->params_.empty()) {
+    fprintf(stderr, "Can't set the param direction if the params list is empty\n");
+    return;
+  }
+  top->m_comp->params_.back().pdir = c;
+}
+
 void TreeBuilder::SetOptionalParam()
 {
   if (current_element_type_ != ElementType::formal_param)
