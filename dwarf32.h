@@ -212,6 +212,7 @@ namespace Dwarf32 {
     DW_AT_deleted = 0x8a,
     DW_AT_defaulted = 0x8b,
 
+    DW_AT_MIPS_linkage_name = 0x2007,
     DW_AT_lo_user = 0x2000,
     DW_AT_hi_user = 0x3fff
   };

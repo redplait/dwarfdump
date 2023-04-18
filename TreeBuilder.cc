@@ -131,7 +131,8 @@ int TreeBuilder::check_dumped_type(const char *name)
     if ( ci == m_dumped_db.cend() )
       return 0;
     rep_id = ci->second.first;
-  } else {
+  } else if (name) {
+ // fprintf(stderr, "check_dumped_type %p\n", name);   
     UniqName2 key { current_element_type_, name };
     const auto ci = m_dumped_db2.find(key);
     if ( ci == m_dumped_db2.cend() )

@@ -868,9 +868,30 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
 // so I ripped necessary part of code from binutils/dwarf.c function decode_location_expression in this method
 uint64_t ElfFile::DecodeLocation(Dwarf32::Form form, const unsigned char* info, size_t bytes_available) 
 {
-  if ( form != Dwarf32::Form::DW_FORM_exprloc )
-    return FormDataValue(form, info, bytes_available);
-  uint64_t len = ElfFile::ULEB128(info, bytes_available);
+  uint64_t len = 0;
+  switch(form)
+  {
+    case Dwarf32::Form::DW_FORM_block1:
+      len = *reinterpret_cast<const uint8_t*>(info);
+      info++;
+      bytes_available--;
+      break;
+    case Dwarf32::Form::DW_FORM_block2:
+      len = *reinterpret_cast<const uint16_t*>(info);
+      info += 2;
+      bytes_available -= 2;
+      break;
+    case Dwarf32::Form::DW_FORM_block4:
+      len = *reinterpret_cast<const uint32_t*>(info);
+      info += 4;
+      bytes_available -= 4;
+      break;
+    case Dwarf32::Form::DW_FORM_exprloc:
+      len = ElfFile::ULEB128(info, bytes_available);
+      break;
+    default:
+      return FormDataValue(form, info, bytes_available);
+  }
   const unsigned char *end = info + len;
   while( info < end && bytes_available )
   {
@@ -953,6 +974,8 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
     case Dwarf32::Form::DW_FORM_data1:
     case Dwarf32::Form::DW_FORM_ref1:
       value = *reinterpret_cast<const uint8_t*>(info);
+     /* if ( 1 == value && form == Dwarf32::Form::DW_FORM_flag )
+        fprintf(stderr, "flag1 at %lX\n", info - debug_info_); */
       info++;
       bytes_available--;
       break;
@@ -1017,10 +1040,16 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
       str_pos = *reinterpret_cast<const uint32_t*>(info);
       info += sizeof(str_pos);
       bytes_available -= sizeof(str_pos);
-      str = (const char*)&tree_builder->debug_str_[str_pos];
+      if ( str_pos > tree_builder->debug_str_size_ )
+      {
+        fprintf(stderr, "string %lX is not in string section addr_size %d\n", str_pos, address_size_);
+        fflush(stderr);
+      } else
+        str = (const char*)&tree_builder->debug_str_[str_pos];
       break;
     case Dwarf32::Form::DW_FORM_string:
       str = reinterpret_cast<const char*>(info);
+      // fprintf(stderr, "name %p at %lX %s\n", str, info - debug_info_, str);
       while (*info) {
           info++;
           bytes_available--;
@@ -1029,7 +1058,7 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
       bytes_available--;
       break;
     default:
-      fprintf(stderr, "ERR: Unexpected form string 0x%x\n", form);
+      fprintf(stderr, "ERR: Unexpected form string 0x%x at %lX\n", form, info - debug_info_);
       break;
   }
 
@@ -1299,6 +1328,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         tree_builder->cu.cu_name = FormStringValue(form, info, info_bytes);
         return true;  
       }
+    case Dwarf32::Attribute::DW_AT_MIPS_linkage_name:
     case Dwarf32::Attribute::DW_AT_linkage_name: {
       const char* name = FormStringValue(form, info, info_bytes);
       if ( tree_builder->check_dumped_type(name) )
@@ -1306,7 +1336,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         m_regged = false;
         return true;
       }
-      if ( Dwarf32::Attribute::DW_AT_linkage_name == attribute )
+      if ( Dwarf32::Attribute::DW_AT_name != attribute )
         tree_builder->SetLinkageName(name);
       else
         tree_builder->SetElementName(name, info - debug_info_);
@@ -1327,8 +1357,18 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       return false;
     case Dwarf32::Attribute::DW_AT_explicit: {
       if ( m_regged )
-        tree_builder->SetExplicit();
-      return true;
+      {
+        if ( form == Dwarf32::Form::DW_FORM_flag_present )
+        {
+          tree_builder->SetExplicit();
+          return true;
+        }
+        auto v = FormDataValue(form, info, info_bytes);
+        if ( v )
+          tree_builder->SetExplicit();
+        return true;
+      }
+      return false;
     }
     case Dwarf32::Attribute::DW_AT_is_optional:
       if ( m_regged )
@@ -1526,8 +1566,15 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
      if ( !m_regged )
        return false;
      else {
-      tree_builder->SetNoReturn();
-      return true;
+       if ( form == Dwarf32::Form::DW_FORM_flag_present )
+       {
+         tree_builder->SetNoReturn();
+         return true;
+       }
+       auto v = FormDataValue(form, info, info_bytes);
+       if ( v )
+         tree_builder->SetNoReturn();
+       return true;
      }
      break;
      // declaration
@@ -1535,14 +1582,31 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
      if ( !m_regged )
        return false;
      else {
-      tree_builder->SetDeclaration();
-      return true;
+       if ( form == Dwarf32::Form::DW_FORM_flag_present )
+       {
+         tree_builder->SetDeclaration();
+         return true;
+       }
+       auto is_art = FormDataValue(form, info, info_bytes);
+       if ( is_art )
+         tree_builder->SetDeclaration();
+       return true; 
      }
      break;
      case Dwarf32::Attribute::DW_AT_artificial:
        if ( m_regged )
-         tree_builder->SetArtiticial();
-       return true;
+       {
+         if ( form == Dwarf32::Form::DW_FORM_flag_present )
+         {
+           tree_builder->SetArtiticial();
+           return true;
+         }
+         auto is_art = FormDataValue(form, info, info_bytes);
+         if ( is_art )
+           tree_builder->SetArtiticial();
+         return true;
+       }
+       return false;
     default:
       return false;
   }

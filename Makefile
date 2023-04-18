@@ -6,7 +6,7 @@ all: $(SRC)
 	g++ -O3 -I $(EHDR) $(SRC) -o dumper -Wall -lz
 
 dumper.d: $(SRC)
-	g++ -g -I $(EHDR) $(SRC) -o dumper.d -Wall -lz
+	g++ -g -gdwarf-3 -I $(EHDR) $(SRC) -o dumper.d -Wall -lz
 
 dumper.g: dumper.d	
 	objdump -g dumper.d > dumper.g
