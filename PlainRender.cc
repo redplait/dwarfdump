@@ -519,7 +519,7 @@ void PlainRender::dump_method(Method *e, const Element *owner, std::string &res)
     res += " = 0";  
 }
 
-std::string &PlainRender::render_params(Element *e, uint64_t this_arg, std::string &s)
+std::string &PlainRender::render_params(IN Element *e, uint64_t this_arg, OUT std::string &s)
 {
   for ( size_t i = 0; i < e->m_comp->params_.size(); i++ )
   {
@@ -530,6 +530,10 @@ std::string &PlainRender::render_params(Element *e, uint64_t this_arg, std::stri
     else { 
       dump_type(e->m_comp->params_[i].id, tmp, &n);
     }
+    if ( e->m_comp->params_[i].pdir == 2 )
+      s += "IN ";
+    else if ( e->m_comp->params_[i].pdir == 3 )
+      s += "OUT ";
     auto name = n.name();
     if ( name != nullptr )
     {

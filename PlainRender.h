@@ -1,5 +1,6 @@
 #pragma once
 #include "TreeBuilder.h"
+#include "debug.h"
 
 struct named
 {
@@ -54,7 +55,7 @@ class PlainRender: public TreeBuilder
    std::string &render_one_enum(std::string &s, EnumItem &en);
    std::string &render_field(Element *e, std::string &s, int level);
    std::string &render_fields(Element *e, std::string &s, int level);
-   std::string &render_params(Element *e, uint64_t this_arg, std::string &s);
+   std::string &render_params(IN Element *e, uint64_t this_arg, OUT std::string &s);
    bool dump_params_locations(std::vector<FormalParam> &, std::string &, int level = 0);
    bool dump_type(uint64_t, std::string &, named *, int level = 0);
    bool is_constructor(const Element *e, const Element *owner) const;
