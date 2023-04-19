@@ -10939,9 +10939,9 @@ output_die (dw_die_ref die)
 		 the same abbrev entry.  */
 	      // gcc_assert (AT_flag (a) == 1);
 	      if (flag_debug_asm)
-		fprintf (asm_out_file, "\t\t\t%s %s\n",
-			 ASM_COMMENT_START, name);
-	      break;
+		      fprintf (asm_out_file, "\t\t\t%s %s\n", ASM_COMMENT_START, name);
+        if ( 1 == a->dw_attr_val.v.val_flag )
+	        break;
 	    }
 	  dw2_asm_output_data (1, AT_flag (a), "%s", name);
 	  break;
