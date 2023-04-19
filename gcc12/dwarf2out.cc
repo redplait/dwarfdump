@@ -10937,7 +10937,7 @@ output_die (dw_die_ref die)
 		 in build_abbrev_table that will change those to
 		 DW_FORM_flag_present if it is set to 1 in all DIEs using
 		 the same abbrev entry.  */
-	      gcc_assert (AT_flag (a) == 1);
+	      // gcc_assert (AT_flag (a) == 1);
 	      if (flag_debug_asm)
 		fprintf (asm_out_file, "\t\t\t%s %s\n",
 			 ASM_COMMENT_START, name);

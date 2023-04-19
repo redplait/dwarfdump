@@ -1033,6 +1033,7 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
 const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &info, 
                                                       size_t& bytes_available) {
   const char* str = nullptr;
+  const unsigned char *s = info;
   uint32_t str_pos = 0;
 
   switch(form) {
@@ -1042,7 +1043,7 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
       bytes_available -= sizeof(str_pos);
       if ( str_pos > tree_builder->debug_str_size_ )
       {
-        fprintf(stderr, "string %X is not in string section\n", str_pos);
+        fprintf(stderr, "string %X is not in string section at %lX\n", str_pos, s - debug_info_);
         fflush(stderr);
       } else
         str = (const char*)&tree_builder->debug_str_[str_pos];
