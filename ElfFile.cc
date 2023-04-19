@@ -1042,7 +1042,7 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
       bytes_available -= sizeof(str_pos);
       if ( str_pos > tree_builder->debug_str_size_ )
       {
-        fprintf(stderr, "string %lX is not in string section addr_size %d\n", str_pos, address_size_);
+        fprintf(stderr, "string %X is not in string section\n", str_pos);
         fflush(stderr);
       } else
         str = (const char*)&tree_builder->debug_str_[str_pos];
@@ -1185,6 +1185,21 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag) {
   }
   tree_builder->AddNone();
   return false;
+}
+
+template <typename T>
+bool ElfFile::ProcessFlags(Dwarf32::Form form, const unsigned char* &info, size_t& info_bytes, T ptr)
+{
+  if ( !m_regged )
+    return false;
+  if ( form == Dwarf32::Form::DW_FORM_flag_present )
+    (tree_builder->*ptr)();
+  else {
+    auto v = FormDataValue(form, info, info_bytes);
+    if ( v )
+      (tree_builder->*ptr)();
+  }
+  return true;
 }
 
 bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute, 
@@ -1355,25 +1370,10 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         return true;
       }
       return false;
-    case Dwarf32::Attribute::DW_AT_explicit: {
-      if ( m_regged )
-      {
-        if ( form == Dwarf32::Form::DW_FORM_flag_present )
-        {
-          tree_builder->SetExplicit();
-          return true;
-        }
-        auto v = FormDataValue(form, info, info_bytes);
-        if ( v )
-          tree_builder->SetExplicit();
-        return true;
-      }
-      return false;
-    }
+    case Dwarf32::Attribute::DW_AT_explicit:
+      return ProcessFlags(form, info, info_bytes, &TreeBuilder::SetExplicit);
     case Dwarf32::Attribute::DW_AT_is_optional:
-      if ( m_regged )
-        tree_builder->SetOptionalParam();
-      return true;     
+      return ProcessFlags(form, info, info_bytes, &TreeBuilder::SetOptionalParam);
     case Dwarf32::Attribute::DW_AT_variable_parameter: {
       uint64_t v = FormDataValue(form, info, info_bytes);
       if ( m_regged && v )
@@ -1381,12 +1381,8 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       return true;
       }
       break;
-    case Dwarf32::Attribute::DW_AT_defaulted: {
-      uint64_t v = FormDataValue(form, info, info_bytes);
-      if ( m_regged && v )
-        tree_builder->SetDefaulted();
-      return true;
-    }
+    case Dwarf32::Attribute::DW_AT_defaulted:
+      return ProcessFlags(form, info, info_bytes, &TreeBuilder::SetDefaulted);
     case Dwarf32::Attribute::DW_AT_inline: {
       uint64_t v = FormDataValue(form, info, info_bytes);
       if ( m_regged && v )
@@ -1563,50 +1559,12 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
      break;
      // noreturn attribute
     case Dwarf32::Attribute::DW_AT_noreturn:
-     if ( !m_regged )
-       return false;
-     else {
-       if ( form == Dwarf32::Form::DW_FORM_flag_present )
-       {
-         tree_builder->SetNoReturn();
-         return true;
-       }
-       auto v = FormDataValue(form, info, info_bytes);
-       if ( v )
-         tree_builder->SetNoReturn();
-       return true;
-     }
-     break;
+      return ProcessFlags(form, info, info_bytes, &TreeBuilder::SetNoReturn);
      // declaration
-     case Dwarf32::Attribute::DW_AT_declaration:
-     if ( !m_regged )
-       return false;
-     else {
-       if ( form == Dwarf32::Form::DW_FORM_flag_present )
-       {
-         tree_builder->SetDeclaration();
-         return true;
-       }
-       auto is_art = FormDataValue(form, info, info_bytes);
-       if ( is_art )
-         tree_builder->SetDeclaration();
-       return true; 
-     }
-     break;
-     case Dwarf32::Attribute::DW_AT_artificial:
-       if ( m_regged )
-       {
-         if ( form == Dwarf32::Form::DW_FORM_flag_present )
-         {
-           tree_builder->SetArtiticial();
-           return true;
-         }
-         auto is_art = FormDataValue(form, info, info_bytes);
-         if ( is_art )
-           tree_builder->SetArtiticial();
-         return true;
-       }
-       return false;
+    case Dwarf32::Attribute::DW_AT_declaration:
+      return ProcessFlags(form, info, info_bytes, &TreeBuilder::SetDeclaration);  
+    case Dwarf32::Attribute::DW_AT_artificial:
+      return ProcessFlags(form, info, info_bytes, &TreeBuilder::SetArtiticial);
     default:
       return false;
   }

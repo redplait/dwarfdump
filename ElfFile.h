@@ -55,6 +55,8 @@ private:
       const unsigned char* &info, size_t& bytes_available);
   bool LoadAbbrevTags(uint32_t abbrev_offset);
   bool RegisterNewTag(Dwarf32::Tag tag);
+  template <typename T>
+  bool ProcessFlags(Dwarf32::Form form, const unsigned char* &info, size_t& info_bytes, T ptr);
   bool LogDwarfInfo(Dwarf32::Attribute attribute, 
     Dwarf32::Form form, const unsigned char* &info, 
     size_t& info_bytes, const void* unit_base);

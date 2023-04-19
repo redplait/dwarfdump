@@ -9589,14 +9589,14 @@ size_of_die (dw_die_ref die)
 		    * a->dw_attr_val.v.val_vec.elt_size; /* block */
 	  break;
 	case dw_val_class_flag:
-	  if (dwarf_version >= 4)
+	  if (dwarf_version >= 4 && a->dw_attr_val.v.val_flag == 1 )
 	    /* Currently all add_AT_flag calls pass in 1 as last argument,
 	       so DW_FORM_flag_present can be used.  If that ever changes,
 	       we'll need to use DW_FORM_flag and have some optimization
 	       in build_abbrev_table that will change those to
 	       DW_FORM_flag_present if it is set to 1 in all DIEs using
 	       the same abbrev entry.  */
-	    gcc_assert (a->dw_attr_val.v.val_flag == 1);
+	    ; // gcc_assert (a->dw_attr_val.v.val_flag == 1);
 	  else
 	    size += 1;
 	  break;
@@ -10039,7 +10039,7 @@ value_format (dw_attr_node *a)
 	  gcc_unreachable ();
 	}
     case dw_val_class_flag:
-      if (dwarf_version >= 4)
+      if (dwarf_version >= 4 && a->dw_attr_val.v.val_flag == 1 )
 	{
 	  /* Currently all add_AT_flag calls pass in 1 as last argument,
 	     so DW_FORM_flag_present can be used.  If that ever changes,
@@ -10047,7 +10047,7 @@ value_format (dw_attr_node *a)
 	     in build_abbrev_table that will change those to
 	     DW_FORM_flag_present if it is set to 1 in all DIEs using
 	     the same abbrev entry.  */
-	  gcc_assert (a->dw_attr_val.v.val_flag == 1);
+	  // gcc_assert (a->dw_attr_val.v.val_flag == 1);
 	  return DW_FORM_flag_present;
 	}
       return DW_FORM_flag;

@@ -123,6 +123,8 @@ int TreeBuilder::should_keep(Element *e)
 
 int TreeBuilder::check_dumped_type(const char *name)
 {
+  if ( !name )
+    return 0;
   uint64_t rep_id;
   if ( in_string_pool(name) )
   {
@@ -131,7 +133,7 @@ int TreeBuilder::check_dumped_type(const char *name)
     if ( ci == m_dumped_db.cend() )
       return 0;
     rep_id = ci->second.first;
-  } else if (name) {
+  } else {
  // fprintf(stderr, "check_dumped_type %p\n", name);   
     UniqName2 key { current_element_type_, name };
     const auto ci = m_dumped_db2.find(key);
