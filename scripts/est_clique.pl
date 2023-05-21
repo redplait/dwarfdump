@@ -228,6 +228,27 @@ sub compact
   return undef;
 }
 
+# from https://cs.stackexchange.com/questions/11360/size-of-maximum-clique-given-a-fixed-amount-of-edges
+# calc first count of edges
+sub calc_edges_cnt
+{
+  my $g = shift;
+  my $total = 0;
+  while (my ($key, $value) = each %$g )
+  {
+    my $len = scalar( keys %$value);
+    $total += $len;
+  }
+  return $total / 2;    
+}
+
+sub est_formula
+{
+  my $g = shift;
+  my $m = calc_edges_cnt($g);
+  return (1 + sqrt(8 * $m + 1 )) / 2;  
+}
+
 sub estimate_clique
 {
   my $g = shift; # graph
@@ -263,6 +284,7 @@ sub estimate_clique
   if ( defined $res )
   {
     printf("%d on degree %d, %d vertexes\n", $res, $res_degree, scalar(keys %curr_g));
+    printf("predicted %f\n", est_formula($g));
   }
 }
 
