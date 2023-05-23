@@ -10,7 +10,7 @@ use Statistics::Basic qw(:all);
 # for debug only
 use Data::Dumper;
 
-use vars qw/$opt_c $opt_d $opt_v $opt_s/;
+use vars qw/$opt_c $opt_d $opt_g $opt_v $opt_s/;
 
 sub usage()
 {
@@ -19,6 +19,7 @@ Usage: $0 [options] vertexes_num [edges_num] [additional edges for 1st vertex]
 Options:
  -c -- make connected graph
  -d -- debug dump
+ -g N - add clique with size N
  -s filename -- load/store graph from file
  -v -- verbose mode
 EOF
@@ -48,11 +49,34 @@ sub get_next
   return $v2;
 }
 
+sub connected
+{
+  my($g, $from, $to) = @_;
+  return 0 if ( !exists $g->{$from} );
+  my $e = $g->{$from};
+  return 1 if ( exists $e->{$to} );
+  return 0;  
+}
+
 sub add_edge
 {
   my($g, $v, $v2) = @_;
   $g->{$v}->{$v2} = 1;
   $g->{$v2}->{$v} = 1;
+}
+
+# add to graph g clique with size csize starting from 0 vertex
+sub add_clique
+{
+  my($g, $csize) = @_;
+  for ( my $i = 0; $i < $csize; $i++ )
+  {
+    for ( my $j = $i + 1; $j < $csize; $j++ )
+    {
+      next if ( connected($g, $i, $j) );
+      add_edge($g, $i, $j);
+    }
+  }
 }
 
 # probably we should try some models from https://www.researchgate.net/publication/287544803_Random_graphs_models_and_generators_of_scale-free_graphs/fulltext/5677848d08ae502c99d2fbd8/Random-graphs-models-and-generators-of-scale-free-graphs.pdf
@@ -249,6 +273,24 @@ sub est_formula
   return (1 + sqrt(8 * $m + 1 )) / 2;  
 }
 
+# check if some vertex v contains only edges to mutual-connected verteces in graph g
+# complexity is n ^ 2 / 2 where n is amount of edges in v
+sub is_clique
+{
+  my($v, $g) = @_;
+  my @es = keys %$v;
+  my $es_count = scalar(@es);
+  return 1 if ( $es_count < 2 );
+  for ( my $i = 0; $i < $es_count; $i++ )
+  {
+    for ( my $j = $i + 1; $j < $es_count; $j++ )
+    {
+      return 0 if ( !connected($g, $es[$i], $es[$j]) );
+    }
+  }
+  return 1;  
+}
+
 sub estimate_clique
 {
   my $g = shift; # graph
@@ -290,7 +332,7 @@ sub estimate_clique
 
 # main
 my $g;
-my $status = getopts("cdvs:");
+my $status = getopts("cdvg:s:");
 usage() if ( !$status );
 if ( @ARGV )
 {
@@ -317,6 +359,19 @@ if ( @ARGV )
   {
     $boost = int(shift @ARGV);
     add_boost($g, $v, $boost);
+  }
+  if ( defined $opt_g )
+  {
+    my $gsize = int($opt_g);
+    if ( !$gsize )
+    {
+      warn("ignore -g with arg $opt_g\n");
+    } elsif ( $gsize >= $v )
+    {
+      warn("clique size is too big\n");  
+    } else {
+      add_clique($g, $gsize);
+    }
   }
   connect_rem($g, $v) if ( defined $opt_c ); 
   # save generated graph
