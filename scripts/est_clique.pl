@@ -79,6 +79,64 @@ sub add_clique
   }
 }
 
+# naive version of removing all not-connected verteces for some v in graph g
+sub naive_remove
+{
+  my($g, $v) = @_;
+  # print Dumper($v);
+  # copy adjacency set of v
+  my(%tmp, @arr);
+  while (my ($key, $value) = each %$v )
+  {
+    $tmp{$key} = $value;
+    # printf("tmp %d\n", $key) if ( defined $opt_v );    
+  }
+  # calc non-connected verteces
+  my %non_c;
+  do {
+    undef %non_c;
+    # make array of verteces
+    my @arr;
+    while (my ($key, $value) = each %tmp )
+    {
+      push @arr, [ $key, $value];
+    }
+    # make disconnected set, complexity k * k / 2
+    my $es_count = scalar(@arr);
+    for ( my $i = 0; $i < $es_count; $i++ )
+    {
+      for ( my $j = $i + 1; $j < $es_count; $j++ )
+      {
+        next if ( connected($g, $arr[$i]->[0], $arr[$j]->[0]) );
+        # printf("not-connected %d and %d\n", $arr[$i]->[0], $arr[$j]->[0]);
+        $non_c{ $arr[$i]->[0] }++;
+        $non_c{ $arr[$j]->[0] }++;
+      }
+    }
+    # sort non-connected verteces my count is descend order
+    @arr = sort { $b->[1] <=> $a->[1] } map( { [ $_, $non_c{$_} ] } keys %non_c );
+    # print Dumper(\@arr);
+    # all connected ?
+    if ( scalar @arr )
+    {
+      # remove most disconnected vertex from tmp
+      delete $tmp{ $arr[0]->[0] }; 
+      if ( defined $opt_v )
+      {
+        printf("remove vertex %d not connected with %d verteces\n", $arr[0]->[0], $arr[0]->[1]);  
+      }
+    }
+  } while ( scalar keys %non_c );
+  if ( defined $opt_v )
+  {
+    while (my ($key, $value) = each %tmp )
+    {
+      printf("res tmp %d\n", $key);
+    }
+  }
+  return \%tmp;
+}
+
 # probably we should try some models from https://www.researchgate.net/publication/287544803_Random_graphs_models_and_generators_of_scale-free_graphs/fulltext/5677848d08ae502c99d2fbd8/Random-graphs-models-and-generators-of-scale-free-graphs.pdf
 sub gen_random_graph
 {
@@ -374,6 +432,11 @@ if ( @ARGV )
     }
   }
   connect_rem($g, $v) if ( defined $opt_c ); 
+  if ( defined $opt_g )
+  {
+    printf("call naive_remove\n");
+    naive_remove($g, $g->{0});
+  }
   # save generated graph
   if ( defined($g) && defined($opt_s) )
   {
