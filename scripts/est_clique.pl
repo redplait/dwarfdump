@@ -10,7 +10,7 @@ use Statistics::Basic qw(:all);
 # for debug only
 use Data::Dumper;
 
-use vars qw/$opt_c $opt_d $opt_g $opt_v $opt_s/;
+use vars qw/$opt_c $opt_d $opt_f $opt_g $opt_v $opt_s/;
 
 sub usage()
 {
@@ -19,6 +19,7 @@ Usage: $0 [options] vertexes_num [edges_num] [additional edges for 1st vertex]
 Options:
  -c -- make connected graph
  -d -- debug dump
+ -f -- run fast scan instead size estimation
  -g N - add clique with size N
  -s filename -- load/store graph from file
  -v -- verbose mode
@@ -388,9 +389,99 @@ sub estimate_clique
   }
 }
 
+# fast scan logic
+my $g_curr_max; # size of found clique
+my $g_curr;
+my $g_curr_id;
+
+sub naive_remove2
+{
+  my($g, $v, $id) = @_;
+  # print Dumper($v);
+  # copy adjacency set of v
+  my(%tmp, @arr);
+  while (my ($key, $value) = each %$v )
+  {
+    # skip neighbors with degree less than size already found clique
+    my $d = scalar ( keys %{ $g->{$key} } );
+    next if ( $d < $g_curr_max );
+    $tmp{$key} = $value;
+  }
+  # calc non-connected verteces
+  my %non_c;
+  do {
+    undef %non_c;
+    # make array of verteces
+    my @arr;
+    while (my ($key, $value) = each %tmp )
+    {
+      push @arr, [ $key, $value];
+    }
+    # make disconnected set, complexity k * k / 2
+    my $es_count = scalar(@arr);
+    for ( my $i = 0; $i < $es_count; $i++ )
+    {
+      for ( my $j = $i + 1; $j < $es_count; $j++ )
+      {
+        next if ( connected($g, $arr[$i]->[0], $arr[$j]->[0]) );
+        # printf("not-connected %d and %d\n", $arr[$i]->[0], $arr[$j]->[0]);
+        $non_c{ $arr[$i]->[0] }++;
+        $non_c{ $arr[$j]->[0] }++;
+      }
+    }
+    # sort non-connected verteces my count is descend order
+    @arr = sort { $b->[1] <=> $a->[1] } map( { [ $_, $non_c{$_} ] } keys %non_c );
+    # print Dumper(\@arr);
+    # all connected ?
+    if ( scalar @arr )
+    {
+      my $d = $arr[0]->[1];
+      # printf("unconn %d\n", $d);
+      foreach my $di ( @arr )
+      {
+        last if ( $di->[1] < $d );
+        # remove all vertices with non-connected degree $d
+        delete $tmp{ $di->[0] };  
+      }
+    }
+  } while ( scalar keys %non_c );
+  my $cs = scalar keys %tmp;
+  if ( $cs > $g_curr_max )
+  {
+     $g_curr_max = $cs;
+     $g_curr = \%tmp;
+     $g_curr_id = $id;
+  }
+}
+
+sub scan_clique
+{
+  my $g = shift; # graph
+  my $arr = make_sorted_array($g);
+  dump_arr($arr);
+  $g_curr_max = 2; # if there is at least one edge in graph then you already have some trivial clique with size 2
+  foreach my $i ( @$arr )
+  {
+    last if ( $i->[0] < $g_curr_max );
+    while (my ($key, $value) = each %{ $i->[1] } )
+    {
+      # printf("naive_remove2 %d degree %d curr_max %d\n", $key, $i->[0], $g_curr_max);
+      naive_remove2($g, $g->{ $key }, $key);
+    }
+  }
+  if ( defined $g_curr )
+  {
+    printf("found clique size: %d, root in %d\n", $g_curr_max, $g_curr_id);
+    while (my ($key, $value) = each %$g_curr )
+    {
+      printf("res %d\n", $key);
+    }  
+  }
+}
+
 # main
 my $g;
-my $status = getopts("cdvg:s:");
+my $status = getopts("cdfvg:s:");
 usage() if ( !$status );
 if ( @ARGV )
 {
@@ -449,5 +540,10 @@ if ( @ARGV )
 die("cannot make graph") if ( !defined $g );
 calc_variance($g);
 print Dumper($g) if ( defined $opt_d );
-# estimate max clique size
-estimate_clique($g);
+if ( !defined $opt_f )
+{
+  # estimate max clique size
+  estimate_clique($g);
+} else {
+  scan_clique($g);  
+}
