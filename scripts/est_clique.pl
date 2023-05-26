@@ -10,13 +10,14 @@ use Statistics::Basic qw(:all);
 # for debug only
 use Data::Dumper;
 
-use vars qw/$opt_c $opt_d $opt_f $opt_g $opt_v $opt_s/;
+use vars qw/$opt_C $opt_c $opt_d $opt_f $opt_g $opt_v $opt_s/;
 
 sub usage()
 {
   print STDERR<<EOF;
 Usage: $0 [options] vertexes_num [edges_num] [additional edges for 1st vertex]
 Options:
+ -C vertices list - make clique and produce al.inc
  -c -- make connected graph
  -d -- debug dump
  -f -- run fast scan instead size estimation
@@ -78,6 +79,49 @@ sub add_clique
       add_edge($g, $i, $j);
     }
   }
+}
+
+sub dump_al_inc
+{
+  my $g = shift;
+  my $f;
+  open($f, ">", "al.inc") or die("cannot open al.inc, error $!");
+  while (my ($key, $value) = each %$g )
+  {
+    foreach my $e ( keys %$value )
+    {
+      next if $key > $e;
+      printf($f "{ %d, %d },\n", $key, $e);  
+    }
+  }
+  close $f;  
+}
+
+sub make_clique
+{
+  my($g, $s) = @_;
+  my @arr;
+  foreach my $i ( split /\s+/, $s )
+  {
+    my $idx = int($i);
+    if ( !$idx )
+    {
+      printf("bad index %s\n", $i);
+      return 0;
+    }
+    push @arr, $idx;
+  }
+  # make clique for all vertices in @arr
+  my $csize = scalar @arr;
+  for ( my $i = 0; $i < $csize; $i++ )
+  {
+    for ( my $j = $i + 1; $j < $csize; $j++ )
+    {
+      next if ( connected($g, $arr[$i], $arr[$j]) );
+      add_edge($g, $arr[$i], $arr[$j]);
+    }
+  }
+  return 1;   
 }
 
 # naive version of removing all not-connected verteces for some v in graph g
@@ -481,7 +525,7 @@ sub scan_clique
 
 # main
 my $g;
-my $status = getopts("cdfvg:s:");
+my $status = getopts("cdfvC:g:s:");
 usage() if ( !$status );
 if ( @ARGV )
 {
@@ -538,6 +582,10 @@ if ( @ARGV )
   $g = retrieve($opt_s);
 }
 die("cannot make graph") if ( !defined $g );
+if ( defined $opt_C )
+{
+  dump_al_inc($g) if ( make_clique($g, $opt_C) );    
+}
 calc_variance($g);
 print Dumper($g) if ( defined $opt_d );
 if ( !defined $opt_f )
