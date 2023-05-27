@@ -1,0 +1,1 @@
+[details](http://redplait.blogspot.com/2023/05/ctf-like-task-based-on-maximal-clique.html)
