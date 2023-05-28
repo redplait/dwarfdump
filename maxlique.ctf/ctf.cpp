@@ -55,33 +55,5 @@ void decrypt(std::set<unsigned short> &v)
   tmp_key[18] = varr[15] & 0xff;
   tmp_key[19] = (varr[12] & 3) | ((varr[13] & 3) << 2) | ((varr[14] & 3) << 4) | ((varr[15] & 3) << 6);
 
+#define CLIQUE_SIZE 16
 #include "aes.inc"
-}
-
-int main(int argc, char **argv)
-{
-  read_graph();
-  int start = 1;
-  if ( argc > 1 && !strcmp(argv[1], "-e") )
-  {
-     start++;
-     s_encode = 1;
-  }
-  std::set<unsigned short> args;
-  for ( int i = start; i < argc; i++ )
-  {
-    char *tmp = NULL;
-    auto v = strtol(argv[i], &tmp, 10);
-    args.insert((unsigned short)v);
-  }
-  if ( is_clique(args) )
-  {
-    if ( args.size() < 16 )
-    {
-      printf("too short clique\n");
-      exit(1);
-    }
-    decrypt(args);
-  }
-  exit(2);
-}

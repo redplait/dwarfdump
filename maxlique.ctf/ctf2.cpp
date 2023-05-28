@@ -51,33 +51,5 @@ void decrypt(std::set<unsigned short> &v)
   FILL3(24, 16)
   FILL3(27, 18)
 
+#define CLIQUE_SIZE 20
 #include "aes.inc"
-}
-
-int main(int argc, char **argv)
-{
-  read_graph();
-  int start = 1;
-  if ( argc > 1 && !strcmp(argv[1], "-e") )
-  {
-     start++;
-     s_encode = 1;
-  }
-  std::set<unsigned short> args;
-  for ( int i = start; i < argc; i++ )
-  {
-    char *tmp = NULL;
-    auto v = strtol(argv[i], &tmp, 10);
-    args.insert((unsigned short)v);
-  }
-  if ( is_clique(args) )
-  {
-    if ( args.size() < 20 )
-    {
-      printf("too short clique\n");
-      exit(1);
-    }
-    decrypt(args);
-  }
-  exit(2);
-}
