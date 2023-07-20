@@ -27,6 +27,95 @@ my_PLUGIN::my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int 
 
 extern void dump_function_header(FILE *, tree, dump_flags_t);
 
+// ripped from 
+static void
+print_edge (FILE *outfile, edge e, bool from)
+{
+  fprintf (outfile, "      (%s ", from ? "edge-from" : "edge-to");
+  basic_block bb = from ? e->src : e->dest;
+  gcc_assert (bb);
+  switch (bb->index)
+    {
+    case ENTRY_BLOCK:
+      fprintf (outfile, "entry");
+      break;
+    case EXIT_BLOCK:
+      fprintf (outfile, "exit");
+      break;
+    default:
+      fprintf (outfile, "%i", bb->index);
+      break;
+    }
+
+  /* Express edge flags as a string with " | " separator.
+     e.g. (flags "FALLTHRU | DFS_BACK").  */
+  if (e->flags)
+    {
+      fprintf (outfile, " (flags \"");
+      bool seen_flag = false;
+#define DEF_EDGE_FLAG(NAME,IDX)                 \
+  do {                                          \
+    if (e->flags & EDGE_##NAME)                 \
+      {                                         \
+       if (seen_flag)                          \
+          fprintf (outfile, " | ");             \
+        fprintf (outfile, "%s", (#NAME));       \
+        seen_flag = true;                       \
+      }                                         \
+  } while (0);
+#include "cfg-flags.def"
+#undef DEF_EDGE_FLAG
+
+      fprintf (outfile, "\")");
+    }
+
+  fprintf (outfile, ")\n");
+}
+
+/* If BB is non-NULL, print the start of a "(block)" directive for it
+   to OUTFILE, otherwise do nothing.  */
+
+static void
+begin_any_block (FILE *outfile, basic_block bb)
+{
+  if (!bb)
+    return;
+
+  edge e;
+  edge_iterator ei;
+
+  fprintf (outfile, "    (block %i\n", bb->index);
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    print_edge (outfile, e, true);
+}
+
+static void
+end_any_block (FILE *outfile, basic_block bb)
+{
+  if (!bb)
+    return;
+
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    print_edge (outfile, e, false);
+  fprintf (outfile, "    ) ;; block %i\n", bb->index);
+}
+
+/* Determine if INSN is of a kind that can have a basic block.  */
+
+static bool
+can_have_basic_block_p (const rtx_insn *insn)
+{
+  rtx_code code = GET_CODE (insn);
+  if (code == BARRIER)
+    return false;
+  gcc_assert (GET_RTX_FORMAT (code)[2] == 'B');
+  return true;
+}
+
+
 unsigned int my_PLUGIN::execute(function *fun)
 {
   // 1) Find the name of the function
@@ -36,7 +125,8 @@ unsigned int my_PLUGIN::execute(function *fun)
   basic_block bb;
   FOR_ALL_BB_FN(bb, fun)
   { // Loop over all Basic Blocks in the function, cfun = current function
-     fprintf(stdout,"BB: %d\n", bb->index-2);
+     fprintf(stdout,"BB: %d\n", bb->index);
+     begin_any_block(stdout, bb);
       rtx_insn* insn;
       FOR_BB_INSNS(bb, insn)
       {
@@ -46,6 +136,7 @@ unsigned int my_PLUGIN::execute(function *fun)
             print_rtl_single(stdout, insn);             // print to file
         }
       }
+      end_any_block (stdout, bb);
       fprintf(stdout,"\n----------------------------------------------------------------\n\n");
    }
   return 0;
