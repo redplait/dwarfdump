@@ -120,7 +120,7 @@ unsigned int my_PLUGIN::execute(function *fun)
 {
   // 1) Find the name of the function
   char* funName = (char*)IDENTIFIER_POINTER (DECL_NAME (current_function_decl) );
-  std::cerr << "execute on " << funName << "\n";
+  std::cerr << "execute on " << funName << " file " << main_input_filename << "\n";
   dump_function_header(stdout, fun->decl, (dump_flags_t)0);
   basic_block bb;
   FOR_ALL_BB_FN(bb, fun)
