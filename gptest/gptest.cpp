@@ -25,11 +25,29 @@ my_PLUGIN::my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int 
     args = arguments;           // array containing arrguments (key,value)
 }
 
+extern void dump_function_header(FILE *, tree, dump_flags_t);
+
 unsigned int my_PLUGIN::execute(function *fun)
 {
   // 1) Find the name of the function
   char* funName = (char*)IDENTIFIER_POINTER (DECL_NAME (current_function_decl) );
   std::cerr << "execute on " << funName << "\n";
+  dump_function_header(stdout, fun->decl, (dump_flags_t)0);
+  basic_block bb;
+  FOR_ALL_BB_FN(bb, fun)
+  { // Loop over all Basic Blocks in the function, cfun = current function
+     fprintf(stdout,"BB: %d\n", bb->index-2);
+      rtx_insn* insn;
+      FOR_BB_INSNS(bb, insn)
+      {
+        // Loop over all rtx statements in the Basick Block
+        if( NONDEBUG_INSN_P(insn) ){            // Filter all actual code statements
+            //print_simple_rtl(fp, insn);
+            print_rtl_single(stdout, insn);             // print to file
+        }
+      }
+      fprintf(stdout,"\n----------------------------------------------------------------\n\n");
+   }
   return 0;
 }
 
@@ -42,8 +60,8 @@ int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version
     // created this plugin
     if (!plugin_default_version_check (version, &gcc_version))
     {
-        std::cerr << "This GCC plugin is for version " << GCCPLUGIN_VERSION_MAJOR << "." << GCCPLUGIN_VERSION_MINOR << "\n";
-	return 1;
+      std::cerr << "This GCC plugin is for version " << GCCPLUGIN_VERSION_MAJOR << "." << GCCPLUGIN_VERSION_MINOR << "\n";
+	  return 1;
     }
 
     // Let's print all the information given to this plugin!
