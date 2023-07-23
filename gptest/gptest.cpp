@@ -387,10 +387,32 @@ void my_PLUGIN::dump_mem_expr(const_tree expr)
     fprintf(m_outfp, " %s%s", str, name);
   if ( !op1 )
     return;    
-  code = TREE_CODE(op0);
+  code = TREE_CODE(op1);
   name = get_tree_code_name(code);
   if ( name )
     fprintf(m_outfp, " 1:%s", name);
+  if ( code != FIELD_DECL )
+    return;
+  // dump field name
+  auto field_name = DECL_NAME(op1);
+  if ( field_name )
+    fprintf(m_outfp, " FName %s", IDENTIFIER_POINTER(field_name));
+  auto ctx = DECL_CONTEXT(op1);
+  if ( !ctx )
+    return;
+  code = TREE_CODE(ctx);
+  name = get_tree_code_name(code);
+  if ( name )
+    fprintf(m_outfp, " %s", name);
+  // record/union name
+  auto t = TYPE_NAME(ctx);
+  if ( t )
+  {
+    if ( DECL_NAME(t) )
+      fprintf(m_outfp, " Name %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
+  } else {
+    fprintf(m_outfp, " no_type");
+  }   
 }
 
 void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
