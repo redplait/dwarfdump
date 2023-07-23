@@ -18,6 +18,7 @@ class my_PLUGIN : public rtl_opt_pass
   unsigned int execute(function *fun);
  private:
   void margin(int);
+  void dump_mem_expr(const_tree expr);
   void dump_rtx(const_rtx, int level = 0);
   void dump_rtx_hl(const_rtx);
   int dump_e_operand(const_rtx in_rtx, int idx, int level);

@@ -199,6 +199,13 @@ int my_PLUGIN::dump_i_operand(const_rtx in_rtx, int idx, int level)
     fprintf (m_outfp, " %s:%i",
         LOCATION_FILE (ASM_INPUT_SOURCE_LOCATION (in_rtx)),
         LOCATION_LINE (ASM_INPUT_SOURCE_LOCATION (in_rtx)));
+  } else {
+    const char *name;
+    int is_insn = INSN_P (in_rtx);
+    if (is_insn && &INSN_CODE (in_rtx) == &XINT (in_rtx, idx)
+          && XINT (in_rtx, idx) >= 0
+          && (name = get_insn_name (XINT (in_rtx, idx))) != NULL)
+      fprintf (m_outfp, " {%s}", name);
   }
   return 0;
 }
@@ -234,6 +241,21 @@ int my_PLUGIN::dump_EV_code(const_rtx in_rtx, int idx, int level)
     }
   }
   return res;
+}
+
+static void
+print_poly_int (FILE *file, poly_int64 x)
+{
+  HOST_WIDE_INT const_x;
+  if (x.is_constant (&const_x))
+    fprintf (file, HOST_WIDE_INT_PRINT_DEC, const_x);
+  else
+    {
+      fprintf (file, "[" HOST_WIDE_INT_PRINT_DEC, x.coeffs[0]);
+      for (int i = 1; i < NUM_POLY_INT_COEFFS; ++i)
+        fprintf (file, ", " HOST_WIDE_INT_PRINT_DEC, x.coeffs[i]);
+      fprintf (file, "]");
+    }
 }
 
 void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
@@ -279,6 +301,27 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
    case 'n':
       fprintf (m_outfp, " %s", GET_NOTE_INSN_NAME (XINT (in_rtx, idx)));
       break;
+ 
+   case 't':
+      if (idx == 0 && GET_CODE (in_rtx) == DEBUG_IMPLICIT_PTR)
+        // print_mem_expr (m_outfile, DEBUG_IMPLICIT_PTR_DECL (in_rtx));
+        fprintf(m_outfp, "DEBUG_IMPLICIT_PTR_DECL");
+      else if (idx == 0 && GET_CODE (in_rtx) == DEBUG_PARAMETER_REF)
+        // print_mem_expr (m_outfile, DEBUG_PARAMETER_REF_DECL (in_rtx));
+        fprintf(m_outfp, "DEBUG_PARAMETER_REF_DECL");
+      else
+        fprintf(m_outfp, "XTREE");
+      break;
+
+   case 'w':
+      fprintf (m_outfp, HOST_WIDE_INT_PRINT_DEC, XWINT (in_rtx, idx));
+      fprintf (m_outfp, " [" HOST_WIDE_INT_PRINT_HEX "]",
+                 (unsigned HOST_WIDE_INT) XWINT (in_rtx, idx));
+      break;
+
+    case 'p':
+      print_poly_int (m_outfp, SUBREG_BYTE (in_rtx));
+      break;
 
   }
   if ( !was_nl )
@@ -294,6 +337,60 @@ void my_PLUGIN::dump_rtx_hl(const_rtx in_rtx)
     return;
   margin(1);
   dump_rtx(in_rtx, 1);
+}
+
+void my_PLUGIN::dump_mem_expr(const_tree expr)
+{
+  if ( expr == NULL_TREE )
+    return;
+  auto code = TREE_CODE(expr);
+  auto name = get_tree_code_name(code);
+  if ( name )
+    fprintf(m_outfp, " %s", name);
+  if ( code != COMPONENT_REF )
+    return;
+  auto op0 = TREE_OPERAND (expr, 0);
+  if ( !op0 )
+    return;
+  char *str = ".";
+  if ( (TREE_CODE (op0) == INDIRECT_REF
+              || (TREE_CODE (op0) == MEM_REF
+                  && TREE_CODE (TREE_OPERAND (op0, 0)) != ADDR_EXPR
+                  && integer_zerop (TREE_OPERAND (op0, 1))
+                  /* Dump the types of INTEGER_CSTs explicitly, for we
+                     can't infer them and MEM_ATTR caching will share
+                     MEM_REFs with differently-typed op0s.  */
+                  && TREE_CODE (TREE_OPERAND (op0, 0)) != INTEGER_CST
+                  /* Released SSA_NAMES have no TREE_TYPE.  */
+                  && TREE_TYPE (TREE_OPERAND (op0, 0)) != NULL_TREE
+                  /* Same pointer types, but ignoring POINTER_TYPE vs.
+                     REFERENCE_TYPE.  */
+                  && (TREE_TYPE (TREE_TYPE (TREE_OPERAND (op0, 0)))
+                      == TREE_TYPE (TREE_TYPE (TREE_OPERAND (op0, 1))))
+                  && (TYPE_MODE (TREE_TYPE (TREE_OPERAND (op0, 0)))
+                      == TYPE_MODE (TREE_TYPE (TREE_OPERAND (op0, 1))))
+                  && (TYPE_REF_CAN_ALIAS_ALL (TREE_TYPE (TREE_OPERAND (op0, 0)))
+                      == TYPE_REF_CAN_ALIAS_ALL (TREE_TYPE (TREE_OPERAND (op0, 1))))
+                  /* Same value types ignoring qualifiers.  */
+                  && (TYPE_MAIN_VARIANT (TREE_TYPE (op0))
+                      == TYPE_MAIN_VARIANT
+                          (TREE_TYPE (TREE_TYPE (TREE_OPERAND (op0, 1)))))
+                  && MR_DEPENDENCE_CLIQUE (op0) == 0)))
+  {
+    op0 = TREE_OPERAND (op0, 0);
+    str = "->";
+  }
+  auto op1 = TREE_OPERAND (expr, 1);  
+  code = TREE_CODE(op0);
+  name = get_tree_code_name(code);
+  if ( name )
+    fprintf(m_outfp, " %s%s", str, name);
+  if ( !op1 )
+    return;    
+  code = TREE_CODE(op0);
+  name = get_tree_code_name(code);
+  if ( name )
+    fprintf(m_outfp, " 1:%s", name);
 }
 
 void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
@@ -331,7 +428,10 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
   fprintf(m_outfp, " %s", format_ptr);
 
   if ( code == MEM && MEM_EXPR(in_rtx) )
+  {
     fprintf(m_outfp, " MEM");
+    dump_mem_expr(MEM_EXPR (in_rtx));
+  }
   fputs("\n", m_outfp);  
   // dump operands
   for (; idx < limit; idx++)
