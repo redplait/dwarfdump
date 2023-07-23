@@ -21,10 +21,11 @@ const struct pass_data my_PLUGIN_pass_data =
 };
 
 my_PLUGIN::my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int argcounter)
-                : rtl_opt_pass(my_PLUGIN_pass_data, ctxt)
+ : rtl_opt_pass(my_PLUGIN_pass_data, ctxt)
 {
-    argc = argcounter;          // number of arguments
-    args = arguments;           // array containing arrguments (key,value)
+    argc = argcounter;   // number of arguments
+    args = arguments;    // array containing arrguments (key,value)
+    m_outfp = stdout;
 }
 
 extern void dump_function_header(FILE *, tree, dump_flags_t);
@@ -147,38 +148,151 @@ print_param (FILE *outfile, rtx_writer &w, tree arg)
   w.finish_directive ();
 }
 
+void my_PLUGIN::margin(int level)
+{
+  fputc(';', m_outfp);
+  for ( int i = 0; i < level; i++ )
+    fputc(' ', m_outfp);
+}
+
+void my_PLUGIN::dump_u_operand(const_rtx in_rtx, int idx, int level)
+{
+  if (XEXP (in_rtx, idx) != NULL)
+  {
+    rtx sub = XEXP (in_rtx, idx);
+    enum rtx_code subc = GET_CODE (sub);
+    if (GET_CODE (in_rtx) == LABEL_REF)
+    {
+      if (subc != CODE_LABEL)
+      {
+         dump_e_operand(in_rtx, idx, level + 1);
+         return;
+      }
+    }
+  }  
+}
+
+void my_PLUGIN::dump_e_operand(const_rtx in_rtx, int idx, int level)
+{
+  auto e = XEXP (in_rtx, idx);
+  if ( e )
+  dump_rtx(e, level + 1);
+}
+
+void my_PLUGIN::dump_EV_code(const_rtx in_rtx, int idx, int level)
+{
+  if (XVEC (in_rtx, idx) != NULL)
+  {
+    int barrier = XVECLEN (in_rtx, idx);
+    if (GET_CODE (in_rtx) == CONST_VECTOR
+          && !GET_MODE_NUNITS (GET_MODE (in_rtx)).is_constant ())
+      barrier = CONST_VECTOR_NPATTERNS (in_rtx);
+    int len = XVECLEN (in_rtx, idx);
+    fprintf(m_outfp, " len %d\n", len);
+    for (int j = 0; j < XVECLEN (in_rtx, idx); j++)
+    {
+      dump_rtx (XVECEXP (in_rtx, idx, j), level + 1);
+    }
+  }
+}
+
+void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
+{
+  const char *str;
+  margin(level + 2);
+  fprintf(m_outfp, "[%d]", idx);
+  switch(f)
+  {
+    case 'T':
+      str = XTMPL (in_rtx, idx);
+      goto string;
+
+    case 'S':
+    case 's':
+      str = XSTR (in_rtx, idx);
+    string:
+
+      if (str == 0)
+        fputs (" (nil)", m_outfp);
+      else
+        fprintf (m_outfp, " (\"%s\")", str);
+      break;
+
+   case 'u':
+      dump_u_operand(in_rtx, idx, level);
+      break;
+    
+   case 'e':
+      dump_e_operand(in_rtx, idx, level);
+      break;
+
+   case 'E':
+   case 'V':
+      dump_EV_code(in_rtx, idx, level + 1);
+      break;
+
+   case 'n':
+      fprintf (m_outfp, " %s", GET_NOTE_INSN_NAME (XINT (in_rtx, idx)));
+      break;
+
+  }
+  fputs("\n", m_outfp);
+}
+
+void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
+{
+  int idx = 0;
+  if ( !in_rtx )
+    return;
+  rtx_code code = GET_CODE(in_rtx);
+  if ( code > NUM_RTX_CODE )
+    return;
+  int limit = GET_RTX_LENGTH(code);
+  if ( CONST_DOUBLE_AS_FLOAT_P(in_rtx) )
+    idx = 5;
+  margin(level + 1);
+  if ( INSN_CHAIN_CODE_P(code) )  
+    fprintf(m_outfp, "%d %s %d lim %d", INSN_UID (in_rtx), GET_RTX_NAME(code), idx, limit);
+  else 
+    fprintf(m_outfp, "%s %d lim %d", GET_RTX_NAME(code), idx, limit);
+  const char *format_ptr = GET_RTX_FORMAT(code);
+  fprintf(m_outfp, " %s\n", format_ptr);
+  // dump operands
+  for (; idx < limit; idx++)
+    dump_rtx_operand (in_rtx, format_ptr[idx], idx, level + 1);  
+  if ( code == MEM && MEM_EXPR(in_rtx) )
+    fprintf(m_outfp, "MEM");
+}
+
 unsigned int my_PLUGIN::execute(function *fun)
 {
   rtx_reuse_manager r;
-  rtx_writer w (stdout, 0, false, false, &r);  
+  rtx_writer w (m_outfp, 0, false, false, &r);  
   // 1) Find the name of the function
   char* funName = (char*)IDENTIFIER_POINTER (DECL_NAME (current_function_decl) );
   tree fdecl = fun->decl;
   const char *dname = lang_hooks.decl_printable_name (fdecl, 1);
   std::cerr << "execute on " << funName << " (" << dname << ") file " << main_input_filename << "\n";
-  dump_function_header(stdout, fun->decl, (dump_flags_t)0);
+  dump_function_header(m_outfp, fun->decl, (dump_flags_t)0);
   // dump params
   /* Params.  */
   for (tree arg = DECL_ARGUMENTS (fdecl); arg; arg = DECL_CHAIN (arg))
-    print_param (stdout, w, arg);
+    print_param (m_outfp, w, arg);
 
   basic_block bb;
   FOR_ALL_BB_FN(bb, fun)
   { // Loop over all Basic Blocks in the function, cfun = current function
-     fprintf(stdout,"BB: %d\n", bb->index);
-     begin_any_block(stdout, bb);
+      fprintf(m_outfp,"BB: %d\n", bb->index);
+      begin_any_block(m_outfp, bb);
       rtx_insn* insn;
       FOR_BB_INSNS(bb, insn)
       {
-        // Loop over all rtx statements in the Basick Block
-        // if( NONDEBUG_INSN_P(insn) ){            // Filter all actual code statements
-            //print_simple_rtl(fp, insn);
-            // print_rtl_single(stdout, insn);             // print to file
-            w.print_rtl_single_with_indent(insn, 0);
-        // }
+        if ( NONDEBUG_INSN_P(insn) )
+          dump_rtx(insn);
+        w.print_rtl_single_with_indent(insn, 0);
       }
-      end_any_block (stdout, bb);
-      fprintf(stdout,"\n----------------------------------------------------------------\n\n");
+      end_any_block (m_outfp, bb);
+      fprintf(m_outfp,"\n----------------------------------------------------------------\n\n");
    }
   return 0;
 }
