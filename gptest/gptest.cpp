@@ -384,13 +384,42 @@ void my_PLUGIN::dump_mem_expr(const_tree expr)
   code = TREE_CODE(op0);
   name = get_tree_code_name(code);
   if ( name )
-    fprintf(m_outfp, " %s%s", str, name);
+  {
+    fprintf(m_outfp, " (l%s%s", str, name);
+    if ( SSA_NAME == code )
+    {
+      auto t = TREE_TYPE(op0);
+      if ( t )
+      {
+        auto ct0 = TREE_CODE(t);
+        name = get_tree_code_name(ct0);
+        if ( name )
+        {
+          fprintf(m_outfp, " %s", name);
+          // known types - pointer_type & reference_type
+          if ( POINTER_TYPE_P(t) )
+          {
+            while( POINTER_TYPE_P(t))
+              t = TREE_TYPE(t);
+            ct0 = TREE_CODE(t);
+            name = get_tree_code_name(ct0);
+            if ( name )
+              fprintf(m_outfp, " ptr2 %s", name);
+          }
+        }
+      }
+    } else if ( COMPONENT_REF == code )
+    {
+       dump_mem_expr(op0); 
+    }
+    fprintf(m_outfp, ")");
+  }
   if ( !op1 )
     return;    
   code = TREE_CODE(op1);
   name = get_tree_code_name(code);
   if ( name )
-    fprintf(m_outfp, " 1:%s", name);
+    fprintf(m_outfp, " r:%s", name);
   if ( code != FIELD_DECL )
     return;
   // dump field name
