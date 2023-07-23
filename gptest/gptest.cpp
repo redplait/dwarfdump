@@ -155,7 +155,7 @@ void my_PLUGIN::margin(int level)
     fputc(' ', m_outfp);
 }
 
-void my_PLUGIN::dump_u_operand(const_rtx in_rtx, int idx, int level)
+int my_PLUGIN::dump_u_operand(const_rtx in_rtx, int idx, int level)
 {
   if (XEXP (in_rtx, idx) != NULL)
   {
@@ -165,22 +165,58 @@ void my_PLUGIN::dump_u_operand(const_rtx in_rtx, int idx, int level)
     {
       if (subc != CODE_LABEL)
       {
-         dump_e_operand(in_rtx, idx, level + 1);
-         return;
+         return dump_e_operand(in_rtx, idx, level + 1);
       }
     }
-  }  
+  }
+  return 0;  
 }
 
-void my_PLUGIN::dump_e_operand(const_rtx in_rtx, int idx, int level)
+int my_PLUGIN::dump_i_operand(const_rtx in_rtx, int idx, int level)
+{
+  if (idx == 4 && INSN_P (in_rtx))
+  {
+    const rtx_insn *in_insn = as_a <const rtx_insn *> (in_rtx);
+    /*  Pretty-print insn locations.  Ignore scoping as it is mostly
+        redundant with line number information and do not print anything
+        when there is no location information available.  */
+    if (INSN_HAS_LOCATION (in_insn))
+    {
+        expanded_location xloc = insn_location (in_insn);
+        fprintf (m_outfp, " \"%s\":%i:%i", xloc.file, xloc.line, xloc.column);
+    }
+  }
+  else if (idx == 6 && GET_CODE (in_rtx) == ASM_OPERANDS)
+  {
+    if (ASM_OPERANDS_SOURCE_LOCATION (in_rtx) != UNKNOWN_LOCATION)
+    fprintf (m_outfp, " %s:%i",
+        LOCATION_FILE (ASM_OPERANDS_SOURCE_LOCATION (in_rtx)),
+        LOCATION_LINE (ASM_OPERANDS_SOURCE_LOCATION (in_rtx)));
+    }
+  else if (idx == 1 && GET_CODE (in_rtx) == ASM_INPUT)
+  {
+    if (ASM_INPUT_SOURCE_LOCATION (in_rtx) != UNKNOWN_LOCATION)
+    fprintf (m_outfp, " %s:%i",
+        LOCATION_FILE (ASM_INPUT_SOURCE_LOCATION (in_rtx)),
+        LOCATION_LINE (ASM_INPUT_SOURCE_LOCATION (in_rtx)));
+  }
+  return 0;
+}
+
+int my_PLUGIN::dump_e_operand(const_rtx in_rtx, int idx, int level)
 {
   auto e = XEXP (in_rtx, idx);
   if ( e )
-  dump_rtx(e, level + 1);
+  {
+    dump_rtx(e, level + 1);
+    return 1;
+  }
+  return 0;
 }
 
-void my_PLUGIN::dump_EV_code(const_rtx in_rtx, int idx, int level)
+int my_PLUGIN::dump_EV_code(const_rtx in_rtx, int idx, int level)
 {
+  int res = 0;
   if (XVEC (in_rtx, idx) != NULL)
   {
     int barrier = XVECLEN (in_rtx, idx);
@@ -188,19 +224,24 @@ void my_PLUGIN::dump_EV_code(const_rtx in_rtx, int idx, int level)
           && !GET_MODE_NUNITS (GET_MODE (in_rtx)).is_constant ())
       barrier = CONST_VECTOR_NPATTERNS (in_rtx);
     int len = XVECLEN (in_rtx, idx);
-    fprintf(m_outfp, " len %d\n", len);
-    for (int j = 0; j < XVECLEN (in_rtx, idx); j++)
+    fprintf(m_outfp, "XVECLEN %d\n", len);
+    for (int j = 0; j < len; j++)
     {
+      margin(level + 1);
+      fprintf(m_outfp, "x[%d] ", j);
       dump_rtx (XVECEXP (in_rtx, idx, j), level + 1);
+      res++;
     }
   }
+  return res;
 }
 
 void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
 {
+  int was_nl = 0;
   const char *str;
   margin(level + 2);
-  fprintf(m_outfp, "[%d]", idx);
+  fprintf(m_outfp, "[%d] ", idx);
   switch(f)
   {
     case 'T':
@@ -213,22 +254,26 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
     string:
 
       if (str == 0)
-        fputs (" (nil)", m_outfp);
+        fputs ("(nil)", m_outfp);
       else
-        fprintf (m_outfp, " (\"%s\")", str);
+        fprintf (m_outfp, "(%s)", str);
+      break;
+
+   case 'i':
+      was_nl = dump_i_operand(in_rtx, idx, level);
       break;
 
    case 'u':
-      dump_u_operand(in_rtx, idx, level);
+      was_nl = dump_u_operand(in_rtx, idx, level);
       break;
     
    case 'e':
-      dump_e_operand(in_rtx, idx, level);
+      was_nl = dump_e_operand(in_rtx, idx, level);
       break;
 
    case 'E':
    case 'V':
-      dump_EV_code(in_rtx, idx, level + 1);
+      was_nl = dump_EV_code(in_rtx, idx, level + 1);
       break;
 
    case 'n':
@@ -236,7 +281,19 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
       break;
 
   }
-  fputs("\n", m_outfp);
+  if ( !was_nl )
+    fputs("\n", m_outfp);
+}
+
+void my_PLUGIN::dump_rtx_hl(const_rtx in_rtx)
+{
+  if ( !in_rtx )
+    return;
+  rtx_code code = GET_CODE(in_rtx);
+  if ( code > NUM_RTX_CODE )
+    return;
+  margin(1);
+  dump_rtx(in_rtx, 1);
 }
 
 void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
@@ -250,18 +307,35 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
   int limit = GET_RTX_LENGTH(code);
   if ( CONST_DOUBLE_AS_FLOAT_P(in_rtx) )
     idx = 5;
-  margin(level + 1);
-  if ( INSN_CHAIN_CODE_P(code) )  
-    fprintf(m_outfp, "%d %s %d lim %d", INSN_UID (in_rtx), GET_RTX_NAME(code), idx, limit);
-  else 
-    fprintf(m_outfp, "%s %d lim %d", GET_RTX_NAME(code), idx, limit);
+  if ( INSN_CHAIN_CODE_P(code) )
+    fprintf(m_outfp, "%d ", INSN_UID (in_rtx));
+  fprintf(m_outfp, "%s", GET_RTX_NAME(code));
+  // flags
+  if (RTX_FLAG (in_rtx, in_struct))
+    fputs ("/s", m_outfp);
+  if (RTX_FLAG (in_rtx, volatil))
+    fputs ("/v", m_outfp);
+  if (RTX_FLAG (in_rtx, unchanging))
+    fputs ("/u", m_outfp);
+  if (RTX_FLAG (in_rtx, frame_related))
+    fputs ("/f", m_outfp);
+  if (RTX_FLAG (in_rtx, jump))
+    fputs ("/j", m_outfp);
+  if (RTX_FLAG (in_rtx, call))
+    fputs ("/c", m_outfp);
+  if (RTX_FLAG (in_rtx, return_val))
+    fputs ("/i", m_outfp);
+
+  fprintf(m_outfp, " %d lim %d", idx, limit);
   const char *format_ptr = GET_RTX_FORMAT(code);
-  fprintf(m_outfp, " %s\n", format_ptr);
+  fprintf(m_outfp, " %s", format_ptr);
+
+  if ( code == MEM && MEM_EXPR(in_rtx) )
+    fprintf(m_outfp, " MEM");
+  fputs("\n", m_outfp);  
   // dump operands
   for (; idx < limit; idx++)
     dump_rtx_operand (in_rtx, format_ptr[idx], idx, level + 1);  
-  if ( code == MEM && MEM_EXPR(in_rtx) )
-    fprintf(m_outfp, "MEM");
 }
 
 unsigned int my_PLUGIN::execute(function *fun)
@@ -288,7 +362,7 @@ unsigned int my_PLUGIN::execute(function *fun)
       FOR_BB_INSNS(bb, insn)
       {
         if ( NONDEBUG_INSN_P(insn) )
-          dump_rtx(insn);
+          dump_rtx_hl(insn);
         w.print_rtl_single_with_indent(insn, 0);
       }
       end_any_block (m_outfp, bb);
