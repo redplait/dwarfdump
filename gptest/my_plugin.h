@@ -27,8 +27,16 @@ class my_PLUGIN : public rtl_opt_pass
   int dump_EV_code(const_rtx in_rtx, int idx, int level);
   void dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level);
   const char* findArgumentValue(const char* key);
+  bool existsArgument(const char *key) const;
+  inline bool need_dump() const
+  {
+    return m_outfp != NULL;
+  }
 
   int argc;
   struct plugin_argument *args;
   FILE *m_outfp;
+  // args
+  bool m_dump_rtl;
+  std::string m_db_str;
 };

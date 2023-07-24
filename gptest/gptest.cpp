@@ -3,14 +3,15 @@
 #include "plugin-version.h"
 #include "print-rtl.h"
 #include "langhooks.h"
-#include "my_plugin.h"
 
 #include <iostream>
+#include <string>
+#include "my_plugin.h"
 
 const struct pass_data my_PLUGIN_pass_data =
 {
     .type = RTL_PASS,
-    .name = "myPlugin",
+    .name = "gptest",
     .optinfo_flags = OPTGROUP_NONE,
     .tv_id = TV_NONE,
     .properties_required = PROP_rtl, // | PROP_cfglayout),
@@ -26,6 +27,27 @@ my_PLUGIN::my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int 
     argc = argcounter;   // number of arguments
     args = arguments;    // array containing arrguments (key,value)
     m_outfp = stdout;
+    m_dump_rtl = false;
+}
+
+bool my_PLUGIN::existsArgument(const char* key) const
+{
+   for (int i=0; i< argc; i++)
+   {
+      if (!strcmp(args[i].key, key))
+        return true;
+   }
+   return false;
+}
+
+const char* my_PLUGIN::findArgumentValue(const char* key)
+{
+   for (int i=0; i< argc; i++)
+   {
+      if (!strcmp(args[i].key, key))
+        return args[i].value;
+   }
+   return NULL;
 }
 
 extern void dump_function_header(FILE *, tree, dump_flags_t);
@@ -304,12 +326,14 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
  
    case 't':
       if (idx == 0 && GET_CODE (in_rtx) == DEBUG_IMPLICIT_PTR)
-        // print_mem_expr (m_outfile, DEBUG_IMPLICIT_PTR_DECL (in_rtx));
-        fprintf(m_outfp, "DEBUG_IMPLICIT_PTR_DECL");
-      else if (idx == 0 && GET_CODE (in_rtx) == DEBUG_PARAMETER_REF)
-        // print_mem_expr (m_outfile, DEBUG_PARAMETER_REF_DECL (in_rtx));
-        fprintf(m_outfp, "DEBUG_PARAMETER_REF_DECL");
-      else
+      {
+        fprintf(m_outfp, "DEBUG_IMPLICIT_PTR_DECL ");
+        dump_mem_expr(DEBUG_IMPLICIT_PTR_DECL (in_rtx));
+      } else if ( idx == 0 && GET_CODE (in_rtx) == DEBUG_PARAMETER_REF )
+      {
+        fprintf(m_outfp, "DEBUG_PARAMETER_REF_DECL ");
+        dump_mem_expr(DEBUG_PARAMETER_REF_DECL (in_rtx));
+      } else
         fprintf(m_outfp, "XTREE");
       break;
 
@@ -339,21 +363,9 @@ void my_PLUGIN::dump_rtx_hl(const_rtx in_rtx)
   dump_rtx(in_rtx, 1);
 }
 
-void my_PLUGIN::dump_mem_expr(const_tree expr)
+inline bool need_deref_compref0(const_tree op0)
 {
-  if ( expr == NULL_TREE )
-    return;
-  auto code = TREE_CODE(expr);
-  auto name = get_tree_code_name(code);
-  if ( name )
-    fprintf(m_outfp, " %s", name);
-  if ( code != COMPONENT_REF )
-    return;
-  auto op0 = TREE_OPERAND (expr, 0);
-  if ( !op0 )
-    return;
-  char *str = ".";
-  if ( (TREE_CODE (op0) == INDIRECT_REF
+  return (TREE_CODE (op0) == INDIRECT_REF
               || (TREE_CODE (op0) == MEM_REF
                   && TREE_CODE (TREE_OPERAND (op0, 0)) != ADDR_EXPR
                   && integer_zerop (TREE_OPERAND (op0, 1))
@@ -375,7 +387,25 @@ void my_PLUGIN::dump_mem_expr(const_tree expr)
                   && (TYPE_MAIN_VARIANT (TREE_TYPE (op0))
                       == TYPE_MAIN_VARIANT
                           (TREE_TYPE (TREE_TYPE (TREE_OPERAND (op0, 1)))))
-                  && MR_DEPENDENCE_CLIQUE (op0) == 0)))
+                  && MR_DEPENDENCE_CLIQUE (op0) == 0)
+        );
+}
+
+void my_PLUGIN::dump_mem_expr(const_tree expr)
+{
+  if ( expr == NULL_TREE )
+    return;
+  auto code = TREE_CODE(expr);
+  auto name = get_tree_code_name(code);
+  if ( name )
+    fprintf(m_outfp, " %s", name);
+  if ( code != COMPONENT_REF )
+    return;
+  auto op0 = TREE_OPERAND (expr, 0);
+  if ( !op0 )
+    return;
+  char *str = ".";
+  if ( need_deref_compref0(op0) )
   {
     op0 = TREE_OPERAND (op0, 0);
     str = "->";
@@ -404,7 +434,20 @@ void my_PLUGIN::dump_mem_expr(const_tree expr)
             ct0 = TREE_CODE(t);
             name = get_tree_code_name(ct0);
             if ( name )
+            {
               fprintf(m_outfp, " ptr2 %s", name);
+              if ( RECORD_OR_UNION_TYPE_P(t) )
+              {
+                auto rt = TYPE_NAME(t);
+                if ( rt )
+                {
+                  if ( DECL_NAME(rt) )
+                    fprintf(m_outfp, " SSAName %s", IDENTIFIER_POINTER(DECL_NAME(rt)) );
+                }
+              } else {
+                fprintf(m_outfp, " UKNOWN_SSA");
+              }
+            }
           }
         }
       }
@@ -534,26 +577,40 @@ int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version
       std::cerr << "This GCC plugin is for version " << GCCPLUGIN_VERSION_MAJOR << "." << GCCPLUGIN_VERSION_MINOR << "\n";
 	  return 1;
     }
-
-    // Let's print all the information given to this plugin!
-
-    std::cerr << "Plugin info\n===========\n";
-    std::cerr << "Base name: " << plugin_info->base_name << "\n";
-    std::cerr << "Full name: " << plugin_info->full_name << "\n";
-    std::cerr << "Number of arguments of this plugin:" << plugin_info->argc << "\n";
-
-    for (int i = 0; i < plugin_info->argc; i++)
+    int i;
+    int verbose = 0;
+    for (i = 0; i < plugin_info->argc; i++)
     {
-        std::cerr << "Argument " << i << ": Key: " << plugin_info->argv[i].key << ". Value: " << plugin_info->argv[i].value<< "\n";
+      if ( !strcmp(plugin_info->argv[i].key, "verbose") )
+      {
+        verbose = 1;
+        break;
+      }  
     }
 
-    std::cerr << "\nVersion info\n============\n";
-    std::cerr << "Base version: " << version->basever << "\n";
-    std::cerr << "Date stamp: " << version->datestamp << "\n";
-    std::cerr << "Dev phase: " << version->devphase << "\n";
-    std::cerr << "Revision: " << version->devphase << "\n";
-    std::cerr << "Configuration arguments: " << version->configuration_arguments << "\n";
-    std::cerr << "\n";
+    if ( verbose )
+    {
+      // Let's print all the information given to this plugin
+      std::cerr << "Plugin info\n===========\n";
+      std::cerr << "Base name: " << plugin_info->base_name << "\n";
+      std::cerr << "Full name: " << plugin_info->full_name << "\n";
+      std::cerr << "Number of arguments of this plugin:" << plugin_info->argc << "\n";
+
+      for (i = 0; i < plugin_info->argc; i++)
+      {
+        std::cerr << "Argument " << i << ": Key: " << plugin_info->argv[i].key;
+        if ( plugin_info->argv[i].value )
+           std::cerr << ". Value: " << plugin_info->argv[i].value;
+        std::cerr << "\n";
+      }
+
+      std::cerr << "\nVersion info\n============\n";
+      std::cerr << "Base version: " << version->basever << "\n";
+      std::cerr << "Date stamp: " << version->datestamp << "\n";
+      std::cerr << "Dev phase: " << version->devphase << "\n";
+      std::cerr << "Revision: " << version->devphase << "\n";
+      std::cerr << "Configuration arguments: " << version->configuration_arguments << "\n\n";
+    }
 
     struct register_pass_info pass;
     pass.pass = new my_PLUGIN(g, plugin_info->argv, plugin_info->argc);
@@ -561,8 +618,8 @@ int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version
     pass.ref_pass_instance_number = 1;
     pass.pos_op = PASS_POS_INSERT_BEFORE;
 
-    register_callback("myPlugin", PLUGIN_PASS_MANAGER_SETUP, NULL, &pass);
-    std::cerr << "Plugin successfully initialized\n";
+    register_callback(plugin_info->base_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass);
+    std::cerr << "Plugin " << plugin_info->base_name << " successfully initialized\n";
 
     return 0;
 }
