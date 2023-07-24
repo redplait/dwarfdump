@@ -21,13 +21,26 @@ const struct pass_data my_PLUGIN_pass_data =
     .todo_flags_finish = 0,
 };
 
+const char *pname_verbose = "verbose";
+
 my_PLUGIN::my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int argcounter)
  : rtl_opt_pass(my_PLUGIN_pass_data, ctxt)
 {
     argc = argcounter;   // number of arguments
     args = arguments;    // array containing arrguments (key,value)
     m_outfp = stdout;
-    m_dump_rtl = false;
+    m_dump_rtl = existsArgument("dumprtl");
+    m_verbose = existsArgument(pname_verbose);
+}
+
+my_PLUGIN::~my_PLUGIN()
+{
+  std::cerr << "~my_PLUGIN\n";  
+  if ( m_outfp != NULL && m_outfp != stdout )
+  {
+    fclose(m_outfp);
+    m_outfp = NULL;
+  }
 }
 
 bool my_PLUGIN::existsArgument(const char* key) const
@@ -539,17 +552,19 @@ unsigned int my_PLUGIN::execute(function *fun)
   // 1) Find the name of the function
   char* funName = (char*)IDENTIFIER_POINTER (DECL_NAME (current_function_decl) );
   tree fdecl = fun->decl;
-  const char *dname = lang_hooks.decl_printable_name (fdecl, 1);
-  std::cerr << "execute on " << funName << " (" << dname << ") file " << main_input_filename << "\n";
+  if ( m_verbose )
+  {
+    const char *dname = lang_hooks.decl_printable_name (fdecl, 1);
+    std::cerr << "execute on " << funName << " (" << dname << ") file " << main_input_filename << "\n";
+  }
   dump_function_header(m_outfp, fun->decl, (dump_flags_t)0);
   // dump params
-  /* Params.  */
   for (tree arg = DECL_ARGUMENTS (fdecl); arg; arg = DECL_CHAIN (arg))
     print_param (m_outfp, w, arg);
 
   basic_block bb;
   FOR_ALL_BB_FN(bb, fun)
-  { // Loop over all Basic Blocks in the function, cfun = current function
+  { // Loop over all Basic Blocks in the function, fun = current function
       fprintf(m_outfp,"BB: %d\n", bb->index);
       begin_any_block(m_outfp, bb);
       rtx_insn* insn;
@@ -557,12 +572,18 @@ unsigned int my_PLUGIN::execute(function *fun)
       {
         if ( NONDEBUG_INSN_P(insn) )
           dump_rtx_hl(insn);
-        w.print_rtl_single_with_indent(insn, 0);
+        if ( m_dump_rtl )  
+          w.print_rtl_single_with_indent(insn, 0);
       }
       end_any_block (m_outfp, bb);
       fprintf(m_outfp,"\n----------------------------------------------------------------\n\n");
    }
   return 0;
+}
+
+static void callback_finish_unit(void *gcc_data, void *user_data)
+{
+  std::cerr << " *** A translation unit has been finished\n";
 }
 
 // We must assert that this plugin is GPL compatible
@@ -581,7 +602,7 @@ int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version
     int verbose = 0;
     for (i = 0; i < plugin_info->argc; i++)
     {
-      if ( !strcmp(plugin_info->argv[i].key, "verbose") )
+      if ( !strcmp(plugin_info->argv[i].key, pname_verbose) )
       {
         verbose = 1;
         break;
@@ -619,7 +640,11 @@ int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version
     pass.pos_op = PASS_POS_INSERT_BEFORE;
 
     register_callback(plugin_info->base_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass);
-    std::cerr << "Plugin " << plugin_info->base_name << " successfully initialized\n";
+
+    register_callback(plugin_info->base_name, PLUGIN_FINISH_UNIT,
+        callback_finish_unit, /* user_data */ NULL);
+
+    std::cerr << "Plugin " << plugin_info->base_name << " successfully initialized, pid " << getpid() << "\n";
 
     return 0;
 }

@@ -8,12 +8,14 @@
 #include <tree.h>
 
 #include <stdio.h>
-
+#include <list>
 
 class my_PLUGIN : public rtl_opt_pass
 {
  public:
   my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int argcounter);
+  // inherited from opt_pass
+  virtual ~my_PLUGIN();
 //  bool gate(function *fun);
   unsigned int execute(function *fun);
  private:
@@ -38,5 +40,8 @@ class my_PLUGIN : public rtl_opt_pass
   FILE *m_outfp;
   // args
   bool m_dump_rtl;
+  bool m_verbose;
   std::string m_db_str;
+  // expressions stack - rtx class and current index of expression
+  std::list<std::pair<enum rtx_class, int> > m_rtexpr;
 };
