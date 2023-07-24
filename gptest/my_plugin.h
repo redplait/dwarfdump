@@ -26,8 +26,17 @@ class my_PLUGIN : public rtl_opt_pass
   int dump_e_operand(const_rtx in_rtx, int idx, int level);
   int dump_u_operand(const_rtx in_rtx, int idx, int level);
   int dump_i_operand(const_rtx in_rtx, int idx, int level);
+  int dump_r_operand(const_rtx in_rtx, int idx, int level);
   int dump_EV_code(const_rtx in_rtx, int idx, int level);
   void dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level);
+  // expr stack
+  void expr_push(const_rtx, int idx);
+  void expr_pop()
+  {
+    m_rtexpr.pop_back();
+  }
+  void dump_exprs();
+  // plugin options
   const char* findArgumentValue(const char* key);
   bool existsArgument(const char *key) const;
   inline bool need_dump() const
@@ -44,4 +53,6 @@ class my_PLUGIN : public rtl_opt_pass
   std::string m_db_str;
   // expressions stack - rtx class and current index of expression
   std::list<std::pair<enum rtx_class, int> > m_rtexpr;
+  // current basic_block number
+  int bb_index;
 };

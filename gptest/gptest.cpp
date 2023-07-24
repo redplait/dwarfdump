@@ -245,12 +245,52 @@ int my_PLUGIN::dump_i_operand(const_rtx in_rtx, int idx, int level)
   return 0;
 }
 
+void my_PLUGIN::expr_push(const_rtx in_rtx, int idx)
+{
+  m_rtexpr.push_back(std::make_pair((enum rtx_class)GET_CODE(in_rtx), idx));  
+}
+
+void my_PLUGIN::dump_exprs()
+{
+  if ( m_rtexpr.empty() )
+    return;
+  fprintf(m_outfp, "[stack");
+  for ( auto &rt: m_rtexpr )
+  {
+    fprintf(m_outfp, " %s:%d", GET_RTX_NAME(rt.first), rt.second);
+  }
+  fprintf(m_outfp, "]");
+}
+
+int my_PLUGIN::dump_r_operand(const_rtx in_rtx, int idx, int level)
+{
+  unsigned int regno = REGNO (in_rtx);
+  if ( regno <= LAST_VIRTUAL_REGISTER )
+    fprintf (m_outfp, " %d", regno);
+  if (regno < FIRST_PSEUDO_REGISTER)
+    fprintf (m_outfp, " %s", reg_names[regno]);
+
+  if (REG_ATTRS (in_rtx))
+  {
+    if (REG_EXPR (in_rtx))
+    {
+      fprintf(m_outfp, " RMEM");
+      dump_mem_expr(REG_EXPR (in_rtx));
+    }
+  }
+  return 0; 
+}
+
 int my_PLUGIN::dump_e_operand(const_rtx in_rtx, int idx, int level)
 {
+  if ( !in_rtx )
+    return 0;
   auto e = XEXP (in_rtx, idx);
   if ( e )
   {
+    expr_push(e, idx);
     dump_rtx(e, level + 1);
+    expr_pop();
     return 1;
   }
   return 0;
@@ -267,13 +307,17 @@ int my_PLUGIN::dump_EV_code(const_rtx in_rtx, int idx, int level)
       barrier = CONST_VECTOR_NPATTERNS (in_rtx);
     int len = XVECLEN (in_rtx, idx);
     fprintf(m_outfp, "XVECLEN %d\n", len);
+    expr_push(in_rtx, 0);
     for (int j = 0; j < len; j++)
     {
+      // fix index
+      m_rtexpr.rbegin()->second = j;
       margin(level + 1);
       fprintf(m_outfp, "x[%d] ", j);
       dump_rtx (XVECEXP (in_rtx, idx, j), level + 1);
       res++;
     }
+    expr_pop();
   }
   return res;
 }
@@ -312,12 +356,18 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
 
       if (str == 0)
         fputs ("(nil)", m_outfp);
-      else
-        fprintf (m_outfp, "(%s)", str);
+      else {
+          dump_exprs();
+          fprintf (m_outfp, " (%s)", str);
+        }
       break;
 
    case 'i':
       was_nl = dump_i_operand(in_rtx, idx, level);
+      break;
+
+   case 'r':
+      was_nl = dump_r_operand(in_rtx, idx, level);
       break;
 
    case 'u':
@@ -341,11 +391,15 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
       if (idx == 0 && GET_CODE (in_rtx) == DEBUG_IMPLICIT_PTR)
       {
         fprintf(m_outfp, "DEBUG_IMPLICIT_PTR_DECL ");
+        expr_push(in_rtx, idx);
         dump_mem_expr(DEBUG_IMPLICIT_PTR_DECL (in_rtx));
+        expr_pop();
       } else if ( idx == 0 && GET_CODE (in_rtx) == DEBUG_PARAMETER_REF )
       {
         fprintf(m_outfp, "DEBUG_PARAMETER_REF_DECL ");
+        expr_push(in_rtx, idx);
         dump_mem_expr(DEBUG_PARAMETER_REF_DECL (in_rtx));
+        expr_pop();
       } else
         fprintf(m_outfp, "XTREE");
       break;
@@ -408,6 +462,7 @@ void my_PLUGIN::dump_mem_expr(const_tree expr)
 {
   if ( expr == NULL_TREE )
     return;
+  dump_exprs();  
   auto code = TREE_CODE(expr);
   auto name = get_tree_code_name(code);
   if ( name )
@@ -557,16 +612,23 @@ unsigned int my_PLUGIN::execute(function *fun)
     const char *dname = lang_hooks.decl_printable_name (fdecl, 1);
     std::cerr << "execute on " << funName << " (" << dname << ") file " << main_input_filename << "\n";
   }
-  dump_function_header(m_outfp, fun->decl, (dump_flags_t)0);
-  // dump params
-  for (tree arg = DECL_ARGUMENTS (fdecl); arg; arg = DECL_CHAIN (arg))
-    print_param (m_outfp, w, arg);
+  if ( need_dump() )
+  {
+    dump_function_header(m_outfp, fun->decl, (dump_flags_t)0);
+    // dump params
+    for (tree arg = DECL_ARGUMENTS (fdecl); arg; arg = DECL_CHAIN (arg))
+      print_param (m_outfp, w, arg);
+  }
 
   basic_block bb;
   FOR_ALL_BB_FN(bb, fun)
   { // Loop over all Basic Blocks in the function, fun = current function
-      fprintf(m_outfp,"BB: %d\n", bb->index);
-      begin_any_block(m_outfp, bb);
+      bb_index = bb->index;
+      if ( need_dump() )
+      {
+        fprintf(m_outfp,"BB: %d\n", bb->index);
+        begin_any_block(m_outfp, bb);
+      }
       rtx_insn* insn;
       FOR_BB_INSNS(bb, insn)
       {
@@ -575,8 +637,11 @@ unsigned int my_PLUGIN::execute(function *fun)
         if ( m_dump_rtl )  
           w.print_rtl_single_with_indent(insn, 0);
       }
-      end_any_block (m_outfp, bb);
-      fprintf(m_outfp,"\n----------------------------------------------------------------\n\n");
+      if ( need_dump() )
+      {
+        end_any_block (m_outfp, bb);
+        fprintf(m_outfp,"\n----------------------------------------------------------------\n\n");
+      }
    }
   return 0;
 }
