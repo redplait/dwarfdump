@@ -307,17 +307,19 @@ int my_PLUGIN::dump_EV_code(const_rtx in_rtx, int idx, int level)
       barrier = CONST_VECTOR_NPATTERNS (in_rtx);
     int len = XVECLEN (in_rtx, idx);
     fprintf(m_outfp, "XVECLEN %d\n", len);
-    expr_push(in_rtx, 0);
     for (int j = 0; j < len; j++)
     {
-      // fix index
-      m_rtexpr.rbegin()->second = j;
-      margin(level + 1);
-      fprintf(m_outfp, "x[%d] ", j);
-      dump_rtx (XVECEXP (in_rtx, idx, j), level + 1);
-      res++;
+      auto xelem = XVECEXP (in_rtx, idx, j);
+      if ( xelem )
+      {
+        expr_push(xelem, j);  
+        margin(level + 1);
+        fprintf(m_outfp, "x[%d] ", j);
+        dump_rtx (XVECEXP (in_rtx, idx, j), level + 1);
+        expr_pop();
+        res++;
+      }
     }
-    expr_pop();
   }
   return res;
 }
