@@ -65,6 +65,7 @@ const char* my_PLUGIN::findArgumentValue(const char* key)
 
 extern void dump_function_header(FILE *, tree, dump_flags_t);
 extern void make_decl_rtl (tree);
+extern char *print_generic_expr_to_str (tree);
 
 // ripped from print-rtl-function.cc
 static void
@@ -408,7 +409,7 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
 
    case 'w':
       fprintf (m_outfp, HOST_WIDE_INT_PRINT_DEC, XWINT (in_rtx, idx));
-      fprintf (m_outfp, " [" HOST_WIDE_INT_PRINT_HEX "]",
+      fprintf (m_outfp, HOST_WIDE_INT_PRINT_HEX,
                  (unsigned HOST_WIDE_INT) XWINT (in_rtx, idx));
       break;
 
@@ -479,6 +480,38 @@ void my_PLUGIN::dump_rmem_expr(const_tree expr)
     dump_ssa_name(expr);
     return;
   }
+  if ( code == METHOD_TYPE )
+  {
+    dump_method(expr);
+    return;
+  }
+}
+
+void my_PLUGIN::dump_method(const_tree expr)
+{  
+  const_tree vi = DECL_VINDEX(FUNCTION_DECL_CHECK(expr));
+  if ( !vi )
+    return;
+  auto code = TREE_CODE(vi);
+  if ( code == INTEGER_CST )
+  {
+    fprintf(m_outfp, " vindex " HOST_WIDE_INT_PRINT_DEC, tree_to_shwi(vi));
+  } else {
+    auto name = get_tree_code_name(code);
+    if ( name )
+      fprintf(m_outfp, " vindex_type %s", name);
+  }
+  auto t = TREE_TYPE(expr);
+  if ( t )
+  {
+    if ( DECL_NAME(t) )
+      fprintf(m_outfp, " MName %s", IDENTIFIER_POINTER(t) );
+    char *dumped = print_generic_expr_to_str(CONST_CAST_TREE(expr));
+    fprintf(m_outfp, " %s", dumped);
+    free(dumped);
+  } else {
+    fprintf(m_outfp, " no_typename");
+  }
 }
 
 bool is_known_ssa_type(const_tree t)
@@ -519,6 +552,9 @@ void my_PLUGIN::dump_ssa_name(const_tree op0)
             if ( DECL_NAME(rt) )
               fprintf(m_outfp, " SSAName %s", IDENTIFIER_POINTER(DECL_NAME(rt)) );
           }
+        } else if ( ct0 == METHOD_TYPE )
+        {
+          dump_method(t);  
         } else if ( !is_known_ssa_type(t) ) {
           fprintf(m_outfp, " UKNOWN_SSA");
         }
