@@ -275,7 +275,7 @@ int my_PLUGIN::dump_r_operand(const_rtx in_rtx, int idx, int level)
     if (REG_EXPR (in_rtx))
     {
       fprintf(m_outfp, " RMEM");
-      dump_mem_expr(REG_EXPR (in_rtx));
+      dump_rmem_expr(REG_EXPR (in_rtx));
     }
   }
   return 0; 
@@ -315,7 +315,7 @@ int my_PLUGIN::dump_EV_code(const_rtx in_rtx, int idx, int level)
         expr_push(xelem, j);  
         margin(level + 1);
         fprintf(m_outfp, "x[%d] ", j);
-        dump_rtx (XVECEXP (in_rtx, idx, j), level + 1);
+        dump_rtx (xelem, level + 1);
         expr_pop();
         res++;
       }
@@ -460,6 +460,72 @@ inline bool need_deref_compref0(const_tree op0)
         );
 }
 
+void my_PLUGIN::dump_rmem_expr(const_tree expr)
+{
+  if ( expr == NULL_TREE )
+    return;
+  dump_exprs();  
+  auto code = TREE_CODE(expr);
+  auto name = get_tree_code_name(code);
+  if ( name )
+    fprintf(m_outfp, " %s", name);
+  if ( code == COMPONENT_REF )
+  {
+    dump_comp_ref(expr);
+    return;
+  }
+  if ( code == SSA_NAME )
+  {
+    dump_ssa_name(expr);
+    return;
+  }
+}
+
+bool is_known_ssa_type(const_tree t)
+{
+  auto code = TREE_CODE(t);  
+  return (code == VOID_TYPE) ||
+         (code == INTEGER_TYPE) ||
+         (code == REAL_TYPE) ||
+         (code == COMPLEX_TYPE)
+  ;
+}
+
+void my_PLUGIN::dump_ssa_name(const_tree op0)
+{
+  auto t = TREE_TYPE(op0);
+  if ( !t )
+    return;
+  auto ct0 = TREE_CODE(t);
+  auto name = get_tree_code_name(ct0);
+  if ( !name )
+    return;
+  fprintf(m_outfp, " %s", name);
+  // known types - pointer_type & reference_type
+  if ( POINTER_TYPE_P(t) )
+  {
+      while( POINTER_TYPE_P(t))
+        t = TREE_TYPE(t);
+      ct0 = TREE_CODE(t);
+      name = get_tree_code_name(ct0);
+      if ( name )
+      {
+        fprintf(m_outfp, " ptr2 %s", name);
+        if ( RECORD_OR_UNION_TYPE_P(t) )
+        {
+          auto rt = TYPE_NAME(t);
+          if ( rt )
+          {
+            if ( DECL_NAME(rt) )
+              fprintf(m_outfp, " SSAName %s", IDENTIFIER_POINTER(DECL_NAME(rt)) );
+          }
+        } else if ( !is_known_ssa_type(t) ) {
+          fprintf(m_outfp, " UKNOWN_SSA");
+        }
+      }
+  }
+}
+
 void my_PLUGIN::dump_mem_expr(const_tree expr)
 {
   if ( expr == NULL_TREE )
@@ -471,6 +537,11 @@ void my_PLUGIN::dump_mem_expr(const_tree expr)
     fprintf(m_outfp, " %s", name);
   if ( code != COMPONENT_REF )
     return;
+  dump_comp_ref(expr);
+}
+
+void my_PLUGIN::dump_comp_ref(const_tree expr)
+{
   auto op0 = TREE_OPERAND (expr, 0);
   if ( !op0 )
     return;
@@ -481,49 +552,17 @@ void my_PLUGIN::dump_mem_expr(const_tree expr)
     str = "->";
   }
   auto op1 = TREE_OPERAND (expr, 1);  
-  code = TREE_CODE(op0);
+  auto code = TREE_CODE(op0);
   name = get_tree_code_name(code);
   if ( name )
   {
     fprintf(m_outfp, " (l%s%s", str, name);
     if ( SSA_NAME == code )
     {
-      auto t = TREE_TYPE(op0);
-      if ( t )
-      {
-        auto ct0 = TREE_CODE(t);
-        name = get_tree_code_name(ct0);
-        if ( name )
-        {
-          fprintf(m_outfp, " %s", name);
-          // known types - pointer_type & reference_type
-          if ( POINTER_TYPE_P(t) )
-          {
-            while( POINTER_TYPE_P(t))
-              t = TREE_TYPE(t);
-            ct0 = TREE_CODE(t);
-            name = get_tree_code_name(ct0);
-            if ( name )
-            {
-              fprintf(m_outfp, " ptr2 %s", name);
-              if ( RECORD_OR_UNION_TYPE_P(t) )
-              {
-                auto rt = TYPE_NAME(t);
-                if ( rt )
-                {
-                  if ( DECL_NAME(rt) )
-                    fprintf(m_outfp, " SSAName %s", IDENTIFIER_POINTER(DECL_NAME(rt)) );
-                }
-              } else {
-                fprintf(m_outfp, " UKNOWN_SSA");
-              }
-            }
-          }
-        }
-      }
+      dump_ssa_name(op0);  
     } else if ( COMPONENT_REF == code )
     {
-       dump_mem_expr(op0); 
+       dump_comp_ref(op0); 
     }
     fprintf(m_outfp, ")");
   }
@@ -554,7 +593,7 @@ void my_PLUGIN::dump_mem_expr(const_tree expr)
       fprintf(m_outfp, " Name %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
   } else {
     fprintf(m_outfp, " no_type");
-  }   
+  }
 }
 
 void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
