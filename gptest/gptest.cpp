@@ -253,7 +253,7 @@ void my_PLUGIN::expr_push(const_rtx in_rtx, int idx)
 
 void my_PLUGIN::dump_exprs()
 {
-  if ( m_rtexpr.empty() )
+  if ( !need_dump() || m_rtexpr.empty() )
     return;
   fprintf(m_outfp, "[stack");
   for ( auto &rt: m_rtexpr )
@@ -275,7 +275,8 @@ int my_PLUGIN::dump_r_operand(const_rtx in_rtx, int idx, int level)
   {
     if (REG_EXPR (in_rtx))
     {
-      fprintf(m_outfp, " RMEM");
+      if ( need_dump() )  
+        fprintf(m_outfp, " RMEM");
       dump_rmem_expr(REG_EXPR (in_rtx));
     }
   }
@@ -307,15 +308,19 @@ int my_PLUGIN::dump_EV_code(const_rtx in_rtx, int idx, int level)
           && !GET_MODE_NUNITS (GET_MODE (in_rtx)).is_constant ())
       barrier = CONST_VECTOR_NPATTERNS (in_rtx);
     int len = XVECLEN (in_rtx, idx);
-    fprintf(m_outfp, "XVECLEN %d\n", len);
+    if ( need_dump() )
+      fprintf(m_outfp, "XVECLEN %d\n", len);
     for (int j = 0; j < len; j++)
     {
       auto xelem = XVECEXP (in_rtx, idx, j);
       if ( xelem )
       {
-        expr_push(xelem, j);  
-        margin(level + 1);
-        fprintf(m_outfp, "x[%d] ", j);
+        expr_push(xelem, j);
+        if ( need_dump() )
+        {  
+          margin(level + 1);
+          fprintf(m_outfp, "x[%d] ", j);
+        }
         dump_rtx (xelem, level + 1);
         expr_pop();
         res++;
@@ -393,13 +398,15 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
    case 't':
       if (idx == 0 && GET_CODE (in_rtx) == DEBUG_IMPLICIT_PTR)
       {
-        fprintf(m_outfp, "DEBUG_IMPLICIT_PTR_DECL ");
+        if ( need_dump() )
+          fprintf(m_outfp, "DEBUG_IMPLICIT_PTR_DECL ");
         expr_push(in_rtx, idx);
         dump_mem_expr(DEBUG_IMPLICIT_PTR_DECL (in_rtx));
         expr_pop();
       } else if ( idx == 0 && GET_CODE (in_rtx) == DEBUG_PARAMETER_REF )
       {
-        fprintf(m_outfp, "DEBUG_PARAMETER_REF_DECL ");
+        if ( need_dump() )
+          fprintf(m_outfp, "DEBUG_PARAMETER_REF_DECL ");
         expr_push(in_rtx, idx);
         dump_mem_expr(DEBUG_PARAMETER_REF_DECL (in_rtx));
         expr_pop();
@@ -487,6 +494,13 @@ void my_PLUGIN::dump_rmem_expr(const_tree expr)
   }
 }
 
+void my_PLUGIN::dump_ftype(const_tree expr)
+{
+  char *dumped = print_generic_expr_to_str(CONST_CAST_TREE(expr));
+  fprintf(m_outfp, " %s", dumped);
+  free(dumped);  
+}
+
 void my_PLUGIN::dump_method(const_tree expr)
 {  
   const_tree vi = DECL_VINDEX(FUNCTION_DECL_CHECK(expr));
@@ -506,6 +520,10 @@ void my_PLUGIN::dump_method(const_tree expr)
   {
     if ( DECL_NAME(t) )
       fprintf(m_outfp, " MName %s", IDENTIFIER_POINTER(t) );
+    auto base = TYPE_NAME(TYPE_METHOD_BASETYPE(expr));
+    if ( DECL_NAME(base) )
+      fprintf(m_outfp, " basetype %s", IDENTIFIER_POINTER(DECL_NAME(base)));
+
     char *dumped = print_generic_expr_to_str(CONST_CAST_TREE(expr));
     fprintf(m_outfp, " %s", dumped);
     free(dumped);
@@ -554,7 +572,10 @@ void my_PLUGIN::dump_ssa_name(const_tree op0)
           }
         } else if ( ct0 == METHOD_TYPE )
         {
-          dump_method(t);  
+          dump_method(t);
+        } else if ( ct0 == FUNCTION_TYPE )
+        {
+          dump_ftype(t);  
         } else if ( !is_known_ssa_type(t) ) {
           fprintf(m_outfp, " UKNOWN_SSA");
         }
@@ -723,6 +744,11 @@ unsigned int my_PLUGIN::execute(function *fun)
   return 0;
 }
 
+static void callback_start_unit(void *gcc_data, void *user_data)
+{
+  std::cerr << " *** A translation unit " << main_input_filename << " has been started\n";
+}
+
 static void callback_finish_unit(void *gcc_data, void *user_data)
 {
   std::cerr << " *** A translation unit has been finished\n";
@@ -782,6 +808,9 @@ int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version
     pass.pos_op = PASS_POS_INSERT_BEFORE;
 
     register_callback(plugin_info->base_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass);
+
+    register_callback(plugin_info->base_name, PLUGIN_START_UNIT,
+        callback_start_unit, /* user_data */ NULL);
 
     register_callback(plugin_info->base_name, PLUGIN_FINISH_UNIT,
         callback_finish_unit, /* user_data */ NULL);
