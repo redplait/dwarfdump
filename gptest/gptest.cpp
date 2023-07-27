@@ -371,7 +371,8 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
       break;
 
    case 'i':
-      was_nl = dump_i_operand(in_rtx, idx, level);
+      if ( need_dump() )
+        was_nl = dump_i_operand(in_rtx, idx, level);
       break;
 
    case 'r':
@@ -494,8 +495,32 @@ void my_PLUGIN::dump_rmem_expr(const_tree expr)
   }
 }
 
+HOST_WIDE_INT extract_vindex(const_tree expr)
+{
+  const_tree vi = DECL_VINDEX(FUNCTION_DECL_CHECK(expr));
+  if ( !vi )
+    return 0;
+  if ( TREE_CODE(vi) != INTEGER_CST )
+    return 0;
+  return tree_to_shwi(vi);
+}
+
 void my_PLUGIN::dump_ftype(const_tree expr)
 {
+  tree parent_type = TYPE_METHOD_BASETYPE(expr);
+  if ( parent_type )
+    dump_method(expr);
+  else {
+    if ( DECL_VIRTUAL_P(expr) )
+      fprintf(m_outfp, " findex" HOST_WIDE_INT_PRINT_DEC, extract_vindex(expr));
+    dump_tree_MF(expr);
+  }
+}
+
+void my_PLUGIN::dump_tree_MF(const_tree expr)
+{
+  if ( !need_dump() )
+    return;
   char *dumped = print_generic_expr_to_str(CONST_CAST_TREE(expr));
   fprintf(m_outfp, " %s", dumped);
   free(dumped);  
@@ -515,18 +540,33 @@ void my_PLUGIN::dump_method(const_tree expr)
     if ( name )
       fprintf(m_outfp, " vindex_type %s", name);
   }
+  HOST_WIDE_INT vi0 = extract_vindex(expr);
   auto t = TREE_TYPE(expr);
   if ( t )
   {
     if ( DECL_NAME(t) )
       fprintf(m_outfp, " MName %s", IDENTIFIER_POINTER(t) );
-    auto base = TYPE_NAME(TYPE_METHOD_BASETYPE(expr));
-    if ( DECL_NAME(base) )
-      fprintf(m_outfp, " basetype %s", IDENTIFIER_POINTER(DECL_NAME(base)));
-
-    char *dumped = print_generic_expr_to_str(CONST_CAST_TREE(expr));
-    fprintf(m_outfp, " %s", dumped);
-    free(dumped);
+    tree parent_type = TYPE_METHOD_BASETYPE(expr);
+    if ( parent_type )
+    {  
+      auto base = TYPE_NAME(parent_type);
+      if ( DECL_NAME(base) )
+        fprintf(m_outfp, " basetype %s", IDENTIFIER_POINTER(DECL_NAME(base)));
+      // ok, we have type of base class in parent_type and vtbl index - try to find name of this method
+      tree found = NULL_TREE;
+      for ( tree f = TYPE_FIELDS(parent_type); f; f = TREE_CHAIN(f) )
+      {
+        if ( !DECL_VIRTUAL_P(f) )
+          continue;
+        if ( extract_vindex(f) != vi0 )
+          continue;
+        found = f;
+        if ( DECL_NAME(f) )
+          fprintf(m_outfp, " vmethod %s", IDENTIFIER_POINTER(DECL_NAME(f)));
+        break;  
+      }
+    }
+    dump_tree_MF(expr);
   } else {
     fprintf(m_outfp, " no_typename");
   }
@@ -662,6 +702,15 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
   if ( code > NUM_RTX_CODE )
     return;
   int limit = GET_RTX_LENGTH(code);
+  if (GET_CODE (in_rtx) == VAR_LOCATION )
+  {
+    if ( TREE_CODE (PAT_VAR_LOCATION_DECL (in_rtx)) != STRING_CST )
+    {
+      fprintf(m_outfp, " VMEM");
+      dump_mem_expr(PAT_VAR_LOCATION_DECL(in_rtx));
+      idx = GET_RTX_LENGTH (VAR_LOCATION);       
+    }
+  }
   if ( CONST_DOUBLE_AS_FLOAT_P(in_rtx) )
     idx = 5;
   if ( INSN_CHAIN_CODE_P(code) )
@@ -687,10 +736,13 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
   const char *format_ptr = GET_RTX_FORMAT(code);
   fprintf(m_outfp, " %s", format_ptr);
 
-  if ( code == MEM && MEM_EXPR(in_rtx) )
+  if ( code == MEM )
   {
-    fprintf(m_outfp, " MEM");
-    dump_mem_expr(MEM_EXPR (in_rtx));
+    if ( MEM_EXPR(in_rtx) )
+    {
+      fprintf(m_outfp, " MEM");
+      dump_mem_expr(MEM_EXPR (in_rtx));
+    }
   }
   fputs("\n", m_outfp);  
   // dump operands

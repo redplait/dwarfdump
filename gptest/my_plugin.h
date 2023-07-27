@@ -26,6 +26,7 @@ class my_PLUGIN : public rtl_opt_pass
   void dump_comp_ref(const_tree expr);
   void dump_method(const_tree expr);
   void dump_ftype(const_tree expr);
+  void dump_tree_MF(const_tree expr);
   void dump_rtx(const_rtx, int level = 0);
   void dump_rtx_hl(const_rtx);
   int dump_e_operand(const_rtx in_rtx, int idx, int level);
