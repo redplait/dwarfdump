@@ -20,6 +20,7 @@ class my_PLUGIN : public rtl_opt_pass
   unsigned int execute(function *fun);
  private:
   void margin(int);
+  void dump_mem_ref(const_tree expr);
   void dump_mem_expr(const_tree expr);
   void dump_rmem_expr(const_tree expr);
   void dump_ssa_name(const_tree expr);

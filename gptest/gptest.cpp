@@ -417,7 +417,7 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
 
    case 'w':
       fprintf (m_outfp, HOST_WIDE_INT_PRINT_DEC, XWINT (in_rtx, idx));
-      fprintf (m_outfp, HOST_WIDE_INT_PRINT_HEX,
+      fprintf (m_outfp, " " HOST_WIDE_INT_PRINT_HEX,
                  (unsigned HOST_WIDE_INT) XWINT (in_rtx, idx));
       break;
 
@@ -507,14 +507,31 @@ HOST_WIDE_INT extract_vindex(const_tree expr)
 
 void my_PLUGIN::dump_ftype(const_tree expr)
 {
+  fprintf(m_outfp, " uid %x", TYPE_UID(expr));  
   tree parent_type = TYPE_METHOD_BASETYPE(expr);
   if ( parent_type )
+  {
     dump_method(expr);
-  else {
-    if ( DECL_VIRTUAL_P(expr) )
-      fprintf(m_outfp, " findex" HOST_WIDE_INT_PRINT_DEC, extract_vindex(expr));
-    dump_tree_MF(expr);
+    return;
   }
+  if ( DECL_VIRTUAL_P(expr) )
+    fprintf(m_outfp, " findex" HOST_WIDE_INT_PRINT_DEC, extract_vindex(expr));
+  // dump args
+  tree arg = TYPE_ARG_TYPES(expr);
+  while (arg && arg != void_list_node && arg != error_mark_node)
+  {
+    dump_tree_MF(arg);
+    arg = TREE_CHAIN(arg);
+  }
+  if ( TYPE_CONTEXT(expr) )
+  {
+    tree ctx = TYPE_CONTEXT(expr);
+    auto code = TREE_CODE(ctx);
+    auto name = get_tree_code_name(code);
+    if ( name )
+      fprintf(m_outfp, " ctx %s", name);
+  }
+  dump_tree_MF(expr);
 }
 
 void my_PLUGIN::dump_tree_MF(const_tree expr)
@@ -544,26 +561,42 @@ void my_PLUGIN::dump_method(const_tree expr)
   auto t = TREE_TYPE(expr);
   if ( t )
   {
-    if ( DECL_NAME(t) )
-      fprintf(m_outfp, " MName %s", IDENTIFIER_POINTER(t) );
+ //   if ( DECL_NAME(t) )
+ //     fprintf(m_outfp, " MName %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
     tree parent_type = TYPE_METHOD_BASETYPE(expr);
     if ( parent_type )
     {  
       auto base = TYPE_NAME(parent_type);
       if ( DECL_NAME(base) )
         fprintf(m_outfp, " basetype %s", IDENTIFIER_POINTER(DECL_NAME(base)));
-      // ok, we have type of base class in parent_type and vtbl index - try to find name of this method
+      
       tree found = NULL_TREE;
+      // lets try find virtual method with type expr
       for ( tree f = TYPE_FIELDS(parent_type); f; f = TREE_CHAIN(f) )
       {
         if ( !DECL_VIRTUAL_P(f) )
           continue;
-        if ( extract_vindex(f) != vi0 )
+        if ( TREE_TYPE(f) != expr )
           continue;
         found = f;
         if ( DECL_NAME(f) )
           fprintf(m_outfp, " vmethod %s", IDENTIFIER_POINTER(DECL_NAME(f)));
-        break;  
+        break;
+      }  
+      // we have type of base class in parent_type and vtbl index - try to find name of this method
+      if ( !found )
+      {
+        for ( tree f = TYPE_FIELDS(parent_type); f; f = TREE_CHAIN(f) )
+        {
+          if ( !DECL_VIRTUAL_P(f) )
+            continue;
+          if ( extract_vindex(f) != vi0 )
+            continue;
+          found = f;
+          if ( DECL_NAME(f) )
+            fprintf(m_outfp, " vmethod2 %s", IDENTIFIER_POINTER(DECL_NAME(f)));
+          break;  
+        }
       }
     }
     dump_tree_MF(expr);
@@ -623,6 +656,44 @@ void my_PLUGIN::dump_ssa_name(const_tree op0)
   }
 }
 
+void my_PLUGIN::dump_mem_ref(const_tree expr)
+{
+  auto base = TMR_BASE(expr);
+  auto off = TMR_OFFSET(expr);
+  if ( base )
+  {
+    auto code = TREE_CODE(base);
+    auto name = get_tree_code_name(code);
+    if ( name )
+      fprintf(m_outfp, " base %s", name);
+    if ( code == SSA_NAME )
+    {
+      dump_ssa_name(base);
+    } else if ( code == OBJ_TYPE_REF )
+    {
+      auto obj = OBJ_TYPE_REF_OBJECT(base);
+      if ( obj )
+      {
+        code = TREE_CODE(obj);
+        name = get_tree_code_name(code);
+        if ( name )
+          fprintf(m_outfp, " obj %s", name);
+        if ( code == SSA_NAME )
+          dump_ssa_name(base);
+      }
+    }
+  }
+  if ( off )
+  {
+    auto code = TREE_CODE(off);
+    auto name = get_tree_code_name(code);
+    if ( name )
+      fprintf(m_outfp, " off %s", name);
+    if ( code == INTEGER_CST )
+      fprintf(m_outfp, " " HOST_WIDE_INT_PRINT_DEC, tree_to_shwi(off));
+  }
+}
+
 void my_PLUGIN::dump_mem_expr(const_tree expr)
 {
   if ( expr == NULL_TREE )
@@ -632,6 +703,11 @@ void my_PLUGIN::dump_mem_expr(const_tree expr)
   auto name = get_tree_code_name(code);
   if ( name )
     fprintf(m_outfp, " %s", name);
+  if ( code == MEM_REF )
+  {
+    dump_mem_ref(expr);
+    return;
+  }
   if ( code != COMPONENT_REF )
     return;
   dump_comp_ref(expr);
