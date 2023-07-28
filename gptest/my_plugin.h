@@ -42,6 +42,8 @@ class my_PLUGIN : public rtl_opt_pass
   int dump_r_operand(const_rtx in_rtx, int idx, int level);
   int dump_EV_code(const_rtx in_rtx, int idx, int level);
   void dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level);
+  // helper for errors
+  void pass_error(const char *fmt, ...);
   // helpers to detect kind of xref
   int is_symref() const;
   int is_call() const;

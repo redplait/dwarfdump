@@ -6,6 +6,8 @@
 
 #include <iostream>
 #include <string>
+#include <stdarg.h>
+
 #include "my_plugin.h"
 
 const struct pass_data my_PLUGIN_pass_data =
@@ -280,6 +282,19 @@ int my_PLUGIN::dump_i_operand(const_rtx in_rtx, int idx, int level)
       fprintf (m_outfp, " {%s}", name);
   }
   return 0;
+}
+
+void my_PLUGIN::pass_error(const char *fmt, ...)
+{
+  if ( !m_db )
+    return;
+  va_list ap;
+  va_start(ap, fmt);
+  char err_buf[1024];
+  vsnprintf(err_buf, sizeof(err_buf) - 1, fmt, ap);
+  err_buf[sizeof(err_buf) - 1] = 0;
+  m_db->report_error(err_buf);
+  va_end(ap);  
 }
 
 // typical sequence in stack for call looks like
@@ -681,8 +696,18 @@ void my_PLUGIN::dump_method(const_tree expr)
         if ( DECL_NAME(f) )
           fprintf(m_outfp, " vmethod %s", IDENTIFIER_POINTER(DECL_NAME(f)));
         break;
-      }  
-      // we have type of base class in parent_type and vtbl index - try to find name of this method
+      }
+      if ( m_db && DECL_NAME(base) && found && DECL_NAME(found) )
+      {
+        xref_kind kind = xref;
+        std::string pers_arg = IDENTIFIER_POINTER(DECL_NAME(base));
+        pers_arg += ".";
+        pers_arg += IDENTIFIER_POINTER(DECL_NAME(found));
+        if ( is_call() )
+          kind = vcall;
+        m_db->add_xref(kind, pers_arg.c_str());
+      }
+      /* we have type of base class in parent_type and vtbl index - try to find name of this method
       if ( !found )
       {
         for ( tree f = TYPE_FIELDS(parent_type); f; f = TREE_CHAIN(f) )
@@ -696,11 +721,20 @@ void my_PLUGIN::dump_method(const_tree expr)
             fprintf(m_outfp, " vmethod2 %s", IDENTIFIER_POINTER(DECL_NAME(f)));
           break;  
         }
+      } */
+      if ( m_db && !found )
+      {
+        pass_error("cannot find vmethod with vindex %d for type %d", (int)vi0, TREE_CODE(parent_type));
       }
     }
     dump_tree_MF(expr);
   } else {
     fprintf(m_outfp, " no_typename");
+    if ( m_db )
+    {
+      code = TREE_CODE(expr);
+      pass_error("dump_method: no type for %d", code);
+    }
   }
 }
 
@@ -752,6 +786,8 @@ void my_PLUGIN::dump_ssa_name(const_tree op0)
           dump_ftype(t);  
         } else if ( !is_known_ssa_type(t) ) {
           fprintf(m_outfp, " UKNOWN_SSA");
+          if ( m_db )
+            pass_error("UKNOWN_SSA %d", ct0);
         }
       }
   }
@@ -878,6 +914,10 @@ void my_PLUGIN::dump_comp_ref(const_tree expr)
     }
   } else {
     fprintf(m_outfp, " no_type");
+    if ( m_db )
+    {
+      pass_error("dump_method: no type for ctx %d", code);
+    }
   }
 }
 
@@ -894,41 +934,47 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
   {
     if ( TREE_CODE (PAT_VAR_LOCATION_DECL (in_rtx)) != STRING_CST )
     {
-      fprintf(m_outfp, " VMEM");
+      if ( need_dump() )
+        fprintf(m_outfp, " VMEM");
       dump_mem_expr(PAT_VAR_LOCATION_DECL(in_rtx));
       idx = GET_RTX_LENGTH (VAR_LOCATION);       
     }
   }
   if ( CONST_DOUBLE_AS_FLOAT_P(in_rtx) )
     idx = 5;
-  if ( INSN_CHAIN_CODE_P(code) )
-    fprintf(m_outfp, "%d ", INSN_UID (in_rtx));
-  fprintf(m_outfp, "%s", GET_RTX_NAME(code));
-  // flags
-  if (RTX_FLAG (in_rtx, in_struct))
-    fputs ("/s", m_outfp);
-  if (RTX_FLAG (in_rtx, volatil))
-    fputs ("/v", m_outfp);
-  if (RTX_FLAG (in_rtx, unchanging))
-    fputs ("/u", m_outfp);
-  if (RTX_FLAG (in_rtx, frame_related))
-    fputs ("/f", m_outfp);
-  if (RTX_FLAG (in_rtx, jump))
-    fputs ("/j", m_outfp);
-  if (RTX_FLAG (in_rtx, call))
-    fputs ("/c", m_outfp);
-  if (RTX_FLAG (in_rtx, return_val))
-    fputs ("/i", m_outfp);
 
-  fprintf(m_outfp, " %d lim %d", idx, limit);
   const char *format_ptr = GET_RTX_FORMAT(code);
-  fprintf(m_outfp, " %s", format_ptr);
+  if ( need_dump() )
+  {
+    if ( INSN_CHAIN_CODE_P(code) )
+      fprintf(m_outfp, "%d ", INSN_UID (in_rtx));
+    fprintf(m_outfp, "%s", GET_RTX_NAME(code));
+    // flags
+    if (RTX_FLAG (in_rtx, in_struct))
+      fputs ("/s", m_outfp);
+    if (RTX_FLAG (in_rtx, volatil))
+      fputs ("/v", m_outfp);
+    if (RTX_FLAG (in_rtx, unchanging))
+      fputs ("/u", m_outfp);
+    if (RTX_FLAG (in_rtx, frame_related))
+      fputs ("/f", m_outfp);
+    if (RTX_FLAG (in_rtx, jump))
+      fputs ("/j", m_outfp);
+    if (RTX_FLAG (in_rtx, call))
+      fputs ("/c", m_outfp);
+    if (RTX_FLAG (in_rtx, return_val))
+      fputs ("/i", m_outfp);
+
+    fprintf(m_outfp, " %d lim %d", idx, limit);
+    fprintf(m_outfp, " %s", format_ptr);
+  }
 
   if ( code == MEM )
   {
     if ( MEM_EXPR(in_rtx) )
     {
-      fprintf(m_outfp, " MEM");
+      if ( need_dump() )
+        fprintf(m_outfp, " MEM");
       dump_mem_expr(MEM_EXPR (in_rtx));
     }
     if ( MEM_OFFSET_KNOWN_P(in_rtx) )
@@ -937,7 +983,8 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
       print_poly_int (m_outfp, MEM_OFFSET(in_rtx));
     }
   }
-  fputs("\n", m_outfp);  
+  if ( need_dump() )
+    fputs("\n", m_outfp);  
   // dump operands
   for (; idx < limit; idx++)
     dump_rtx_operand (in_rtx, format_ptr[idx], idx, level + 1);  
