@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <list>
 
+#include "fpers.h"
+
 class my_PLUGIN : public rtl_opt_pass
 {
  public:
@@ -18,6 +20,10 @@ class my_PLUGIN : public rtl_opt_pass
   virtual ~my_PLUGIN();
 //  bool gate(function *fun);
   unsigned int execute(function *fun);
+  // public interface for db connection
+  int connect();
+  void start_file(const char *);
+  void stop_file();
  private:
   void margin(int);
   void dump_mem_ref(const_tree expr);
@@ -57,7 +63,9 @@ class my_PLUGIN : public rtl_opt_pass
   // args
   bool m_dump_rtl;
   bool m_verbose;
-  std::string m_db_str;
+  const char *m_db_str;
+  // db
+  FPersistence *m_db;
   // expressions stack - rtx class and current index of expression
   std::list<std::pair<enum rtx_class, int> > m_rtexpr;
   // current basic_block number

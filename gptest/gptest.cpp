@@ -21,16 +21,23 @@ const struct pass_data my_PLUGIN_pass_data =
     .todo_flags_finish = 0,
 };
 
+/* plugin parameters:
+    -fplugin-arg-gptest-db=path to file/db connection string
+    -fplugin-arg-gptest-dumprtl
+    -fplugin-arg-gptest-verbose
+ */
 const char *pname_verbose = "verbose";
 
 my_PLUGIN::my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int argcounter)
- : rtl_opt_pass(my_PLUGIN_pass_data, ctxt)
+ : rtl_opt_pass(my_PLUGIN_pass_data, ctxt),
+   m_db(NULL)
 {
     argc = argcounter;   // number of arguments
     args = arguments;    // array containing arrguments (key,value)
     m_outfp = stdout;
     m_dump_rtl = existsArgument("dumprtl");
     m_verbose = existsArgument(pname_verbose);
+    m_db_str = findArgumentValue("db");
 }
 
 my_PLUGIN::~my_PLUGIN()
@@ -41,6 +48,31 @@ my_PLUGIN::~my_PLUGIN()
     fclose(m_outfp);
     m_outfp = NULL;
   }
+  if ( m_db )
+  {
+    delete m_db;
+    m_db = NULL;
+  }
+}
+
+// return 0 if db connected
+int my_PLUGIN::connect()
+{
+  if ( !m_db_str || !m_db )
+    return 0;
+  return m_db->connect(m_db_str);
+}
+
+void my_PLUGIN::start_file(const char *fn)
+{
+  if ( m_db )
+    m_db->cu_start(fn);
+}
+
+void my_PLUGIN::stop_file()
+{
+  if ( m_db )
+    m_db->cu_stop();
 }
 
 bool my_PLUGIN::existsArgument(const char* key) const
@@ -609,7 +641,9 @@ bool is_known_ssa_type(const_tree t)
 {
   auto code = TREE_CODE(t);  
   return (code == VOID_TYPE) ||
+         (code == BOOLEAN_TYPE) ||
          (code == INTEGER_TYPE) ||
+         (code == ENUMERAL_TYPE) ||
          (code == REAL_TYPE) ||
          (code == COMPLEX_TYPE)
   ;
@@ -668,7 +702,9 @@ void my_PLUGIN::dump_mem_ref(const_tree expr)
       fprintf(m_outfp, " base %s", name);
     if ( code == SSA_NAME )
     {
+      fprintf(m_outfp, "(");
       dump_ssa_name(base);
+      fprintf(m_outfp, ")");
     } else if ( code == OBJ_TYPE_REF )
     {
       auto obj = OBJ_TYPE_REF_OBJECT(base);
@@ -819,6 +855,11 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
       fprintf(m_outfp, " MEM");
       dump_mem_expr(MEM_EXPR (in_rtx));
     }
+    if ( MEM_OFFSET_KNOWN_P(in_rtx) )
+    {
+      fprintf(m_outfp, " +");
+      print_poly_int (m_outfp, MEM_OFFSET(in_rtx));
+    }
   }
   fputs("\n", m_outfp);  
   // dump operands
@@ -855,6 +896,8 @@ unsigned int my_PLUGIN::execute(function *fun)
         fprintf(m_outfp,"BB: %d\n", bb->index);
         begin_any_block(m_outfp, bb);
       }
+      if ( m_db )
+        m_db->bb_start(bb_index);
       rtx_insn* insn;
       FOR_BB_INSNS(bb, insn)
       {
@@ -868,18 +911,28 @@ unsigned int my_PLUGIN::execute(function *fun)
         end_any_block (m_outfp, bb);
         fprintf(m_outfp,"\n----------------------------------------------------------------\n\n");
       }
+      if ( m_db )
+        m_db->bb_stop(bb_index);
    }
+  if ( m_db )
+    m_db->func_stop(); 
   return 0;
 }
 
 static void callback_start_unit(void *gcc_data, void *user_data)
 {
   std::cerr << " *** A translation unit " << main_input_filename << " has been started\n";
+  my_PLUGIN *mp = (my_PLUGIN *)user_data;
+  if ( mp )
+    mp->start_file(main_input_filename);
 }
 
 static void callback_finish_unit(void *gcc_data, void *user_data)
 {
   std::cerr << " *** A translation unit has been finished\n";
+  my_PLUGIN *mp = (my_PLUGIN *)user_data;
+  if ( mp )
+    mp->stop_file();
 }
 
 // We must assert that this plugin is GPL compatible
@@ -892,7 +945,7 @@ int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version
     if (!plugin_default_version_check (version, &gcc_version))
     {
       std::cerr << "This GCC plugin is for version " << GCCPLUGIN_VERSION_MAJOR << "." << GCCPLUGIN_VERSION_MINOR << "\n";
-	  return 1;
+	    return 1;
     }
     int i;
     int verbose = 0;
@@ -930,7 +983,15 @@ int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version
     }
 
     struct register_pass_info pass;
-    pass.pass = new my_PLUGIN(g, plugin_info->argv, plugin_info->argc);
+    my_PLUGIN *mp = new my_PLUGIN(g, plugin_info->argv, plugin_info->argc);
+    int conn_err = mp->connect();
+    if ( conn_err )
+    {
+      delete mp;
+      std::cerr << "connect failed, code " << conn_err << "\n";
+      return 1;
+    }
+    pass.pass = mp;
     pass.reference_pass_name = "final";
     pass.ref_pass_instance_number = 1;
     pass.pos_op = PASS_POS_INSERT_BEFORE;
@@ -938,10 +999,10 @@ int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version
     register_callback(plugin_info->base_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass);
 
     register_callback(plugin_info->base_name, PLUGIN_START_UNIT,
-        callback_start_unit, /* user_data */ NULL);
+        callback_start_unit, /* user_data */ mp);
 
     register_callback(plugin_info->base_name, PLUGIN_FINISH_UNIT,
-        callback_finish_unit, /* user_data */ NULL);
+        callback_finish_unit, /* user_data */ mp);
 
     std::cerr << "Plugin " << plugin_info->base_name << " successfully initialized, pid " << getpid() << "\n";
 
