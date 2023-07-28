@@ -39,7 +39,10 @@ class pers_text: public FPersistence
      m_bb = idx;
      m_bb_dumped = false;
    }
+   // main method
    virtual void add_xref(xref_kind, const char *);
+   // store errors
+   virtual void report_error(const char *);
   protected:
    void check();
 
@@ -92,6 +95,23 @@ void pers_text::add_xref(xref_kind kind, const char *what)
   fprintf(m_fp, "  %c %s\n", c, what);
 }
 
+void pers_text::report_error(const char *err)
+{
+  if ( !err )
+    return;
+  if ( !m_fp )
+  {
+    fprintf(stderr, "Error: %s\n", err);
+    return;
+  }
+  fprintf(m_fp, "#! ");
+  if ( !m_func_dunped )
+    fprintf(m_fp, "Func %s ", m_fn.c_str());
+  if ( !m_bb_dumped )
+    fprintf(m_fp, "BB %d ", m_bb);
+  fprintf(m_fp, "Err: %s\n", err);
+}
+
 void pers_text::check()
 {   
   if ( !m_func_dunped )
@@ -101,7 +121,7 @@ void pers_text::check()
   }
   if ( !m_bb_dumped )
   {
-    fprintf(m_fp, " bb %d\n", m_fn.c_str());
+    fprintf(m_fp, " bb %d\n", m_bb);
     m_bb_dumped = true;
   }
 }

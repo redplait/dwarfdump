@@ -127,15 +127,15 @@ print_edge (FILE *outfile, edge e, bool from)
     {
       fprintf (outfile, " (flags \"");
       bool seen_flag = false;
-#define DEF_EDGE_FLAG(NAME,IDX)                 \
-  do {                                          \
-    if (e->flags & EDGE_##NAME)                 \
-      {                                         \
+#define DEF_EDGE_FLAG(NAME,IDX)                \
+  do {                                         \
+    if (e->flags & EDGE_##NAME)                \
+      {                                        \
        if (seen_flag)                          \
-          fprintf (outfile, " | ");             \
-        fprintf (outfile, "%s", (#NAME));       \
-        seen_flag = true;                       \
-      }                                         \
+          fprintf (outfile, " | ");            \
+        fprintf (outfile, "%s", (#NAME));      \
+        seen_flag = true;                      \
+      }                                        \
   } while (0);
 #include "cfg-flags.def"
 #undef DEF_EDGE_FLAG
@@ -282,6 +282,47 @@ int my_PLUGIN::dump_i_operand(const_rtx in_rtx, int idx, int level)
   return 0;
 }
 
+// typical sequence in stack for call looks like
+// call:N mem or reg:0 - if 1 this is arguments for call
+int my_PLUGIN::is_call() const
+{
+  if ( m_rtexpr.empty() )
+    return 0;
+  int idx = -1;
+  for ( auto r = m_rtexpr.rbegin(); r != m_rtexpr.rend(); ++r )
+  {
+    if ( r->first == CALL )
+      return !idx;
+    idx = r->second;
+  }
+  return 0;
+}
+
+int my_PLUGIN::is_symref() const
+{
+  if ( m_rtexpr.empty() )
+    return 0;
+  auto r = m_rtexpr.rbegin();
+  return ( r->first == SYMBOL_REF );  
+}
+
+int my_PLUGIN::is_symref_call() const
+{
+  if ( m_rtexpr.empty() )
+    return 0;
+  int idx = -1;
+  auto r = m_rtexpr.rbegin();
+  if ( r->first != SYMBOL_REF )
+    return 0;  
+  for ( ++r; r != m_rtexpr.rend(); ++r )
+  {
+    if ( r->first == CALL )
+      return (!idx);
+    idx = r->second;
+  }
+  return 0;
+}
+
 void my_PLUGIN::expr_push(const_rtx in_rtx, int idx)
 {
   m_rtexpr.push_back(std::make_pair((enum rtx_class)GET_CODE(in_rtx), idx));  
@@ -408,6 +449,13 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
           dump_exprs();
           if ( need_dump() )
             fprintf (m_outfp, " (%s)", str);
+          if ( m_db && is_symref() )
+          {
+            xref_kind kind = xref;
+            if ( is_symref_call() )
+              kind = xcall;
+            m_db->add_xref(kind, str);
+          }
         }
       break;
 
@@ -553,7 +601,8 @@ HOST_WIDE_INT extract_vindex(const_tree expr)
 
 void my_PLUGIN::dump_ftype(const_tree expr)
 {
-  fprintf(m_outfp, " uid %x", TYPE_UID(expr));  
+  if ( need_dump() )
+    fprintf(m_outfp, " uid %x", TYPE_UID(expr));  
   tree parent_type = TYPE_METHOD_BASETYPE(expr);
   if ( parent_type )
   {
@@ -561,7 +610,10 @@ void my_PLUGIN::dump_ftype(const_tree expr)
     return;
   }
   if ( DECL_VIRTUAL_P(expr) )
-    fprintf(m_outfp, " findex" HOST_WIDE_INT_PRINT_DEC, extract_vindex(expr));
+  {
+    if ( need_dump() )
+      fprintf(m_outfp, " findex" HOST_WIDE_INT_PRINT_DEC, extract_vindex(expr));
+  }
   // dump args
   tree arg = TYPE_ARG_TYPES(expr);
   while (arg && arg != void_list_node && arg != error_mark_node)
@@ -574,7 +626,7 @@ void my_PLUGIN::dump_ftype(const_tree expr)
     tree ctx = TYPE_CONTEXT(expr);
     auto code = TREE_CODE(ctx);
     auto name = get_tree_code_name(code);
-    if ( name )
+    if ( name && need_dump() )
       fprintf(m_outfp, " ctx %s", name);
   }
   dump_tree_MF(expr);
@@ -597,7 +649,8 @@ void my_PLUGIN::dump_method(const_tree expr)
   auto code = TREE_CODE(vi);
   if ( code == INTEGER_CST )
   {
-    fprintf(m_outfp, " vindex " HOST_WIDE_INT_PRINT_DEC, tree_to_shwi(vi));
+    if ( need_dump() )
+      fprintf(m_outfp, " vindex " HOST_WIDE_INT_PRINT_DEC, tree_to_shwi(vi));
   } else {
     auto name = get_tree_code_name(code);
     if ( name )
@@ -813,7 +866,16 @@ void my_PLUGIN::dump_comp_ref(const_tree expr)
   if ( t )
   {
     if ( DECL_NAME(t) )
+    {
       fprintf(m_outfp, " Name %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
+      if ( m_db && field_name )
+      {
+        std::string pers_arg = IDENTIFIER_POINTER(DECL_NAME(t));
+        pers_arg += ".";
+        pers_arg += IDENTIFIER_POINTER(field_name);
+        m_db->add_xref(field, pers_arg.c_str());
+      }
+    }
   } else {
     fprintf(m_outfp, " no_type");
   }
@@ -883,16 +945,24 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
 
 unsigned int my_PLUGIN::execute(function *fun)
 {
-  rtx_reuse_manager r;
-  rtx_writer w (m_outfp, 0, false, false, &r);  
-  // 1) Find the name of the function
+  // find the name of the function
   char* funName = (char*)IDENTIFIER_POINTER (DECL_NAME (current_function_decl) );
   tree fdecl = fun->decl;
+  if ( m_db )
+  {
+    const char *aname = funName;
+    if (DECL_ASSEMBLER_NAME_SET_P(fdecl) )
+      aname = (IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME (fdecl)));
+    if ( !m_db->func_start(aname) )
+      return 0;
+  }
   if ( m_verbose )
   {
     const char *dname = lang_hooks.decl_printable_name (fdecl, 1);
     std::cerr << "execute on " << funName << " (" << dname << ") file " << main_input_filename << "\n";
   }
+  rtx_reuse_manager r;
+  rtx_writer w (m_outfp, 0, false, false, &r);
   if ( need_dump() )
   {
     dump_function_header(m_outfp, fun->decl, (dump_flags_t)0);
