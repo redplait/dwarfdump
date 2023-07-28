@@ -38,6 +38,8 @@ my_PLUGIN::my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int 
     m_dump_rtl = existsArgument("dumprtl");
     m_verbose = existsArgument(pname_verbose);
     m_db_str = findArgumentValue("db");
+    if ( m_db_str )
+      m_db = get_pers();
 }
 
 my_PLUGIN::~my_PLUGIN()
@@ -218,6 +220,8 @@ print_param (FILE *outfile, rtx_writer &w, tree arg)
 
 void my_PLUGIN::margin(int level)
 {
+  if ( !need_dump() )
+    return;
   fputc(';', m_outfp);
   for ( int i = 0; i < level; i++ )
     fputc(' ', m_outfp);
@@ -298,11 +302,13 @@ void my_PLUGIN::dump_exprs()
 int my_PLUGIN::dump_r_operand(const_rtx in_rtx, int idx, int level)
 {
   unsigned int regno = REGNO (in_rtx);
-  if ( regno <= LAST_VIRTUAL_REGISTER )
-    fprintf (m_outfp, " %d", regno);
-  if (regno < FIRST_PSEUDO_REGISTER)
-    fprintf (m_outfp, " %s", reg_names[regno]);
-
+  if ( need_dump() )
+  {
+    if ( regno <= LAST_VIRTUAL_REGISTER )
+      fprintf (m_outfp, " %d", regno);
+    if (regno < FIRST_PSEUDO_REGISTER)
+      fprintf (m_outfp, " %s", reg_names[regno]);
+  }
   if (REG_ATTRS (in_rtx))
   {
     if (REG_EXPR (in_rtx))
@@ -395,10 +401,13 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
     string:
 
       if (str == 0)
-        fputs ("(nil)", m_outfp);
-      else {
+      {
+        if ( need_dump() )
+          fputs ("(nil)", m_outfp);
+      } else {
           dump_exprs();
-          fprintf (m_outfp, " (%s)", str);
+          if ( need_dump() )
+            fprintf (m_outfp, " (%s)", str);
         }
       break;
 
@@ -425,7 +434,8 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
       break;
 
    case 'n':
-      fprintf (m_outfp, " %s", GET_NOTE_INSN_NAME (XINT (in_rtx, idx)));
+      if ( need_dump() )
+        fprintf (m_outfp, " %s", GET_NOTE_INSN_NAME (XINT (in_rtx, idx)));
       break;
  
    case 't':
@@ -448,17 +458,21 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
       break;
 
    case 'w':
-      fprintf (m_outfp, HOST_WIDE_INT_PRINT_DEC, XWINT (in_rtx, idx));
-      fprintf (m_outfp, " " HOST_WIDE_INT_PRINT_HEX,
-                 (unsigned HOST_WIDE_INT) XWINT (in_rtx, idx));
+      if ( need_dump() )
+      {
+        fprintf (m_outfp, HOST_WIDE_INT_PRINT_DEC, XWINT (in_rtx, idx));
+        fprintf (m_outfp, " " HOST_WIDE_INT_PRINT_HEX,
+                   (unsigned HOST_WIDE_INT) XWINT (in_rtx, idx));
+      }
       break;
 
     case 'p':
-      print_poly_int (m_outfp, SUBREG_BYTE (in_rtx));
+      if ( need_dump() )
+        print_poly_int (m_outfp, SUBREG_BYTE (in_rtx));
       break;
 
   }
-  if ( !was_nl )
+  if ( !was_nl && need_dump() )
     fputs("\n", m_outfp);
 }
 
@@ -508,7 +522,7 @@ void my_PLUGIN::dump_rmem_expr(const_tree expr)
   dump_exprs();  
   auto code = TREE_CODE(expr);
   auto name = get_tree_code_name(code);
-  if ( name )
+  if ( name && need_dump() )
     fprintf(m_outfp, " %s", name);
   if ( code == COMPONENT_REF )
   {
