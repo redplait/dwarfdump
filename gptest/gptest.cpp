@@ -361,6 +361,17 @@ void my_PLUGIN::expr_push(const_rtx in_rtx, int idx)
   m_rtexpr.push_back(std::make_pair((enum rtx_class)GET_CODE(in_rtx), idx));  
 }
 
+void my_PLUGIN::dump_known_uids()
+{
+  if ( !need_dump() || m_known_uids.empty() )
+    return;
+  fprintf(m_outfp, "; known uids:\n");
+  for ( auto &u: m_known_uids )
+  {
+    fprintf(m_outfp, ";  %x - %s\n", u.first, u.second.c_str());
+  }
+}
+
 void my_PLUGIN::dump_exprs()
 {
   if ( !need_dump() || m_rtexpr.empty() )
@@ -769,6 +780,45 @@ bool is_known_ssa_type(const_tree t)
   ;
 }
 
+// ripped from is_vptr_store
+int my_PLUGIN::is_vptr(const_tree expr)
+{
+  return (TREE_CODE(expr) == FIELD_DECL) &&
+         DECL_VIRTUAL_P(expr);
+}
+
+// store result from clutch if last type was field -> function
+void my_PLUGIN::store_aux(aux_type_clutch &clutch)
+{
+  if ( !clutch.completed || !clutch.last )
+    return;
+  if ( is_vptr(clutch.last) )
+    return;
+  auto code = TREE_CODE(clutch.last);
+  auto name = get_tree_code_name(code);
+  if ( !name )
+    return;
+  if ( need_dump() )
+    fprintf(m_outfp, " store_aux %s", name);
+  if ( FIELD_DECL != TREE_CODE(clutch.last) )
+    return;
+  auto t = TREE_TYPE(clutch.last);
+  if ( !t )
+    return;
+  if ( !POINTER_TYPE_P(t) )
+    return;
+  while( POINTER_TYPE_P(t))
+    t = TREE_TYPE(t);
+  if ( FUNCTION_TYPE == TREE_CODE(t) )
+  {
+    m_known_uids[TYPE_UID(t)] = clutch.txt;
+    if ( need_dump() )
+    {
+      fprintf(m_outfp, " store fptr uid %x", TYPE_UID(t));
+     }
+  }
+}
+
 void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
 {
   auto t = TREE_TYPE(op0);
@@ -778,7 +828,8 @@ void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
   auto name = get_tree_code_name(ct0);
   if ( !name )
     return;
-  fprintf(m_outfp, " %s", name);
+  if ( need_dump() )
+    fprintf(m_outfp, " %s", name);
   // known types - pointer_type & reference_type
   if ( POINTER_TYPE_P(t) )
   {
@@ -835,6 +886,23 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
       dump_ssa_name(base, clutch);
       if ( need_dump() )
         fprintf(m_outfp, ")");
+      // check if we seen uid from dump_ssa_name
+      if ( !clutch.completed && clutch.last )
+      {
+        auto iter = m_known_uids.find(TYPE_UID(clutch.last));
+        if ( iter != m_known_uids.end() )
+        {
+          clutch.completed = true;
+          clutch.txt = iter->second;
+          if ( m_db )
+          {
+            xref_kind ref_ = field;
+            if ( is_call() )
+              ref_ = xcall;
+            m_db->add_xref(ref_, clutch.txt.c_str());
+          }
+        }
+      }  
       // case when ssa_name return record/union and clutch.off is non-zero, like
       // mem_ref base ssa_name( pointer_type ptr2 record_type SSAName abstract) off integer_cst 0 +8
       if ( !clutch.completed && clutch.off && clutch.last && RECORD_OR_UNION_TYPE_P(clutch.last) )
@@ -906,6 +974,7 @@ void my_PLUGIN::dump_mem_expr(const_tree expr, const_rtx in_rtx)
   if ( code != COMPONENT_REF )
     return;
   dump_comp_ref(expr, clutch);
+  store_aux(clutch);
 }
 
 void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
@@ -963,7 +1032,7 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
     {
       if ( need_dump() )
         fprintf(m_outfp, " Name %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
-      clutch.last = op1;
+      clutch.last = op1; // store field
       if ( field_name )
       {
         clutch.completed = true;
@@ -1101,6 +1170,7 @@ unsigned int my_PLUGIN::execute(function *fun)
       if ( need_dump() )
       {
         end_any_block (m_outfp, bb);
+        dump_known_uids();
         fprintf(m_outfp,"\n----------------------------------------------------------------\n\n");
       }
       m_known_uids.clear();

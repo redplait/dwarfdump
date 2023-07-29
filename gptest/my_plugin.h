@@ -47,6 +47,8 @@ class my_PLUGIN : public rtl_opt_pass
   void stop_file();
  private:
   void margin(int);
+  int is_vptr(const_tree);
+  void store_aux(aux_type_clutch &);
   void dump_mem_ref(const_tree expr, aux_type_clutch &);
   void dump_mem_expr(const_tree expr, const_rtx);
   void dump_rmem_expr(const_tree expr, const_rtx);
@@ -76,6 +78,7 @@ class my_PLUGIN : public rtl_opt_pass
     m_rtexpr.pop_back();
   }
   void dump_exprs();
+  void dump_known_uids();
   // plugin options
   const char* findArgumentValue(const char* key);
   bool existsArgument(const char *key) const;
