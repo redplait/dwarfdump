@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <list>
+#include <map>
 
 #include "fpers.h"
 
@@ -24,9 +25,10 @@ struct aux_type_clutch
      completed(false),
      last(NULL_TREE)
   { }
-  aux_type_clutch(const_tree);
+  aux_type_clutch(const_rtx);
   // data
-  HOST_WIDE_INT off;
+  HOST_WIDE_INT off; // in param
+  std::string txt;
   bool completed;
   const_tree last;
 };
@@ -45,11 +47,11 @@ class my_PLUGIN : public rtl_opt_pass
   void stop_file();
  private:
   void margin(int);
-  void dump_mem_ref(const_tree expr);
-  void dump_mem_expr(const_tree expr);
-  void dump_rmem_expr(const_tree expr);
-  void dump_ssa_name(const_tree expr);
-  void dump_comp_ref(const_tree expr);
+  void dump_mem_ref(const_tree expr, aux_type_clutch &);
+  void dump_mem_expr(const_tree expr, const_rtx);
+  void dump_rmem_expr(const_tree expr, const_rtx);
+  void dump_ssa_name(const_tree expr, aux_type_clutch &);
+  void dump_comp_ref(const_tree expr, aux_type_clutch &);
   void dump_method(const_tree expr);
   void dump_ftype(const_tree expr);
   void dump_tree_MF(const_tree expr);
@@ -93,6 +95,8 @@ class my_PLUGIN : public rtl_opt_pass
   FPersistence *m_db;
   // expressions stack - rtx class and current index of expression
   std::list<std::pair<enum rtx_class, int> > m_rtexpr;
+  // uid types inside each BB
+  std::map<unsigned int, std::string> m_known_uids;
   // current basic_block number
   int bb_index;
 };

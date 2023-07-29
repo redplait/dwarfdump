@@ -299,6 +299,22 @@ void my_PLUGIN::pass_error(const char *fmt, ...)
   va_end(ap);  
 }
 
+aux_type_clutch::aux_type_clutch(const_rtx in_rtx)
+ : completed(false),
+   last(NULL_TREE)
+{
+  off = 0;
+  if ( MEM_OFFSET_KNOWN_P(in_rtx) )
+  {
+    auto x = MEM_OFFSET(in_rtx);
+    HOST_WIDE_INT const_x;
+    if (x.is_constant (&const_x))
+      off = const_x;
+    else
+      off = x.coeffs[0];  
+  }
+}
+
 // typical sequence in stack for call looks like
 // call:N mem or reg:0 - if 1 this is arguments for call
 int my_PLUGIN::is_call() const
@@ -373,7 +389,7 @@ int my_PLUGIN::dump_r_operand(const_rtx in_rtx, int idx, int level)
     {
       if ( need_dump() )  
         fprintf(m_outfp, " RMEM");
-      dump_rmem_expr(REG_EXPR (in_rtx));
+      dump_rmem_expr(REG_EXPR (in_rtx), in_rtx);
     }
   }
   return 0; 
@@ -509,14 +525,14 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
         if ( need_dump() )
           fprintf(m_outfp, "DEBUG_IMPLICIT_PTR_DECL ");
         expr_push(in_rtx, idx);
-        dump_mem_expr(DEBUG_IMPLICIT_PTR_DECL (in_rtx));
+        dump_mem_expr(DEBUG_IMPLICIT_PTR_DECL (in_rtx), in_rtx);
         expr_pop();
       } else if ( idx == 0 && GET_CODE (in_rtx) == DEBUG_PARAMETER_REF )
       {
         if ( need_dump() )
           fprintf(m_outfp, "DEBUG_PARAMETER_REF_DECL ");
         expr_push(in_rtx, idx);
-        dump_mem_expr(DEBUG_PARAMETER_REF_DECL (in_rtx));
+        dump_mem_expr(DEBUG_PARAMETER_REF_DECL (in_rtx), in_rtx);
         expr_pop();
       } else
         fprintf(m_outfp, "XTREE");
@@ -580,7 +596,7 @@ inline bool need_deref_compref0(const_tree op0)
         );
 }
 
-void my_PLUGIN::dump_rmem_expr(const_tree expr)
+void my_PLUGIN::dump_rmem_expr(const_tree expr, const_rtx in_rtx)
 {
   if ( expr == NULL_TREE )
     return;
@@ -589,14 +605,15 @@ void my_PLUGIN::dump_rmem_expr(const_tree expr)
   auto name = get_tree_code_name(code);
   if ( name && need_dump() )
     fprintf(m_outfp, " %s", name);
+  aux_type_clutch clutch(in_rtx);  
   if ( code == COMPONENT_REF )
   {
-    dump_comp_ref(expr);
+    dump_comp_ref(expr, clutch);
     return;
   }
   if ( code == SSA_NAME )
   {
-    dump_ssa_name(expr);
+    dump_ssa_name(expr, clutch);
     return;
   }
   if ( code == METHOD_TYPE )
@@ -752,7 +769,7 @@ bool is_known_ssa_type(const_tree t)
   ;
 }
 
-void my_PLUGIN::dump_ssa_name(const_tree op0)
+void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
 {
   auto t = TREE_TYPE(op0);
   if ( !t )
@@ -778,13 +795,19 @@ void my_PLUGIN::dump_ssa_name(const_tree op0)
           if ( rt )
           {
             if ( DECL_NAME(rt) )
-              fprintf(m_outfp, " SSAName %s", IDENTIFIER_POINTER(DECL_NAME(rt)) );
+            {
+              clutch.last = t;
+              if ( need_dump() )
+                fprintf(m_outfp, " SSAName %s", IDENTIFIER_POINTER(DECL_NAME(rt)) );
+            }
           }
         } else if ( ct0 == METHOD_TYPE )
         {
+          clutch.last = t;
           dump_method(t);
         } else if ( ct0 == FUNCTION_TYPE )
         {
+          clutch.last = t;
           dump_ftype(t);  
         } else if ( !is_known_ssa_type(t) ) {
           fprintf(m_outfp, " UKNOWN_SSA");
@@ -795,7 +818,7 @@ void my_PLUGIN::dump_ssa_name(const_tree op0)
   }
 }
 
-void my_PLUGIN::dump_mem_ref(const_tree expr)
+void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
 {
   auto base = TMR_BASE(expr);
   auto off = TMR_OFFSET(expr);
@@ -807,9 +830,39 @@ void my_PLUGIN::dump_mem_ref(const_tree expr)
       fprintf(m_outfp, " base %s", name);
     if ( code == SSA_NAME )
     {
-      fprintf(m_outfp, "(");
-      dump_ssa_name(base);
-      fprintf(m_outfp, ")");
+      if ( need_dump() )
+        fprintf(m_outfp, "(");  
+      dump_ssa_name(base, clutch);
+      if ( need_dump() )
+        fprintf(m_outfp, ")");
+      // case when ssa_name return record/union and clutch.off is non-zero, like
+      // mem_ref base ssa_name( pointer_type ptr2 record_type SSAName abstract) off integer_cst 0 +8
+      if ( !clutch.completed && clutch.off && clutch.last && RECORD_OR_UNION_TYPE_P(clutch.last) )
+      {
+        tree found = NULL_TREE;
+        // lets try find field member with offset clutch.off
+        for ( tree f = TYPE_FIELDS(clutch.last); f; f = TREE_CHAIN(f) )
+        {
+          if ( TREE_CODE(f) != FIELD_DECL )
+            continue;
+          if ( DECL_FIELD_OFFSET(f) && int_byte_position(f) == clutch.off )
+          {  
+            found = f;
+            if ( DECL_NAME(f) )
+              fprintf(m_outfp, " field_off %s", IDENTIFIER_POINTER(DECL_NAME(f)));
+            break;
+          }
+        }
+        if ( TYPE_NAME(clutch.last) && found && DECL_NAME(found) )
+        {
+          clutch.completed = true;
+          clutch.txt = IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(clutch.last)));
+          clutch.txt += ".";
+          clutch.txt += IDENTIFIER_POINTER(DECL_NAME(found));
+          if ( m_db )
+            m_db->add_xref(field, clutch.txt.c_str());
+        }
+      }
     } else if ( code == OBJ_TYPE_REF )
     {
       auto obj = OBJ_TYPE_REF_OBJECT(base);
@@ -820,7 +873,7 @@ void my_PLUGIN::dump_mem_ref(const_tree expr)
         if ( name )
           fprintf(m_outfp, " obj %s", name);
         if ( code == SSA_NAME )
-          dump_ssa_name(base);
+          dump_ssa_name(base, clutch);
       }
     }
   }
@@ -835,7 +888,7 @@ void my_PLUGIN::dump_mem_ref(const_tree expr)
   }
 }
 
-void my_PLUGIN::dump_mem_expr(const_tree expr)
+void my_PLUGIN::dump_mem_expr(const_tree expr, const_rtx in_rtx)
 {
   if ( expr == NULL_TREE )
     return;
@@ -844,17 +897,18 @@ void my_PLUGIN::dump_mem_expr(const_tree expr)
   auto name = get_tree_code_name(code);
   if ( name )
     fprintf(m_outfp, " %s", name);
+  aux_type_clutch clutch(in_rtx);  
   if ( code == MEM_REF )
   {
-    dump_mem_ref(expr);
+    dump_mem_ref(expr, clutch);
     return;
   }
   if ( code != COMPONENT_REF )
     return;
-  dump_comp_ref(expr);
+  dump_comp_ref(expr, clutch);
 }
 
-void my_PLUGIN::dump_comp_ref(const_tree expr)
+void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
 {
   auto op0 = TREE_OPERAND (expr, 0);
   if ( !op0 )
@@ -874,10 +928,10 @@ void my_PLUGIN::dump_comp_ref(const_tree expr)
       fprintf(m_outfp, " (l%s%s", str, name);
     if ( SSA_NAME == code )
     {
-      dump_ssa_name(op0);  
+      dump_ssa_name(op0, clutch);  
     } else if ( COMPONENT_REF == code )
     {
-       dump_comp_ref(op0); 
+       dump_comp_ref(op0, clutch); 
     }
     if ( need_dump() )
       fprintf(m_outfp, ")");
@@ -909,12 +963,15 @@ void my_PLUGIN::dump_comp_ref(const_tree expr)
     {
       if ( need_dump() )
         fprintf(m_outfp, " Name %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
-      if ( m_db && field_name )
+      clutch.last = op1;
+      if ( field_name )
       {
-        std::string pers_arg = IDENTIFIER_POINTER(DECL_NAME(t));
-        pers_arg += ".";
-        pers_arg += IDENTIFIER_POINTER(field_name);
-        m_db->add_xref(field, pers_arg.c_str());
+        clutch.completed = true;
+        clutch.txt = IDENTIFIER_POINTER(DECL_NAME(t));
+        clutch.txt += ".";
+        clutch.txt += IDENTIFIER_POINTER(field_name);  
+        if ( m_db )
+          m_db->add_xref(field, clutch.txt.c_str());
       }
     }
   } else {
@@ -941,7 +998,7 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
     {
       if ( need_dump() )
         fprintf(m_outfp, " VMEM");
-      dump_mem_expr(PAT_VAR_LOCATION_DECL(in_rtx));
+      dump_mem_expr(PAT_VAR_LOCATION_DECL(in_rtx), in_rtx);
       idx = GET_RTX_LENGTH (VAR_LOCATION);       
     }
   }
@@ -979,7 +1036,7 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
     {
       if ( need_dump() )
         fprintf(m_outfp, " MEM");
-      dump_mem_expr(MEM_EXPR (in_rtx));
+      dump_mem_expr(MEM_EXPR (in_rtx), in_rtx);
     }
     if ( MEM_OFFSET_KNOWN_P(in_rtx) )
     {
@@ -1046,6 +1103,7 @@ unsigned int my_PLUGIN::execute(function *fun)
         end_any_block (m_outfp, bb);
         fprintf(m_outfp,"\n----------------------------------------------------------------\n\n");
       }
+      m_known_uids.clear();
       if ( m_db )
         m_db->bb_stop(bb_index);
   }
