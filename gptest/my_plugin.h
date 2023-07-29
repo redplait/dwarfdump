@@ -12,6 +12,25 @@
 
 #include "fpers.h"
 
+struct aux_type_clutch
+{
+  aux_type_clutch()
+   : off(0),
+     completed(false),
+     last(NULL_TREE)
+  { }
+  aux_type_clutch(const aux_type_clutch &r)
+   : off(r.off),
+     completed(false),
+     last(NULL_TREE)
+  { }
+  aux_type_clutch(const_tree);
+  // data
+  HOST_WIDE_INT off;
+  bool completed;
+  const_tree last;
+};
+
 class my_PLUGIN : public rtl_opt_pass
 {
  public:

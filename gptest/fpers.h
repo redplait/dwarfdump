@@ -13,7 +13,7 @@ class FPersistence
   public:
     virtual ~FPersistence() {}
     // 0 if connection was established
-    virtual int connect(const char *) = 0;
+    virtual int connect(const char *path, const char *username, const char *password) = 0;
     virtual void disconnect() {}
     // compilation unit
     virtual void cu_start(const char *) {}

@@ -27,7 +27,7 @@ class pers_text: public FPersistence
        fprintf(m_fp, "# %s\n", cu_name); 
      }
    }
-   virtual int connect(const char *);
+   virtual int connect(const char *, const char *, const char *);
    virtual int func_start(const char *fn)
    {
      m_fn = fn;
@@ -54,7 +54,7 @@ class pers_text: public FPersistence
    bool m_bb_dumped;  
 };
 
-int pers_text::connect(const char *fn)
+int pers_text::connect(const char *fn, const char *u, const char *p)
 {
   if ( m_fp )
   {

@@ -25,6 +25,8 @@ const struct pass_data my_PLUGIN_pass_data =
 
 /* plugin parameters:
     -fplugin-arg-gptest-db=path to file/db connection string
+    -fplugin-arg-gptest-user=db user
+    -fplugin-arg-gptest-password=password for db access
     -fplugin-arg-gptest-dumprtl
     -fplugin-arg-gptest-verbose
  */
@@ -64,7 +66,7 @@ int my_PLUGIN::connect()
 {
   if ( !m_db_str || !m_db )
     return 0;
-  return m_db->connect(m_db_str);
+  return m_db->connect(m_db_str, findArgumentValue("user"), findArgumentValue("password"));
 }
 
 void my_PLUGIN::start_file(const char *fn)
@@ -822,7 +824,7 @@ void my_PLUGIN::dump_mem_ref(const_tree expr)
       }
     }
   }
-  if ( off )
+  if ( off && need_dump() )
   {
     auto code = TREE_CODE(off);
     auto name = get_tree_code_name(code);
@@ -868,7 +870,8 @@ void my_PLUGIN::dump_comp_ref(const_tree expr)
   name = get_tree_code_name(code);
   if ( name )
   {
-    fprintf(m_outfp, " (l%s%s", str, name);
+    if ( need_dump() )
+      fprintf(m_outfp, " (l%s%s", str, name);
     if ( SSA_NAME == code )
     {
       dump_ssa_name(op0);  
@@ -876,7 +879,8 @@ void my_PLUGIN::dump_comp_ref(const_tree expr)
     {
        dump_comp_ref(op0); 
     }
-    fprintf(m_outfp, ")");
+    if ( need_dump() )
+      fprintf(m_outfp, ")");
   }
   if ( !op1 )
     return;    
@@ -903,7 +907,8 @@ void my_PLUGIN::dump_comp_ref(const_tree expr)
   {
     if ( DECL_NAME(t) )
     {
-      fprintf(m_outfp, " Name %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
+      if ( need_dump() )
+        fprintf(m_outfp, " Name %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
       if ( m_db && field_name )
       {
         std::string pers_arg = IDENTIFIER_POINTER(DECL_NAME(t));
@@ -913,10 +918,10 @@ void my_PLUGIN::dump_comp_ref(const_tree expr)
       }
     }
   } else {
-    fprintf(m_outfp, " no_type");
+    fprintf(m_outfp, " no type_name");
     if ( m_db )
     {
-      pass_error("dump_method: no type for ctx %d", code);
+      pass_error("dump_method: no type_name for ctx %d", code);
     }
   }
 }
@@ -965,8 +970,7 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
     if (RTX_FLAG (in_rtx, return_val))
       fputs ("/i", m_outfp);
 
-    fprintf(m_outfp, " %d lim %d", idx, limit);
-    fprintf(m_outfp, " %s", format_ptr);
+    fprintf(m_outfp, " %d lim %d %s", idx, limit, format_ptr);
   }
 
   if ( code == MEM )
@@ -1044,7 +1048,7 @@ unsigned int my_PLUGIN::execute(function *fun)
       }
       if ( m_db )
         m_db->bb_stop(bb_index);
-   }
+  }
   if ( m_db )
     m_db->func_stop(); 
   return 0;
