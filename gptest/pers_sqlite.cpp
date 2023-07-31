@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <sqlite3.h>
 #include <string>
+#include <map>
 #include <string.h>
 #include "fpers.h"
 
@@ -61,6 +62,8 @@ class pers_sqlite: public FPersistence
    int m_func_id;
    int m_bb;
    int max_id;
+   // symbols cache
+   std::map<std::string, int> m_cache;
 };
 
 void pers_sqlite::disconnect()
@@ -265,13 +268,18 @@ int pers_sqlite::add_func()
 
 int pers_sqlite::check_symbol(const char *sname)
 {
+  auto cached = m_cache.find(sname);
+  if ( cached != m_cache.end() )
+    return cached->second;  
   sqlite3_reset(m_check_sym);
   sqlite3_bind_text(m_check_sym, 1, sname, strlen(sname), SQLITE_STATIC);
   int rc;
   if ((rc = sqlite3_step(m_check_sym)) == SQLITE_ROW )
   {
     // yes, we already have this symbol
-    return sqlite3_column_int (m_check_sym, 0);
+    int id = sqlite3_column_int (m_check_sym, 0);
+    m_cache[sname] = id;
+    return id;
   }
   // insert new one
   sqlite3_reset(m_insert_sym);
@@ -280,6 +288,7 @@ int pers_sqlite::check_symbol(const char *sname)
   sqlite3_bind_text(m_insert_sym, 2, sname, strlen(sname), SQLITE_STATIC);
   sqlite3_bind_text(m_insert_sym, 3, "", 0, SQLITE_STATIC);
   sqlite3_step(m_insert_sym);
+  m_cache[sname] = res;
   return res;
 }
 

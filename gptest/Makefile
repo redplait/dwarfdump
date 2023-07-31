@@ -6,7 +6,7 @@ GCC_PLUGIN_INCLUDE_PATH ?= $(shell $(TGCC) -print-file-name=plugin)/include
 CXXFLAGS = -fPIC -shared -fno-rtti -g -std=gnu++14 -w -I $(GCC_PLUGIN_INCLUDE_PATH)
 
 HOST_GCC=/usr/bin/gcc
-# for sqlite add pers_sqlite to PLUGIN_SOURCE_FILES and -lsqlite3 to PLUGIN_LIBS
+# for sqlite replace pers_text.cpp with pers_sqlite.cpp for PLUGIN_SOURCE_FILES and add -lsqlite3 to PLUGIN_LIBS
 PLUGIN_SOURCE_FILES=gptest.cpp pers_text.cpp
 PLUGIN_LIBS=-lstdc++
 
