@@ -70,6 +70,7 @@ class my_PLUGIN : public rtl_opt_pass
   // helpers to detect kind of xref
   int is_symref() const;
   int is_call() const;
+  int is_write() const;
   int is_symref_call() const;
   // expr stack
   void expr_push(const_rtx, int idx);

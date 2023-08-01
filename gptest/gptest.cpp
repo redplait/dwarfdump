@@ -331,6 +331,21 @@ int my_PLUGIN::is_call() const
   return 0;
 }
 
+// scan for set:N X:0
+int my_PLUGIN::is_write() const
+{
+  if ( m_rtexpr.empty() )
+    return 0;
+  int idx = -1;
+  for ( auto r = m_rtexpr.rbegin(); r != m_rtexpr.rend(); ++r )
+  {
+    if ( r->first == SET )
+      return !idx;
+    idx = r->second;
+  }
+  return 0;
+}
+
 int my_PLUGIN::is_symref() const
 {
   if ( m_rtexpr.empty() )
@@ -350,7 +365,7 @@ int my_PLUGIN::is_symref_call() const
   for ( ++r; r != m_rtexpr.rend(); ++r )
   {
     if ( r->first == CALL )
-      return (!idx);
+      return !idx;
     idx = r->second;
   }
   return 0;
@@ -845,12 +860,9 @@ void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
           auto rt = TYPE_NAME(t);
           if ( rt )
           {
-            if ( DECL_NAME(rt) )
-            {
-              clutch.last = t;
-              if ( need_dump() )
+            clutch.last = t;
+            if ( need_dump() && TYPE_IDENTIFIER(rt) )
                 fprintf(m_outfp, " SSAName %s", IDENTIFIER_POINTER(DECL_NAME(rt)) );
-            }
           }
         } else if ( ct0 == METHOD_TYPE )
         {
@@ -1030,13 +1042,14 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
   {
     if ( DECL_NAME(t) )
     {
-      if ( need_dump() )
+      if ( need_dump() && TYPE_IDENTIFIER(t) )
         fprintf(m_outfp, " Name %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
       clutch.last = op1; // store field
       if ( field_name )
       {
         clutch.completed = true;
-        clutch.txt = IDENTIFIER_POINTER(DECL_NAME(t));
+        if ( TYPE_IDENTIFIER(t) )
+          clutch.txt = IDENTIFIER_POINTER(DECL_NAME(t));
         clutch.txt += ".";
         clutch.txt += IDENTIFIER_POINTER(field_name);  
         if ( m_db )
