@@ -791,7 +791,8 @@ bool is_known_ssa_type(const_tree t)
          (code == INTEGER_TYPE) ||
          (code == ENUMERAL_TYPE) ||
          (code == REAL_TYPE) ||
-         (code == COMPLEX_TYPE)
+         (code == COMPLEX_TYPE) ||
+         (code == ARRAY_TYPE)
   ;
 }
 
@@ -834,6 +835,28 @@ void my_PLUGIN::store_aux(aux_type_clutch &clutch)
   }
 }
 
+void my_PLUGIN::dump_containing(const_tree t, aux_type_clutch &clutch)
+{
+  if ( !t )
+  {
+    if ( need_dump() )
+      fprintf(m_outfp, "zero dump_containing\n");
+    return;
+  }
+  auto ct0 = TREE_CODE(t);
+  auto name = get_tree_code_name(ct0);
+  if ( !name )
+    return;
+  if ( need_dump() )
+    fprintf(m_outfp, " cont_type %s", name);  
+}
+
+int type_has_name(const_tree rt)
+{
+  auto tn = DECL_NAME(rt);
+  return (TREE_CODE(rt) == TYPE_DECL && tn && !DECL_NAMELESS(tn));
+}
+
 void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
 {
   auto t = TREE_TYPE(op0);
@@ -854,15 +877,24 @@ void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
       name = get_tree_code_name(ct0);
       if ( name )
       {
-        fprintf(m_outfp, " ptr2 %s", name);
+        if ( need_dump() )
+          fprintf(m_outfp, " ptr2 %s", name);
         if ( RECORD_OR_UNION_TYPE_P(t) )
         {
           auto rt = TYPE_NAME(t);
           if ( rt )
           {
-            clutch.last = t;
-            if ( need_dump() && TYPE_IDENTIFIER(rt) )
+            if ( type_has_name(rt) )
+            {
+              clutch.last = t;
+              if ( need_dump() )
                 fprintf(m_outfp, " SSAName %s", IDENTIFIER_POINTER(DECL_NAME(rt)) );
+            } else {
+              if ( need_dump() )
+                fprintf(m_outfp, " tree_name_code %s", get_tree_code_name(TREE_CODE(rt)));            
+              clutch.last = get_containing_scope(rt);
+              dump_containing(clutch.last, clutch);
+            }
           }
         } else if ( ct0 == METHOD_TYPE )
         {
@@ -872,12 +904,38 @@ void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
         {
           clutch.last = t;
           dump_ftype(t);  
-        } else if ( !is_known_ssa_type(t) ) {
-          fprintf(m_outfp, " UKNOWN_SSA");
+        } else if ( !is_known_ssa_type(t) ) 
+        {
+          if ( need_dump() )
+            fprintf(m_outfp, " UKNOWN_SSA");
           if ( m_db )
             pass_error("UKNOWN_SSA %d", ct0);
         }
       }
+  }
+}
+
+void my_PLUGIN::dump_array_ref(const_tree expr, aux_type_clutch &clutch)
+{
+  auto op0 = TREE_OPERAND(expr, 0);
+  auto op1 = TREE_OPERAND(expr, 1);
+  auto code = TREE_CODE(op0);
+  auto name = get_tree_code_name(code);
+  if ( name )
+    fprintf(m_outfp, " base0 %s", name);
+  if ( code == COMPONENT_REF )
+    dump_comp_ref(op0, clutch);
+  code = TREE_CODE(op1);
+  name = get_tree_code_name(code);
+  if ( name )
+    fprintf(m_outfp, " base1 %s", name);
+  if ( code == SSA_NAME )
+  {
+    if ( need_dump() )
+      fprintf(m_outfp, "(");  
+    dump_ssa_name(op1, clutch);
+    if ( need_dump() )
+      fprintf(m_outfp, ")");
   }
 }
 
@@ -983,6 +1041,11 @@ void my_PLUGIN::dump_mem_expr(const_tree expr, const_rtx in_rtx)
     dump_mem_ref(expr, clutch);
     return;
   }
+  if ( code == ARRAY_REF )
+  {
+    dump_array_ref(expr, clutch);
+    return;
+  }
   if ( code != COMPONENT_REF )
     return;
   dump_comp_ref(expr, clutch);
@@ -1040,21 +1103,24 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
   auto t = TYPE_NAME(ctx);
   if ( t )
   {
-    if ( DECL_NAME(t) )
+    if ( type_has_name(t) )
     {
-      if ( need_dump() && TYPE_IDENTIFIER(t) )
-        fprintf(m_outfp, " Name %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
-      clutch.last = op1; // store field
-      if ( field_name )
-      {
-        clutch.completed = true;
-        if ( TYPE_IDENTIFIER(t) )
-          clutch.txt = IDENTIFIER_POINTER(DECL_NAME(t));
-        clutch.txt += ".";
-        clutch.txt += IDENTIFIER_POINTER(field_name);  
-        if ( m_db )
-          m_db->add_xref(field, clutch.txt.c_str());
-      }
+        if ( need_dump() )
+          fprintf(m_outfp, " Name %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
+        clutch.last = op1; // store field
+    } else {
+      clutch.last = get_containing_scope(ctx);
+      dump_containing(clutch.last, clutch);
+    }
+    if ( field_name )
+    {
+      clutch.completed = true;
+      if ( type_has_name(t) )
+        clutch.txt = IDENTIFIER_POINTER(DECL_NAME(t));
+      clutch.txt += ".";
+      clutch.txt += IDENTIFIER_POINTER(field_name);  
+      if ( m_db )
+        m_db->add_xref(field, clutch.txt.c_str());
     }
   } else {
     fprintf(m_outfp, " no type_name");

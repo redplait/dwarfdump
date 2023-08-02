@@ -49,6 +49,8 @@ class my_PLUGIN : public rtl_opt_pass
   void margin(int);
   int is_vptr(const_tree);
   void store_aux(aux_type_clutch &);
+  void dump_containing(const_tree expr, aux_type_clutch &);
+  void dump_array_ref(const_tree expr, aux_type_clutch &);
   void dump_mem_ref(const_tree expr, aux_type_clutch &);
   void dump_mem_expr(const_tree expr, const_rtx);
   void dump_rmem_expr(const_tree expr, const_rtx);
