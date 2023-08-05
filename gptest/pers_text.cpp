@@ -31,8 +31,13 @@ class pers_text: public FPersistence
    virtual int func_start(const char *fn)
    {
      m_fn = fn;
+     m_func_proto.clear();
      m_func_dunped = false;
      return 1;
+   }
+   virtual void func_proto(const char *p)
+   {
+     m_func_proto = p;
    }
    virtual void bb_start(int idx)
    {
@@ -48,7 +53,7 @@ class pers_text: public FPersistence
 
    FILE *m_fp;
    std::string m_fn;
-   std::string m_func;
+   std::string m_func_proto;
    bool m_func_dunped;
    int m_bb;
    bool m_bb_dumped;  
@@ -117,6 +122,8 @@ void pers_text::check()
   if ( !m_func_dunped )
   {
     fprintf(m_fp, "func %s\n", m_fn.c_str());
+    if ( !m_func_proto.empty() )
+      fprintf(m_fp, "proto %s\n", m_func_proto.c_str());
     m_func_dunped = true;
   }
   if ( !m_bb_dumped )
