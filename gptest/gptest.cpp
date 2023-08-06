@@ -1,5 +1,6 @@
 // This is the first gcc header to be included
 #include "gcc-plugin.h"
+#include "c-family/c-pretty-print.h"
 #include "plugin-version.h"
 #include "print-rtl.h"
 #include "langhooks.h"
@@ -101,6 +102,8 @@ const char* my_PLUGIN::findArgumentValue(const char* key)
    return NULL;
 }
 
+extern void print_declaration (pretty_printer *, tree, int, dump_flags_t);
+extern int dump_generic_node (pretty_printer *, tree, int, dump_flags_t, bool);
 extern void dump_function_header(FILE *, tree, dump_flags_t);
 extern void make_decl_rtl (tree);
 extern char *print_generic_expr_to_str (tree);
@@ -937,7 +940,7 @@ void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
                 fprintf(m_outfp, " SSAName %s", IDENTIFIER_POINTER(DECL_NAME(rt)) );
             } else {
               if ( need_dump() )
-                fprintf(m_outfp, " tree_name_code %s uid %d", get_tree_code_name(TREE_CODE(rt)), TYPE_UID(t));            
+                fprintf(m_outfp, " tree_name_code %s uid %d", get_tree_code_name(TREE_CODE(rt)), TYPE_UID(t));
               clutch.last = t;
               dump_type_tree(t);
             }
@@ -1259,6 +1262,13 @@ unsigned int my_PLUGIN::execute(function *fun)
       aname = (IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME (fdecl)));
     if ( !m_db->func_start(aname) )
       return 0;
+  }
+  if ( m_db )
+  {
+    pretty_printer pp;
+    print_declaration(&pp, fdecl, 0, TDF_MEMSYMS | TDF_ASMNAME); 
+    // dump_generic_node(&pp, fdecl, 0, TDF_MEMSYMS | TDF_ASMNAME, false);
+    m_db->func_proto(pp_formatted_text(&pp));
   }
   if ( m_verbose )
   {
