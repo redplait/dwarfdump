@@ -835,20 +835,66 @@ void my_PLUGIN::store_aux(aux_type_clutch &clutch)
   }
 }
 
+/* type tree are tree_type_non_common which contains embedded tree
+    tree_type_with_lang_specific
+     field common is tree_type_common
+       tree_common
+       size
+       size_unit
+       attributes
+       pointer_to
+       reference_to
+       canonical - TYPE_CANONICAL
+       next_variant - TYPE_NEXT_VARIANT
+       main_variant - TYPE_MAIN_VARIANT
+       context - TYPE_CONTEXT
+       name - TYPE_NAME
+   tree fields:
+     values - actually this is list of fields, see TYPE_FIELDS
+     minval - TYPE_MIN_VALUE
+     maxval - TYPE_MAX_VALUE
+     lang_1 - TYPE_LANG_SLOT_1
+*/
+void my_PLUGIN::dump_type_tree(const_tree in_t)
+{
+  if ( !need_dump() || !in_t )
+    return;
+  const_tree t;
+  bool need_close = false;
+#define DUMP_NODE(name) if ( t ) {        \
+  if ( !need_close ) fputc('(', m_outfp); \
+  need_close = true;                      \
+  fprintf(m_outfp, "(%s %s", name, get_tree_code_name(TREE_CODE(t))); \
+  if ( TYPE_UID(t) ) fprintf(m_outfp, " uid %d", TYPE_UID(t));        \
+  fputc(')', m_outfp); }
+
+  t = TYPE_POINTER_TO(in_t);
+  DUMP_NODE("pointer_to");
+  t = TYPE_REFERENCE_TO(in_t);
+  DUMP_NODE("reference_to");
+  t = TYPE_CANONICAL(in_t);
+  DUMP_NODE("canonical");
+  t = TYPE_NEXT_VARIANT(in_t);
+  DUMP_NODE("next_variant");
+  t = TYPE_MAIN_VARIANT(in_t);
+  DUMP_NODE("main_variant");
+  t = TYPE_CONTEXT(in_t);
+  DUMP_NODE("context");
+  t = TYPE_MIN_VALUE(in_t);
+  DUMP_NODE("min_value");
+  t = TYPE_MAX_VALUE(in_t);
+  DUMP_NODE("max_value");
+  t = TYPE_LANG_SLOT_1(in_t);
+  DUMP_NODE("lang_1");
+  if ( need_close )
+    fputc(')', m_outfp);
+}
+
 void my_PLUGIN::dump_containing(const_tree t, aux_type_clutch &clutch)
 {
   if ( !t )
-  {
-    if ( need_dump() )
-      fprintf(m_outfp, "zero dump_containing\n");
     return;
-  }
-  auto ct0 = TREE_CODE(t);
-  auto name = get_tree_code_name(ct0);
-  if ( !name )
-    return;
-  if ( need_dump() )
-    fprintf(m_outfp, " cont_type %s", name);  
+  dump_type_tree(t);
 }
 
 int type_has_name(const_tree rt)
@@ -891,9 +937,9 @@ void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
                 fprintf(m_outfp, " SSAName %s", IDENTIFIER_POINTER(DECL_NAME(rt)) );
             } else {
               if ( need_dump() )
-                fprintf(m_outfp, " tree_name_code %s", get_tree_code_name(TREE_CODE(rt)));            
-              clutch.last = get_containing_scope(rt);
-              dump_containing(clutch.last, clutch);
+                fprintf(m_outfp, " tree_name_code %s uid %d", get_tree_code_name(TREE_CODE(rt)), TYPE_UID(t));            
+              clutch.last = t;
+              dump_type_tree(t);
             }
           }
         } else if ( ct0 == METHOD_TYPE )
@@ -1105,12 +1151,14 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
   {
     if ( type_has_name(t) )
     {
-        if ( need_dump() )
-          fprintf(m_outfp, " Name %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
-        clutch.last = op1; // store field
+      if ( need_dump() )
+        fprintf(m_outfp, " Name %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
+      clutch.last = op1; // store field
     } else {
-      clutch.last = get_containing_scope(ctx);
-      dump_containing(clutch.last, clutch);
+      if ( need_dump() )
+        fprintf(m_outfp, " tree_name_code %s uid %d", get_tree_code_name(TREE_CODE(t)), TYPE_UID(ctx));
+      // clutch.last = get_containing_scope(ctx);
+      dump_containing(ctx, clutch);
     }
     if ( field_name )
     {
