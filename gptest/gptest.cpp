@@ -491,7 +491,8 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
   int was_nl = 0;
   const char *str;
   margin(level + 2);
-  fprintf(m_outfp, "[%d] ", idx);
+  if ( need_dump() )
+    fprintf(m_outfp, "[%d] ", idx);
   switch(f)
   {
     case 'T':
@@ -563,8 +564,10 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
         expr_push(in_rtx, idx);
         dump_mem_expr(DEBUG_PARAMETER_REF_DECL (in_rtx), in_rtx);
         expr_pop();
-      } else
-        fprintf(m_outfp, "XTREE");
+      } else {
+        if ( need_dump() )
+          fprintf(m_outfp, "XTREE");
+      }
       break;
 
    case 'w':
@@ -716,7 +719,7 @@ void my_PLUGIN::dump_method(const_tree expr)
       fprintf(m_outfp, " vindex " HOST_WIDE_INT_PRINT_DEC, tree_to_shwi(vi));
   } else {
     auto name = get_tree_code_name(code);
-    if ( name )
+    if ( name && need_dump() )
       fprintf(m_outfp, " vindex_type %s", name);
   }
   HOST_WIDE_INT vi0 = extract_vindex(expr);
@@ -729,7 +732,7 @@ void my_PLUGIN::dump_method(const_tree expr)
     if ( parent_type )
     {  
       auto base = TYPE_NAME(parent_type);
-      if ( DECL_NAME(base) )
+      if ( DECL_NAME(base) && need_dump() )
         fprintf(m_outfp, " basetype %s", IDENTIFIER_POINTER(DECL_NAME(base)));
       
       tree found = NULL_TREE;
@@ -741,7 +744,7 @@ void my_PLUGIN::dump_method(const_tree expr)
         if ( TREE_TYPE(f) != expr )
           continue;
         found = f;
-        if ( DECL_NAME(f) )
+        if ( DECL_NAME(f) && need_dump() )
           fprintf(m_outfp, " vmethod %s", IDENTIFIER_POINTER(DECL_NAME(f)));
         break;
       }
@@ -777,7 +780,8 @@ void my_PLUGIN::dump_method(const_tree expr)
     }
     dump_tree_MF(expr);
   } else {
-    fprintf(m_outfp, " no_typename");
+    if ( need_dump() )
+      fprintf(m_outfp, " no_typename");
     if ( m_db )
     {
       code = TREE_CODE(expr);
@@ -871,10 +875,10 @@ void my_PLUGIN::dump_type_tree(const_tree in_t)
   if ( TYPE_UID(t) ) fprintf(m_outfp, " uid %d", TYPE_UID(t));        \
   fputc(')', m_outfp); }
 
-  t = TYPE_POINTER_TO(in_t);
-  DUMP_NODE("pointer_to");
-  t = TYPE_REFERENCE_TO(in_t);
-  DUMP_NODE("reference_to");
+//  t = TYPE_POINTER_TO(in_t);
+//  DUMP_NODE("pointer_to");
+//  t = TYPE_REFERENCE_TO(in_t);
+//  DUMP_NODE("reference_to");
   t = TYPE_CANONICAL(in_t);
   DUMP_NODE("canonical");
   t = TYPE_NEXT_VARIANT(in_t);
@@ -893,17 +897,52 @@ void my_PLUGIN::dump_type_tree(const_tree in_t)
     fputc(')', m_outfp);
 }
 
-void my_PLUGIN::dump_containing(const_tree t, aux_type_clutch &clutch)
+/* tree_field_decl contains embedded tree_decl_common with
+     size_unit - DECL_SIZE_UNIT
+     initial - DECL_INITIAL
+     attributes
+     abstract_origin - DECL_ABSTRACT_ORIGIN
+   tree fields:
+     offset - DECL_FIELD_OFFSET
+     bit_field_type - DECL_BIT_FIELD_TYPE
+     qualifier - DECL_QUALIFIER
+     bit_offset - DECL_FIELD_BIT_OFFSET
+     fcontext - DECL_FCONTEXT
+*/ 
+void my_PLUGIN::dump_field_decl(const_tree in_t)
 {
-  if ( !t )
+  if ( !need_dump() || !in_t )
     return;
-  dump_type_tree(t);
+  const_tree t;
+  bool need_close = false;
+  t = DECL_INITIAL(in_t);
+  DUMP_NODE("initial");
+  t = DECL_ABSTRACT_ORIGIN(in_t);
+  DUMP_NODE("abstract_origin");
+  t = DECL_QUALIFIER(in_t);
+  DUMP_NODE("qualifier");
+  t = DECL_FCONTEXT(in_t);
+  DUMP_NODE("fcontext");
+  if ( need_close )
+    fputc(')', m_outfp);
 }
 
 int type_has_name(const_tree rt)
 {
   auto tn = DECL_NAME(rt);
   return (TREE_CODE(rt) == TYPE_DECL && tn && !DECL_NAMELESS(tn));
+}
+
+// f - field decl
+void my_PLUGIN::try_nameless(const_tree f, aux_type_clutch &clutch)
+{
+  if ( !f )
+    return;
+  // check that we have field name
+  auto fn = DECL_NAME(f);
+  if ( !fn || DECL_NAMELESS(fn) )
+    return;
+  dump_field_decl(f);
 }
 
 void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
@@ -970,13 +1009,13 @@ void my_PLUGIN::dump_array_ref(const_tree expr, aux_type_clutch &clutch)
   auto op1 = TREE_OPERAND(expr, 1);
   auto code = TREE_CODE(op0);
   auto name = get_tree_code_name(code);
-  if ( name )
+  if ( name && need_dump() )
     fprintf(m_outfp, " base0 %s", name);
   if ( code == COMPONENT_REF )
     dump_comp_ref(op0, clutch);
   code = TREE_CODE(op1);
   name = get_tree_code_name(code);
-  if ( name )
+  if ( name && need_dump() )
     fprintf(m_outfp, " base1 %s", name);
   if ( code == SSA_NAME )
   {
@@ -996,7 +1035,7 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
   {
     auto code = TREE_CODE(base);
     auto name = get_tree_code_name(code);
-    if ( name )
+    if ( name && need_dump() )
       fprintf(m_outfp, " base %s", name);
     if ( code == SSA_NAME )
     {
@@ -1035,7 +1074,7 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
           if ( DECL_FIELD_OFFSET(f) && int_byte_position(f) == clutch.off )
           {  
             found = f;
-            if ( DECL_NAME(f) )
+            if ( DECL_NAME(f) && need_dump() )
               fprintf(m_outfp, " field_off %s", IDENTIFIER_POINTER(DECL_NAME(f)));
             break;
           }
@@ -1057,10 +1096,16 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
       {
         code = TREE_CODE(obj);
         name = get_tree_code_name(code);
-        if ( name )
+        if ( name && need_dump() )
           fprintf(m_outfp, " obj %s", name);
         if ( code == SSA_NAME )
           dump_ssa_name(base, clutch);
+        else {
+          if ( need_dump() )
+            fprintf(m_outfp, " unknown obj_type_ref %d", code);
+          if ( m_db )
+            pass_error("unknown obj_type_ref %d", code);
+        }
       }
     }
   }
@@ -1082,7 +1127,7 @@ void my_PLUGIN::dump_mem_expr(const_tree expr, const_rtx in_rtx)
   dump_exprs();  
   auto code = TREE_CODE(expr);
   auto name = get_tree_code_name(code);
-  if ( name )
+  if ( name && need_dump() )
     fprintf(m_outfp, " %s", name);
   aux_type_clutch clutch(in_rtx);  
   if ( code == MEM_REF )
@@ -1133,20 +1178,20 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
     return;    
   code = TREE_CODE(op1);
   name = get_tree_code_name(code);
-  if ( name )
+  if ( name && need_dump() )
     fprintf(m_outfp, " r:%s", name);
   if ( code != FIELD_DECL )
     return;
   // dump field name
   auto field_name = DECL_NAME(op1);
-  if ( field_name )
+  if ( field_name && need_dump() )
     fprintf(m_outfp, " FName %s", IDENTIFIER_POINTER(field_name));
   auto ctx = DECL_CONTEXT(op1);
   if ( !ctx )
     return;
   code = TREE_CODE(ctx);
   name = get_tree_code_name(code);
-  if ( name )
+  if ( name && need_dump() )
     fprintf(m_outfp, " %s", name);
   // record/union name
   auto t = TYPE_NAME(ctx);
@@ -1160,8 +1205,8 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
     } else {
       if ( need_dump() )
         fprintf(m_outfp, " tree_name_code %s uid %d", get_tree_code_name(TREE_CODE(t)), TYPE_UID(ctx));
-      // clutch.last = get_containing_scope(ctx);
-      dump_containing(ctx, clutch);
+      clutch.last = ctx;
+      try_nameless(op1, clutch);
     }
     if ( field_name )
     {
@@ -1174,7 +1219,8 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
         m_db->add_xref(field, clutch.txt.c_str());
     }
   } else {
-    fprintf(m_outfp, " no type_name");
+    if ( need_dump() )
+      fprintf(m_outfp, " no type_name");
     if ( m_db )
     {
       pass_error("dump_method: no type_name for ctx %d", code);
