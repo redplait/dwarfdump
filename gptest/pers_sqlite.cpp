@@ -5,6 +5,8 @@
 #include <string.h>
 #include "fpers.h"
 
+#define CACHE_ALLSYMS
+
 class pers_sqlite: public FPersistence
 {
   public:
@@ -142,6 +144,7 @@ int pers_sqlite::create_new_db(const char *dbname)
 }
 
 // various CRUD statements to prepare, params binded by index
+const char *pr_all_sym = "SELECT id, fname FROM symtab;";
 const char *pr_check_sym = "SELECT id, fname FROM symtab WHERE name = ?;";
 const char *pr_update_fname = "UPDATE symtab SET fname = ? WHERE id = ?;";
 const char *pr_insert_sym = "INSERT INTO symtab (id, name, fname) VALUES (?, ?, ?);";
@@ -344,6 +347,22 @@ int pers_sqlite::connect(const char *dbname, const char *user, const char *pass)
   res = prepare();
   if ( res )
     fprintf(stderr, "prepare res %d\n", res);
+ #ifdef CACHE_ALLSYMS
+   sqlite3_stmt *stmt;  
+   res = sqlite3_prepare_v2(m_db, pr_all_sym, -1, &stmt, NULL);
+  if (res != SQLITE_OK) {
+    fprintf(stderr, "error %d when prepare all_sym\n", res);
+    return res;
+  }
+  while ( sqlite3_step(stmt) == SQLITE_ROW )
+  {
+    int id = sqlite3_column_int (stmt, 0);
+    const char *sname = (const char *)sqlite3_column_text(stmt, 1);
+    if ( sname )
+      m_cache[sname] = id;
+  }
+  sqlite3_finalize(stmt);
+#endif /* CACHE_ALLSYMS */   
   return res;  
 }
 
