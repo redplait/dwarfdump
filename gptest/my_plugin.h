@@ -98,6 +98,7 @@ class my_PLUGIN : public rtl_opt_pass
   // args
   bool m_dump_rtl;
   bool m_verbose;
+  bool m_asmproto;
   const char *m_db_str;
   // db
   FPersistence *m_db;

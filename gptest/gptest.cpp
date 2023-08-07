@@ -28,6 +28,7 @@ const struct pass_data my_PLUGIN_pass_data =
     -fplugin-arg-gptest-db=path to file/db connection string
     -fplugin-arg-gptest-user=db user
     -fplugin-arg-gptest-password=password for db access
+    -fplugin-arg-gptest-asmproto
     -fplugin-arg-gptest-dumprtl
     -fplugin-arg-gptest-verbose
  */
@@ -40,6 +41,7 @@ my_PLUGIN::my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int 
     argc = argcounter;   // number of arguments
     args = arguments;    // array containing arrguments (key,value)
     m_outfp = stdout;
+    m_asmproto = existsArgument("asmproto"); 
     m_dump_rtl = existsArgument("dumprtl");
     m_verbose = existsArgument(pname_verbose);
     m_db_str = findArgumentValue("db");
@@ -1204,7 +1206,7 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
       clutch.last = op1; // store field
     } else {
       if ( need_dump() )
-        fprintf(m_outfp, " tree_name_code %s uid %d", get_tree_code_name(TREE_CODE(t)), TYPE_UID(ctx));
+        fprintf(m_outfp, " tree_nameless_code %s uid %d", get_tree_code_name(TREE_CODE(t)), TYPE_UID(ctx));
       clutch.last = ctx;
       try_nameless(op1, clutch);
     }
@@ -1312,8 +1314,8 @@ unsigned int my_PLUGIN::execute(function *fun)
   if ( m_db )
   {
     pretty_printer pp;
-    print_declaration(&pp, fdecl, 0, TDF_MEMSYMS | TDF_ASMNAME); 
-    // dump_generic_node(&pp, fdecl, 0, TDF_MEMSYMS | TDF_ASMNAME, false);
+    print_declaration(&pp, fdecl, 0, m_asmproto ? (TDF_MEMSYMS | TDF_ASMNAME) : TDF_MEMSYMS); 
+    // dump_generic_node(&pp, fdecl, 0, m_asmproto ? (TDF_MEMSYMS | TDF_ASMNAME) : TDF_MEMSYMS, false);
     m_db->func_proto(pp_formatted_text(&pp));
   }
   if ( m_verbose )
