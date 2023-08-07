@@ -17,11 +17,13 @@ struct aux_type_clutch
 {
   aux_type_clutch()
    : off(0),
+     level(0),
      completed(false),
      last(NULL_TREE)
   { }
   aux_type_clutch(const aux_type_clutch &r)
    : off(r.off),
+     level(r.level),
      completed(false),
      last(NULL_TREE)
   { }
@@ -29,6 +31,7 @@ struct aux_type_clutch
   // data
   HOST_WIDE_INT off; // in param
   std::string txt;
+  int level;
   bool completed;
   const_tree last;
 };

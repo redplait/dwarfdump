@@ -306,6 +306,7 @@ void my_PLUGIN::pass_error(const char *fmt, ...)
 
 aux_type_clutch::aux_type_clutch(const_rtx in_rtx)
  : completed(false),
+   level(0),
    last(NULL_TREE)
 {
   off = 0;
@@ -1148,8 +1149,45 @@ void my_PLUGIN::dump_mem_expr(const_tree expr, const_rtx in_rtx)
   store_aux(clutch);
 }
 
+/* lets assume that we have some record with lots of nested types and then somewhere in code access like
+     field0.field1, ... .fieldN
+   tree for this case will contain lots of COMPONENT_REF
+level 0                                 comp_ref N
+                                        /     \
+level 1                  comp_ref N - 1       field N
+                            /       \
+level 2            comp_ref N - 2    field N - 1
+                      /          \
+                     /           field N - 2
+                   ...
+level N      comp_ref 0
+             /      \
+         type 0     field 0
+
+   So we need type only in deepest level and this expression will be completed at level 0
+   As you my notice at bottom level aux_type_clutch.txt is empty
+*/
+struct comp_level
+{
+  comp_level(aux_type_clutch &clutch)
+   : m_clutch(clutch)
+  {
+    m_clutch.level++;
+  }
+  ~comp_level()
+  {
+    m_clutch.level--;
+  }
+  bool is_top() const
+  {
+     return !(m_clutch.level - 1);
+  }
+  aux_type_clutch &m_clutch; 
+};
+
 void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
 {
+  comp_level lvl(clutch);
   auto op0 = TREE_OPERAND (expr, 0);
   if ( !op0 )
     return;
@@ -1175,6 +1213,8 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
     }
     if ( need_dump() )
       fprintf(m_outfp, ")");
+    if ( code == VAR_DECL )
+      return;
   }
   if ( !op1 )
     return;    
@@ -1196,37 +1236,52 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
   if ( name && need_dump() )
     fprintf(m_outfp, " %s", name);
   // record/union name
-  auto t = TYPE_NAME(ctx);
-  if ( t )
+  auto tn = TYPE_NAME(ctx);
+  const char* type_name = NULL;
+  if ( tn && type_has_name(tn) )
   {
-    if ( type_has_name(t) )
+    type_name = IDENTIFIER_POINTER(DECL_NAME(tn));
+    if ( need_dump() )
+      fprintf(m_outfp, " Name %s", type_name );
+    clutch.last = op1; // store field
+  } else if (tn) {
+    if ( need_dump() )
+      fprintf(m_outfp, " tree_nameless_code %s uid %d", get_tree_code_name(TREE_CODE(tn)), TYPE_UID(ctx));
+    clutch.last = ctx;
+    try_nameless(op1, clutch);
+  }
+  if ( field_name )
+  {
+    // do we at deepest level?
+    if ( clutch.txt.empty() )
     {
-      if ( need_dump() )
-        fprintf(m_outfp, " Name %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
-      clutch.last = op1; // store field
+      if ( NULL == type_name )
+      {
+        clutch.txt = IDENTIFIER_POINTER(field_name);
+      } else {
+        clutch.txt = type_name;
+        clutch.txt += ".";
+        clutch.txt += IDENTIFIER_POINTER(field_name);      
+      }
     } else {
-      if ( need_dump() )
-        fprintf(m_outfp, " tree_nameless_code %s uid %d", get_tree_code_name(TREE_CODE(t)), TYPE_UID(ctx));
-      clutch.last = ctx;
-      try_nameless(op1, clutch);
-    }
-    if ( field_name )
-    {
-      clutch.completed = true;
-      if ( type_has_name(t) )
-        clutch.txt = IDENTIFIER_POINTER(DECL_NAME(t));
       clutch.txt += ".";
-      clutch.txt += IDENTIFIER_POINTER(field_name);  
-      if ( m_db )
-        m_db->add_xref(field, clutch.txt.c_str());
+      clutch.txt += IDENTIFIER_POINTER(field_name);
     }
-  } else {
+  }
+  if ( !tn )
+  {
     if ( need_dump() )
       fprintf(m_outfp, " no type_name");
     if ( m_db )
-    {
-      pass_error("dump_method: no type_name for ctx %d", code);
-    }
+      pass_error("dump_comp_ref: no type_name for ctx %d", code);
+  }
+//  if ( !clutch.txt.empty() )
+//    fprintf(m_outfp, "dump_comp_ref level %d %s", clutch.level, clutch.txt.c_str());
+  if ( lvl.is_top() && !clutch.txt.empty() )
+  {
+    clutch.completed = true;
+    if ( m_db )
+      m_db->add_xref(field, clutch.txt.c_str());
   }
 }
 
