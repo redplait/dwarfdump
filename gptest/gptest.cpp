@@ -47,6 +47,8 @@ my_PLUGIN::my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int 
     m_db_str = findArgumentValue("db");
     if ( m_db_str )
       m_db = get_pers();
+    if ( m_db && !m_dump_rtl )
+      m_outfp = NULL;
 }
 
 my_PLUGIN::~my_PLUGIN()
@@ -310,6 +312,9 @@ aux_type_clutch::aux_type_clutch(const_rtx in_rtx)
    last(NULL_TREE)
 {
   off = 0;
+  auto code = GET_CODE(in_rtx);
+  if ( code == DEBUG_PARAMETER_REF )
+    return;
   if ( MEM_OFFSET_KNOWN_P(in_rtx) )
   {
     auto x = MEM_OFFSET(in_rtx);
@@ -729,7 +734,7 @@ void my_PLUGIN::dump_method(const_tree expr)
   auto t = TREE_TYPE(expr);
   if ( t )
   {
- //   if ( DECL_NAME(t) )
+ //   if ( DECL_NAME(t) && need_dump() )
  //     fprintf(m_outfp, " MName %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
     tree parent_type = TYPE_METHOD_BASETYPE(expr);
     if ( parent_type )
@@ -1085,9 +1090,15 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
         if ( TYPE_NAME(clutch.last) && found && DECL_NAME(found) )
         {
           clutch.completed = true;
-          clutch.txt = IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(clutch.last)));
-          clutch.txt += ".";
-          clutch.txt += IDENTIFIER_POINTER(DECL_NAME(found));
+          if ( type_has_name(TYPE_NAME(clutch.last)) )
+          {
+            clutch.txt = IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(clutch.last)));
+            clutch.txt += ".";
+            clutch.txt += IDENTIFIER_POINTER(DECL_NAME(found));
+          } else {
+            clutch.txt = IDENTIFIER_POINTER(DECL_NAME(found));
+            dump_type_tree(clutch.last);
+          }
           if ( m_db )
             m_db->add_xref(field, clutch.txt.c_str());
         }
@@ -1125,7 +1136,7 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
 
 void my_PLUGIN::dump_mem_expr(const_tree expr, const_rtx in_rtx)
 {
-  if ( expr == NULL_TREE )
+  if ( expr == NULL_TREE || !in_rtx )
     return;
   dump_exprs();  
   auto code = TREE_CODE(expr);
@@ -1340,7 +1351,7 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
         fprintf(m_outfp, " MEM");
       dump_mem_expr(MEM_EXPR (in_rtx), in_rtx);
     }
-    if ( MEM_OFFSET_KNOWN_P(in_rtx) )
+    if ( MEM_OFFSET_KNOWN_P(in_rtx) && need_dump() )
     {
       fprintf(m_outfp, " +");
       print_poly_int (m_outfp, MEM_OFFSET(in_rtx));
