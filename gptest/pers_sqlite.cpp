@@ -6,6 +6,7 @@
 #include "fpers.h"
 
 #define CACHE_ALLSYMS
+// #define USE_INDEXES
 
 class pers_sqlite: public FPersistence
 {
@@ -98,12 +99,16 @@ const char *cr_symtab = "CREATE TABLE IF NOT EXISTS symtab ("
  ");"
 ;
 
+const char *idx_symtab = "CREATE UNIQUE INDEX idx_symtab ON symtab(name);";
+
 const char *cr_error = "CREATE TABLE IF NOT EXISTS errlog ("
  "id INTEGER,"
  "bb INTEGER," 
  "msg TEXT"
  ");"
 ;
+
+const char *idx_error = "CREATE INDEX idx_errlog ON symtab(id);";
 
 const char *cr_xrefs = "CREATE TABLE IF NOT EXISTS xrefs ("
  "id INTEGER,"
@@ -113,15 +118,27 @@ const char *cr_xrefs = "CREATE TABLE IF NOT EXISTS xrefs ("
  ");"
 ;
 
+const char *idx_xrefs = "CREATE INDEX idx_xrefs ON xrefs(id);";
+
 struct sql_tab {
  const char *stmt;
  const char *name;
+ int tab; // if 0 - index
 };
 
 static const sql_tab sq[] = {
-  { cr_symtab, "symtab" },
-  { cr_error, "errlog" },
-  { cr_xrefs, "xrefs" },  
+  { cr_symtab, "symtab", 1 },
+#ifndef CACHE_ALLSYMS
+  { idx_symtab, "idx_symtab", 0},
+#endif /* !CACHE_ALLSYMS */
+  { cr_error, "errlog", 1 },
+#ifdef USE_INDEXES  
+  { idx_error, "idx_errlog", 0 },
+#endif  
+  { cr_xrefs, "xrefs", 1 },
+#ifdef USE_INDEXES
+  { idx_xrefs, "idx_xrefs", 0 },
+#endif    
 };
 
 // called on creating db
@@ -136,7 +153,8 @@ int pers_sqlite::create_new_db(const char *dbname)
     res = sqlite3_exec(m_db, sq[i].stmt, NULL, NULL, &errmsg);
     if ( res != SQLITE_OK )
     {
-      fprintf(stderr, "error %d while create table %s: %s\n", res, sq[i].name, errmsg);  
+      fprintf(stderr, "error %d while create %s %s: %s\n", 
+        sq[i].tab ? "table" : "index", res, sq[i].name, errmsg);  
       return res;  
     }
   }
@@ -266,6 +284,7 @@ int pers_sqlite::add_func()
   sqlite3_bind_text(m_insert_sym, 2, m_func.c_str(), m_func.size(), SQLITE_STATIC);
   sqlite3_bind_text(m_insert_sym, 3, m_fn.c_str(), m_fn.size(), SQLITE_STATIC);
   sqlite3_step(m_insert_sym);
+  m_cache[m_func] = m_func_id;
   return 1;
 }
 
@@ -273,7 +292,9 @@ int pers_sqlite::check_symbol(const char *sname)
 {
   auto cached = m_cache.find(sname);
   if ( cached != m_cache.end() )
-    return cached->second;  
+    return cached->second;
+#ifndef CACHE_ALLSYMS
+  // on big codebase this query very quickly becomes tooooo sloooooow
   sqlite3_reset(m_check_sym);
   sqlite3_bind_text(m_check_sym, 1, sname, strlen(sname), SQLITE_STATIC);
   int rc;
@@ -284,6 +305,7 @@ int pers_sqlite::check_symbol(const char *sname)
     m_cache[sname] = id;
     return id;
   }
+#endif /* !CACHE_ALLSYMS */
   // insert new one
   sqlite3_reset(m_insert_sym);
   int res = ++max_id;
