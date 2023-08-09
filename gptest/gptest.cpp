@@ -313,7 +313,7 @@ aux_type_clutch::aux_type_clutch(const_rtx in_rtx)
 {
   off = 0;
   auto code = GET_CODE(in_rtx);
-  if ( code == DEBUG_PARAMETER_REF )
+  if ( code == DEBUG_PARAMETER_REF || code == DEBUG_IMPLICIT_PTR )
     return;
   if ( MEM_OFFSET_KNOWN_P(in_rtx) )
   {
@@ -1413,7 +1413,7 @@ unsigned int my_PLUGIN::execute(function *fun)
       rtx_insn* insn;
       FOR_BB_INSNS(bb, insn)
       {
-        if ( NONDEBUG_INSN_P(insn) )
+        if ( NONDEBUG_INSN_P(insn) || LABEL_P(insn) || JUMP_TABLE_DATA_P(insn) )
           dump_rtx_hl(insn);
         if ( m_dump_rtl )  
           w.print_rtl_single_with_indent(insn, 0);
