@@ -3,6 +3,9 @@
 #include "c-family/c-pretty-print.h"
 #include "plugin-version.h"
 #include "print-rtl.h"
+#include "memmodel.h"
+#include "rtl.h"
+#include "emit-rtl.h"
 #include "langhooks.h"
 
 #include <iostream>
@@ -236,6 +239,51 @@ void my_PLUGIN::margin(int level)
   fputc(';', m_outfp);
   for ( int i = 0; i < level; i++ )
     fputc(' ', m_outfp);
+}
+
+int type_has_name(const_tree rt)
+{
+  auto tn = DECL_NAME(rt);
+  return (TREE_CODE(rt) == TYPE_DECL && tn && !DECL_NAMELESS(tn));
+}
+
+int my_PLUGIN::dump_0_operand(const_rtx in_rtx, int idx, int level)
+{
+  if ( 1 == idx && GET_CODE(in_rtx) == SYMBOL_REF )
+  {
+    int flags = SYMBOL_REF_FLAGS(in_rtx);
+    if ( flags && need_dump() )
+      fprintf(m_outfp, "symbol_flags %X ", flags);
+    tree decl = SYMBOL_REF_DECL(in_rtx);
+    if ( decl && need_dump() )
+    {
+      auto code = TREE_CODE(decl);
+      auto name = get_tree_code_name(code);
+      if ( name )
+        fprintf(m_outfp, "decl %s ", name);
+      if ( code == VAR_DECL )
+      {
+        if ( DECL_IN_TEXT_SECTION(decl) )
+          fprintf(m_outfp, "in_text ");
+        if ( DECL_IN_CONSTANT_POOL(decl) )
+          fprintf(m_outfp, "in_cpool ");
+        if ( DECL_BY_REFERENCE(decl) )
+          fprintf(m_outfp, "byref ");
+        if ( DECL_HAS_VALUE_EXPR_P(decl) )
+          fprintf(m_outfp, "has_value ");
+        auto v = DECL_INITIAL(decl);
+        if ( v )
+        {
+          code = TREE_CODE(v);
+          name = get_tree_code_name(code);
+          if ( name )
+            fprintf(m_outfp, "initial %s ", name);
+          dump_tree_MF(v);
+        } 
+      }
+    }
+  }
+  return 0; 
 }
 
 int my_PLUGIN::dump_u_operand(const_rtx in_rtx, int idx, int level)
@@ -537,6 +585,10 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
 
    case 'r':
       was_nl = dump_r_operand(in_rtx, idx, level);
+      break;
+
+   case '0':
+      was_nl = dump_0_operand(in_rtx, idx, level);
       break;
 
    case 'u':
@@ -933,12 +985,6 @@ void my_PLUGIN::dump_field_decl(const_tree in_t)
   DUMP_NODE("fcontext");
   if ( need_close )
     fputc(')', m_outfp);
-}
-
-int type_has_name(const_tree rt)
-{
-  auto tn = DECL_NAME(rt);
-  return (TREE_CODE(rt) == TYPE_DECL && tn && !DECL_NAMELESS(tn));
 }
 
 // f - field decl
@@ -1399,6 +1445,18 @@ unsigned int my_PLUGIN::execute(function *fun)
       print_param (m_outfp, w, arg);
   }
 
+  // try find table datas
+  rtx_insn* insn;
+  for ( insn = get_insns(); insn; insn = NEXT_INSN(insn) )
+  {
+    if ( JUMP_TABLE_DATA_P(insn) )
+    {
+      dump_rtx_hl(insn);
+      if ( m_dump_rtl )  
+        w.print_rtl_single_with_indent(insn, 0);
+    }
+  }
+
   basic_block bb;
   FOR_ALL_BB_FN(bb, fun)
   { // Loop over all Basic Blocks in the function, fun = current function
@@ -1410,10 +1468,9 @@ unsigned int my_PLUGIN::execute(function *fun)
       }
       if ( m_db )
         m_db->bb_start(bb_index);
-      rtx_insn* insn;
       FOR_BB_INSNS(bb, insn)
       {
-        if ( NONDEBUG_INSN_P(insn) || LABEL_P(insn) || JUMP_TABLE_DATA_P(insn) )
+        if ( NONDEBUG_INSN_P(insn) || LABEL_P(insn) )
           dump_rtx_hl(insn);
         if ( m_dump_rtl )  
           w.print_rtl_single_with_indent(insn, 0);
