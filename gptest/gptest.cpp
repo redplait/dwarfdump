@@ -282,6 +282,21 @@ int my_PLUGIN::dump_0_operand(const_rtx in_rtx, int idx, int level)
         } 
       }
     }
+    return 0;
+  }
+  if ( idx == 7 && JUMP_P(in_rtx) )
+  {
+    const_rtx jl = JUMP_LABEL(in_rtx);
+    if ( !jl )
+      return 0;
+    auto code = GET_CODE(jl);
+    if ( need_dump() )
+      fprintf(m_outfp, "jl %s\n", GET_RTX_NAME(code));
+    if ( code == CODE_LABEL )
+    {
+      dump_rtx(jl, 1 + level);
+      return 1;
+    }
   }
   return 0; 
 }
@@ -296,8 +311,13 @@ int my_PLUGIN::dump_u_operand(const_rtx in_rtx, int idx, int level)
     {
       if (subc != CODE_LABEL)
       {
-         return dump_e_operand(in_rtx, idx, level + 1);
+        return dump_e_operand(in_rtx, idx, level + 1);
       }
+    }
+    if ( need_dump() && idx <= 1 && !m_rtexpr.empty() )
+    {
+      // dump_exprs();
+      fprintf(m_outfp, "%d", INSN_UID(sub));
     }
   }
   return 0;  
@@ -642,6 +662,11 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
     case 'p':
       if ( need_dump() )
         print_poly_int (m_outfp, SUBREG_BYTE (in_rtx));
+      break;
+
+    case 'B':
+       if ( need_dump() && XBBDEF(in_rtx, idx) )
+         fprintf(m_outfp, "block %d", XBBDEF(in_rtx, idx)->index);
       break;
 
   }
