@@ -27,6 +27,7 @@ class FPersistence
     virtual void bb_stop(int idx) {}
     // main method
     virtual void add_xref(xref_kind, const char *) {}
+    virtual void add_literal(const char *, int size) {}
     // report errors
     virtual void report_error(const char *) {}
 };

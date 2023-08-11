@@ -247,6 +247,24 @@ int type_has_name(const_tree rt)
   return (TREE_CODE(rt) == TYPE_DECL && tn && !DECL_NAMELESS(tn));
 }
 
+const char *my_PLUGIN::is_cliteral(const_rtx in_rtx, int &csize)
+{
+  if ( GET_CODE(in_rtx) != SYMBOL_REF )
+    return NULL;
+  tree decl = SYMBOL_REF_DECL(in_rtx);
+  if ( !decl )
+    return NULL;
+  if ( TREE_CODE(decl) != VAR_DECL )
+    return NULL;
+  auto v = DECL_INITIAL(decl);
+  if ( !v )
+    return NULL;
+  if ( TREE_CODE(v) != STRING_CST )
+    return NULL;
+  csize = TREE_STRING_LENGTH(v);
+  return TREE_STRING_POINTER(v);
+}
+
 int my_PLUGIN::dump_0_operand(const_rtx in_rtx, int idx, int level)
 {
   if ( 1 == idx && GET_CODE(in_rtx) == SYMBOL_REF )
@@ -291,12 +309,18 @@ int my_PLUGIN::dump_0_operand(const_rtx in_rtx, int idx, int level)
       return 0;
     auto code = GET_CODE(jl);
     if ( need_dump() )
-      fprintf(m_outfp, "jl %s\n", GET_RTX_NAME(code));
-    if ( code == CODE_LABEL )
+    {
+      auto jcode = GET_CODE(jl);
+      if ( jcode == RETURN || jcode == SIMPLE_RETURN )
+        fprintf(m_outfp, "jl %s\n", GET_RTX_NAME(code));
+      else 
+        fprintf(m_outfp, "jl %s to %d\n", GET_RTX_NAME(code), INSN_UID(jl));
+    }
+/*    if ( code == CODE_LABEL )
     {
       dump_rtx(jl, 1 + level);
       return 1;
-    }
+    } */
   }
   return 0; 
 }
@@ -586,14 +610,24 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
           fputs ("(nil)", m_outfp);
       } else {
           dump_exprs();
+          int len = 0;
+          const char *cres = is_cliteral(in_rtx, len);
           if ( need_dump() )
-            fprintf (m_outfp, " (%s)", str);
+          {
+            if ( cres )
+              fprintf (m_outfp, " (%s) len %d", str, len);
+            else
+              fprintf (m_outfp, " (%s)", str);
+          }
           if ( m_db && is_symref() )
           {
             xref_kind kind = xref;
             if ( is_symref_call() )
               kind = xcall;
-            m_db->add_xref(kind, str);
+            if ( cres )
+              m_db->add_literal(cres, len);
+            else
+              m_db->add_xref(kind, str);
           }
         }
       break;
