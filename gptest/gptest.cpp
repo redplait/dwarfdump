@@ -957,7 +957,7 @@ void my_PLUGIN::store_aux(aux_type_clutch &clutch)
     if ( need_dump() )
     {
       fprintf(m_outfp, " store fptr uid %x", TYPE_UID(t));
-     }
+    }
   }
 }
 
@@ -1469,6 +1469,46 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
     dump_rtx_operand (in_rtx, format_ptr[idx], idx, level + 1);  
 }
 
+void my_PLUGIN::dump_func_tree(const_tree t, int level)
+{
+  if ( !t )
+    return;
+  margin(level);
+  auto code = TREE_CODE(t);
+  auto name = get_tree_code_name(code);
+  if ( name )
+    fprintf(m_outfp, "%s", name);
+  if ( code == BLOCK )
+  {
+    fprintf(m_outfp, "\n");
+    // code ripped from decls_for_scope
+    for ( ; t != NULL; t = BLOCK_CHAIN(t) )
+    {
+      for ( auto decl = BLOCK_VARS(t); decl != NULL; decl = DECL_CHAIN(decl) )
+        dump_func_tree(decl, level + 1);
+      for ( int i = 0; i < BLOCK_NUM_NONLOCALIZED_VARS(t); i++ )
+      {
+        auto d = BLOCK_NONLOCALIZED_VAR(t, i);
+        if ( d == current_function_decl )
+          continue;
+        dump_func_tree(d, level + 1);
+      }
+      tree subblock;
+      for ( subblock = BLOCK_SUBBLOCKS(t); subblock != NULL_TREE; subblock = BLOCK_CHAIN(subblock) )
+         dump_func_tree(subblock, level + 1);
+    }
+  } else if ( code == LABEL_DECL )
+  {
+    rtx r = DECL_RTL_IF_SET( CONST_CAST_TREE(t) );
+    if ( r )
+      fprintf(m_outfp, " %d %d ", LABEL_DECL_UID(t), INSN_UID( r ));
+    else
+      fprintf(m_outfp, " %d ", LABEL_DECL_UID(t) );
+    fprintf(m_outfp, "\n");
+  } else
+    fprintf(m_outfp, "\n");
+}
+
 unsigned int my_PLUGIN::execute(function *fun)
 {
   // find the name of the function
@@ -1514,6 +1554,13 @@ unsigned int my_PLUGIN::execute(function *fun)
       if ( m_dump_rtl )  
         w.print_rtl_single_with_indent(insn, 0);
     }
+  }
+
+  // dump tree types
+  if ( need_dump() )
+  {
+    fprintf(m_outfp, "; function decls\n");
+    dump_func_tree(DECL_INITIAL(current_function_decl));
   }
 
   basic_block bb;
