@@ -24732,6 +24732,22 @@ gen_const_die (tree decl, dw_die_ref context_die)
 
 /* Generate a DIE to represent a label identifier.  */
 
+static int label_has_size(tree decl, unsigned int &v)
+{
+  if ( TREE_CODE(decl) != LABEL_DECL )
+    return 0;
+  auto r = DECL_RTL_IF_SET(decl);
+  if ( !r )
+    return 0;
+  auto jt = jump_table_for_label((const rtx_code_label *)r);
+  if ( jt && JUMP_TABLE_DATA_P(jt) )
+  {
+    v = jt->get_labels()->num_elem;
+    return 1;
+  }
+  return 0;
+}
+
 static void
 gen_label_die (tree decl, dw_die_ref context_die)
 {
@@ -24750,6 +24766,10 @@ gen_label_die (tree decl, dw_die_ref context_die)
       else
 	add_name_and_src_coords_attributes (lbl_die, decl);
     }
+
+  unsigned int tab_size = 0;
+  if ( label_has_size(decl, tab_size) && tab_size)
+    add_AT_unsigned(lbl_die, DW_AT_byte_size, tab_size);
 
   if (DECL_ABSTRACT_P (decl))
     equate_decl_number_to_die (decl, lbl_die);
