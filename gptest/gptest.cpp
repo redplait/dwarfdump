@@ -11,6 +11,7 @@
 #include <iostream>
 #include <string>
 #include <stdarg.h>
+#include <algorithm>
 
 #include "my_plugin.h"
 
@@ -37,16 +38,27 @@ const struct pass_data my_PLUGIN_pass_data =
  */
 const char *pname_verbose = "verbose";
 
+rtl_plugin_with_args::rtl_plugin_with_args(gcc::context *ctxt, const struct pass_data &pd, struct plugin_argument *arguments, int argcounter)
+ : rtl_opt_pass(pd, ctxt)
+{
+  argc = argcounter;   // number of arguments
+  args = arguments;    // array containing arrguments (key,value)
+  m_verbose = existsArgument(pname_verbose);
+}
+
+st_labels::st_labels(gcc::context *ctxt, struct plugin_argument *arguments, int argcounter)
+ : rtl_plugin_with_args(ctxt, my_PLUGIN_pass_data, arguments, argcounter)
+{
+  m_outfp = m_verbose ? stdout : NULL;
+}
+
 my_PLUGIN::my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int argcounter)
- : rtl_opt_pass(my_PLUGIN_pass_data, ctxt),
+ : rtl_plugin_with_args(ctxt, my_PLUGIN_pass_data, arguments, argcounter),
    m_db(NULL)
 {
-    argc = argcounter;   // number of arguments
-    args = arguments;    // array containing arrguments (key,value)
     m_outfp = stdout;
     m_asmproto = existsArgument("asmproto"); 
     m_dump_rtl = existsArgument("dumprtl");
-    m_verbose = existsArgument(pname_verbose);
     m_db_str = findArgumentValue("db");
     if ( m_db_str )
       m_db = get_pers();
@@ -89,7 +101,7 @@ void my_PLUGIN::stop_file()
     m_db->cu_stop();
 }
 
-bool my_PLUGIN::existsArgument(const char* key) const
+bool rtl_plugin_with_args::existsArgument(const char* key) const
 {
    for (int i=0; i< argc; i++)
    {
@@ -99,7 +111,7 @@ bool my_PLUGIN::existsArgument(const char* key) const
    return false;
 }
 
-const char* my_PLUGIN::findArgumentValue(const char* key)
+const char* rtl_plugin_with_args::findArgumentValue(const char* key)
 {
    for (int i=0; i< argc; i++)
    {
@@ -114,6 +126,7 @@ extern int dump_generic_node (pretty_printer *, tree, int, dump_flags_t, bool);
 extern void dump_function_header(FILE *, tree, dump_flags_t);
 extern void make_decl_rtl (tree);
 extern char *print_generic_expr_to_str (tree);
+extern tree get_identifier (const char *);
 
 // ripped from print-rtl-function.cc
 static void
@@ -1504,9 +1517,104 @@ void my_PLUGIN::dump_func_tree(const_tree t, int level)
       fprintf(m_outfp, " %d %d ", LABEL_DECL_UID(t), INSN_UID( r ));
     else
       fprintf(m_outfp, " %d ", LABEL_DECL_UID(t) );
+    
     fprintf(m_outfp, "\n");
   } else
     fprintf(m_outfp, "\n");
+}
+
+void st_labels::rec_check_labels(const_tree t)
+{
+  auto code = TREE_CODE(t);
+  if ( code == BLOCK )
+  {
+    // code ripped from decls_for_scope
+    for ( ; t != NULL; t = BLOCK_CHAIN(t) )
+    {
+      for ( auto decl = BLOCK_VARS(t); decl != NULL; decl = DECL_CHAIN(decl) )
+        rec_check_labels(decl);
+      for ( int i = 0; i < BLOCK_NUM_NONLOCALIZED_VARS(t); i++ )
+      {
+        auto d = BLOCK_NONLOCALIZED_VAR(t, i);
+        if ( d == current_function_decl )
+          continue;
+        rec_check_labels(d);
+      }
+      tree subblock;
+      for ( subblock = BLOCK_SUBBLOCKS(t); subblock != NULL_TREE; subblock = BLOCK_CHAIN(subblock) )
+         rec_check_labels(subblock);
+    }
+  } else if ( code == LABEL_DECL )
+  {
+    rtx r = DECL_RTL_IF_SET( CONST_CAST_TREE(t) );
+    if ( r )
+    {
+      int r_id = INSN_UID(r);
+      auto f = m_st.find(r_id);
+      if ( f != m_st.end() )
+        f->second.second = 1;
+    }
+  }
+}
+
+unsigned int st_labels::execute(function *fun)
+{
+  m_st.clear();
+  char* funName = (char*)IDENTIFIER_POINTER (DECL_NAME (current_function_decl) );
+  tree fdecl = fun->decl;
+  const char *aname = funName;
+  if (DECL_ASSEMBLER_NAME_SET_P(fdecl) )
+    aname = (IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME (fdecl)));
+  m_funcname = aname;  
+  // check if t
+  rtx_insn* insn;
+  for ( insn = get_insns(); insn; insn = NEXT_INSN(insn) )
+  {
+    if ( LABEL_P(insn) )
+    {
+      auto jt = jump_table_for_label((const rtx_code_label *)insn);
+      if ( jt && JUMP_TABLE_DATA_P(jt) )
+        m_st[INSN_UID(insn)] = { insn, 0 };
+    }
+  }
+  if ( m_st.empty() )
+    return 0;
+  if ( need_dump() )
+    fprintf(m_outfp, "st: %s has %ld tables\n", aname, m_st.size());
+  // check labels
+  tree f_block = DECL_INITIAL(current_function_decl);
+  if ( !f_block )
+    return 0;
+  rec_check_labels(f_block);
+  auto cnt = std::count_if(m_st.begin(), m_st.end(), [](const auto &c) { return 0 == c.second.second;});
+  if ( !cnt )
+    return 0;
+  // find last var in f_block
+  tree last_var = NULL_TREE;
+  for ( auto decl = BLOCK_VARS(f_block); decl != NULL; decl = DECL_CHAIN(decl) )
+  {
+    if ( NULL_TREE == DECL_CHAIN(decl) )
+      last_var = decl;
+  }
+  for ( auto &c: m_st )
+  {
+    if ( c.second.second )
+      continue;
+    // fprintf(stderr, "need add label for %d\n", c.first);
+    // make label name
+    std::string lname = m_funcname;
+    lname += "_jt";
+    lname += std::to_string(c.first);
+    tree lt = build_decl(DECL_SOURCE_LOCATION(current_function_decl), LABEL_DECL, get_identifier(lname.c_str()), void_type_node);
+    SET_DECL_RTL(lt, c.second.first);
+    LABEL_DECL_UID(lt) = c.first;
+    if ( last_var )
+      DECL_CHAIN(last_var) = lt;
+    else
+      BLOCK_VARS(f_block) = lt;
+    last_var = lt;  
+  } 
+  return 0;
 }
 
 unsigned int my_PLUGIN::execute(function *fun)
@@ -1613,7 +1721,7 @@ static void callback_finish_unit(void *gcc_data, void *user_data)
 }
 
 // We must assert that this plugin is GPL compatible
-int plugin_is_GPL_compatible;
+int plugin_is_GPL_compatible = 1;
 
 int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
@@ -1674,6 +1782,14 @@ int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version
     pass.pos_op = PASS_POS_INSERT_BEFORE;
 
     register_callback(plugin_info->base_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass);
+
+    struct register_pass_info pass2;
+    pass2.pass = new st_labels(g, plugin_info->argv, plugin_info->argc);
+    pass2.reference_pass_name = "dwarf2";
+    pass2.ref_pass_instance_number = 1;
+    pass2.pos_op = PASS_POS_INSERT_BEFORE;
+
+    register_callback(plugin_info->base_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass2);
 
     register_callback(plugin_info->base_name, PLUGIN_START_UNIT,
         callback_start_unit, /* user_data */ mp);

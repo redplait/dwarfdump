@@ -36,7 +36,36 @@ struct aux_type_clutch
   const_tree last;
 };
 
-class my_PLUGIN : public rtl_opt_pass
+class rtl_plugin_with_args: public rtl_opt_pass
+{
+  public:
+    rtl_plugin_with_args(gcc::context *ctxt, const struct pass_data &pd, struct plugin_argument *arguments, int argcounter);
+  protected:  
+    FILE *m_outfp;
+    int argc;
+    struct plugin_argument *args;
+    bool m_verbose;
+    inline bool need_dump() const
+    {
+      return m_outfp != NULL;
+    }
+    // plugin options
+    const char* findArgumentValue(const char* key);
+    bool existsArgument(const char *key) const;
+};
+
+class st_labels: public rtl_plugin_with_args
+{
+ public:
+   st_labels(gcc::context *ctxt, struct plugin_argument *arguments, int argcounter);
+   unsigned int execute(function *fun);
+  protected:
+   void rec_check_labels(const_tree);
+   std::map<int, std::pair<rtx, int> > m_st;
+   std::string m_funcname;
+};
+
+class my_PLUGIN : public rtl_plugin_with_args
 {
  public:
   my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int argcounter);
@@ -90,20 +119,8 @@ class my_PLUGIN : public rtl_opt_pass
   }
   void dump_exprs();
   void dump_known_uids();
-  // plugin options
-  const char* findArgumentValue(const char* key);
-  bool existsArgument(const char *key) const;
-  inline bool need_dump() const
-  {
-    return m_outfp != NULL;
-  }
-
-  int argc;
-  struct plugin_argument *args;
-  FILE *m_outfp;
   // args
   bool m_dump_rtl;
-  bool m_verbose;
   bool m_asmproto;
   const char *m_db_str;
   // db
