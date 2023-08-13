@@ -6,6 +6,10 @@ int main(int argc, char **argv)
   int f = 0, s = 0;
   if ( argc < 2 )
     return 0;
+  if ( argc < 3 )
+    goto skip3;
+  s = atoi(argv[2]);
+skip3:
   f = atoi(argv[1]);
   switch(f)
   {
@@ -15,7 +19,6 @@ int main(int argc, char **argv)
     case 1: {
       if ( argc > 2 )
       {
-        s = atoi(argv[2]);
         switch(s)
         {
           case 1:
