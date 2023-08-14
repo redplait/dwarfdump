@@ -42,6 +42,7 @@ class pers_sqlite: public FPersistence
      m_has_func_id = false;
    }
    virtual void add_xref(xref_kind, const char *);
+   virtual void add_literal(const char *, int size);
    virtual void report_error(const char *);
   protected:
    int create_new_db(const char *);
@@ -49,6 +50,8 @@ class pers_sqlite: public FPersistence
    int get_max_id();
    int add_func();
    int check_symbol(const char *);
+   int check_literal(std::string &);
+   void insert_xref(int id, char what);
 
    sqlite3 *m_db;
    // prepared statements
@@ -288,6 +291,35 @@ int pers_sqlite::add_func()
   return 1;
 }
 
+int pers_sqlite::check_literal(std::string &l)
+{
+  auto cached = m_cache.find(l);
+  if ( cached != m_cache.end() )
+    return cached->second;
+#ifndef CACHE_ALLSYMS
+  // on big codebase this query very quickly becomes tooooo sloooooow
+  sqlite3_reset(m_check_sym);
+  sqlite3_bind_text(m_check_sym, 1, l.c_str(), l.size(), SQLITE_STATIC);
+  int rc;
+  if ((rc = sqlite3_step(m_check_sym)) == SQLITE_ROW )
+  {
+    // yes, we already have this symbol
+    int id = sqlite3_column_int (m_check_sym, 0);
+    m_cache[l] = id;
+    return id;
+  }
+#endif /* !CACHE_ALLSYMS */
+  // insert new one
+  sqlite3_reset(m_insert_sym);
+  int res = ++max_id;
+  sqlite3_bind_int(m_insert_sym, 1, res);
+  sqlite3_bind_text(m_insert_sym, 2, l.c_str(), l.size(), SQLITE_STATIC);
+  sqlite3_bind_text(m_insert_sym, 3, "", 0, SQLITE_STATIC);
+  sqlite3_step(m_insert_sym);
+  m_cache[l] = res;
+  return res;
+}
+
 int pers_sqlite::check_symbol(const char *sname)
 {
   auto cached = m_cache.find(sname);
@@ -327,6 +359,16 @@ void pers_sqlite::report_error(const char *str)
   sqlite3_step(m_insert_err);
 }
 
+void pers_sqlite::add_literal(const char *lc, int lc_size)
+{
+  std::string lit;
+  if ( !lc[lc_size - 1] )
+    lc_size--;
+  lit.assign(lc, lc_size);
+  add_func();
+  insert_xref(check_literal(lit), 'l');
+}
+
 void pers_sqlite::add_xref(xref_kind kind, const char *sym)
 {
   add_func();
@@ -347,11 +389,15 @@ void pers_sqlite::add_xref(xref_kind kind, const char *sym)
      break;
     default: return; // wtf?
   }
-  int id = check_symbol(sym);
+  insert_xref(check_symbol(sym), c);
+}
+
+void pers_sqlite::insert_xref(int id, char what)
+{
   sqlite3_reset(m_insert_xref);
   sqlite3_bind_int(m_insert_xref, 1, m_func_id);
   sqlite3_bind_int(m_insert_xref, 2, m_bb);
-  sqlite3_bind_text(m_insert_xref, 3, &c, 1, SQLITE_STATIC);
+  sqlite3_bind_text(m_insert_xref, 3, &what, 1, SQLITE_STATIC);
   sqlite3_bind_int(m_insert_xref, 4, id);
   sqlite3_step(m_insert_xref);
 }
