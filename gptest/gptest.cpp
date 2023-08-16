@@ -905,9 +905,11 @@ void my_PLUGIN::dump_method(const_tree expr)
           break;  
         }
       } */
-      if ( m_db && !found )
+      if ( !found )
       {
-        pass_error("cannot find vmethod with vindex %d for type %d", (int)vi0, TREE_CODE(parent_type));
+        dump_class_rec(TYPE_BINFO(parent_type), TYPE_BINFO(parent_type), 0);
+        if ( m_db )
+          pass_error("cannot find vmethod with vindex %d for type %d", (int)vi0, TREE_CODE(parent_type));
       }
     }
     dump_tree_MF(expr);
@@ -972,6 +974,62 @@ void my_PLUGIN::store_aux(aux_type_clutch &clutch)
       fprintf(m_outfp, " store fptr uid %x", TYPE_UID(t));
     }
   }
+}
+
+// stealed from class.cc dump_class_hierarchy_r
+const_tree my_PLUGIN::dump_class_rec(const_tree binfo, const_tree igo, int level)
+{
+  if ( !need_dump() )
+    return NULL_TREE;
+  auto type = BINFO_TYPE(binfo);
+  if ( binfo != igo )
+    return NULL_TREE;
+  if ( !level )
+    fprintf(m_outfp, "\n");
+  margin(level);
+  if ( BINFO_VIRTUAL_P(binfo) )
+    fprintf(m_outfp, "virtial ");
+  auto rt = TYPE_NAME(type);
+  if ( rt )
+  {
+    if ( type_has_name(rt) )
+      fprintf(m_outfp, "%s ", IDENTIFIER_POINTER(DECL_NAME(rt)) );
+  }
+  if ( BINFO_SUBVTT_INDEX(binfo) )
+  {
+    auto sv = BINFO_SUBVTT_INDEX(binfo);
+    auto code = TREE_CODE(sv);
+    auto name = get_tree_code_name(code);
+    fprintf(m_outfp, "subvttidx %s ", name);
+  }
+  if ( BINFO_VPTR_INDEX(binfo) )
+  {
+    auto vi = BINFO_VPTR_INDEX(binfo);
+    auto code = TREE_CODE(vi);
+    auto name = get_tree_code_name(code);
+    fprintf(m_outfp, "vptridx %s ", name);
+  }
+  if ( BINFO_VPTR_FIELD(binfo) )
+  {
+    auto vi = BINFO_VPTR_FIELD(binfo);
+    auto code = TREE_CODE(vi);
+    auto name = get_tree_code_name(code);
+    fprintf(m_outfp, "vbaseoffset %s ", name);
+  }
+  if ( BINFO_VTABLE(binfo) )
+  {
+    auto vi = BINFO_VTABLE(binfo);
+    auto code = TREE_CODE(vi);
+    auto name = get_tree_code_name(code);
+    fprintf(m_outfp, "vptr %s ", name);
+  }
+  fprintf(m_outfp, "\n");
+  margin(level);
+  igo = TREE_CHAIN(binfo);
+  tree base_binfo;
+  for ( int i = 0; BINFO_BASE_ITERATE(binfo, i, base_binfo); ++i )
+    igo = dump_class_rec(base_binfo, igo, level + 1);
+  return igo;
 }
 
 /* type tree are tree_type_non_common which contains embedded tree

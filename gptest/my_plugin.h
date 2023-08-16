@@ -96,6 +96,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   void dump_rtx(const_rtx, int level = 0);
   void dump_rtx_hl(const_rtx);
   void dump_func_tree(const_tree, int level = 0);
+  const_tree dump_class_rec(const_tree, const_tree igo, int level);
   const char *is_cliteral(const_rtx, int &len);
   int dump_0_operand(const_rtx in_rtx, int idx, int level);
   int dump_e_operand(const_rtx in_rtx, int idx, int level);
