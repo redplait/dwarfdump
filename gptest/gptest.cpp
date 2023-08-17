@@ -34,6 +34,7 @@ const struct pass_data my_PLUGIN_pass_data =
     -fplugin-arg-gptest-password=password for db access
     -fplugin-arg-gptest-asmproto
     -fplugin-arg-gptest-dumprtl
+    -fplugin-arg-gptest-ic to dunp imteger constants
     -fplugin-arg-gptest-verbose
  */
 const char *pname_verbose = "verbose";
@@ -59,6 +60,7 @@ my_PLUGIN::my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int 
     m_outfp = stdout;
     m_asmproto = existsArgument("asmproto"); 
     m_dump_rtl = existsArgument("dumprtl");
+    m_dump_ic = existsArgument("ic");
     m_db_str = findArgumentValue("db");
     if ( m_db_str )
       m_db = get_pers();
@@ -1548,7 +1550,12 @@ void my_PLUGIN::dump_func_tree(const_tree t, int level)
   auto code = TREE_CODE(t);
   auto name = get_tree_code_name(code);
   if ( name )
-    fprintf(m_outfp, "%s", name);
+  {
+    if ( code == BLOCK )
+      fprintf(m_outfp, "%s %d", name, BLOCK_NUMBER(t));
+    else
+      fprintf(m_outfp, "%s", name);
+  }
   if ( code == BLOCK )
   {
     fprintf(m_outfp, "\n");
@@ -1730,6 +1737,7 @@ unsigned int my_PLUGIN::execute(function *fun)
   }
 
   basic_block bb;
+  in_pe = 1; // wait for note with INSN_FUNCTION_BEG for first block
   FOR_ALL_BB_FN(bb, fun)
   { // Loop over all Basic Blocks in the function, fun = current function
       bb_index = bb->index;
@@ -1744,6 +1752,14 @@ unsigned int my_PLUGIN::execute(function *fun)
       {
         if ( NONDEBUG_INSN_P(insn) || LABEL_P(insn) )
           dump_rtx_hl(insn);
+        else if ( NOTE_P(insn) )
+        {
+          auto nk = NOTE_KIND(insn);
+          if ( nk == NOTE_INSN_FUNCTION_BEG )
+            in_pe = 0;
+          else if ( nk == NOTE_INSN_EPILOGUE_BEG )
+            in_pe = 1;
+        }
         if ( m_dump_rtl )  
           w.print_rtl_single_with_indent(insn, 0);
       }
@@ -1753,6 +1769,8 @@ unsigned int my_PLUGIN::execute(function *fun)
         dump_known_uids();
         fprintf(m_outfp,"\n----------------------------------------------------------------\n\n");
       }
+      // prepare for processing of next block
+      in_pe = 0;
       m_known_uids.clear();
       if ( m_db )
         m_db->bb_stop(bb_index);

@@ -123,6 +123,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   // args
   bool m_dump_rtl;
   bool m_asmproto;
+  bool m_dump_ic; // add integer constants
   const char *m_db_str;
   // db
   FPersistence *m_db;
@@ -132,4 +133,5 @@ class my_PLUGIN : public rtl_plugin_with_args
   std::map<unsigned int, std::string> m_known_uids;
   // current basic_block number
   int bb_index;
+  int in_pe; // current insn in prologue/epilogue
 };
