@@ -904,7 +904,9 @@ void my_PLUGIN::dump_tree_MF(const_tree expr)
 }
 
 void my_PLUGIN::dump_method(const_tree expr)
-{  
+{
+  if ( FUNCTION_DECL_CHECK(expr) )
+    return;
   const_tree vi = DECL_VINDEX(FUNCTION_DECL_CHECK(expr));
   if ( !vi )
     return;
@@ -997,6 +999,7 @@ bool is_known_ssa_type(const_tree t)
          (code == ENUMERAL_TYPE) ||
          (code == REAL_TYPE) ||
          (code == COMPLEX_TYPE) ||
+         (code == VECTOR_TYPE)  ||
          (code == ARRAY_TYPE)
   ;
 }
@@ -1356,9 +1359,9 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
           dump_ssa_name(base, clutch);
         else {
           if ( need_dump() )
-            fprintf(m_outfp, " unknown obj_type_ref %d", code);
+            fprintf(m_outfp, " unknown obj_type_ref 0x%X", code);
           if ( m_db )
-            pass_error("unknown obj_type_ref %d", code);
+            pass_error("unknown obj_type_ref 0x%X", code);
         }
       }
     }
