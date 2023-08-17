@@ -113,6 +113,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   int is_write() const;
   int is_symref_call() const;
   int inside_if() const;
+  int is_eh_num() const;
   int is_sb() const;
   // expr stack
   void expr_push(const_rtx, int idx);

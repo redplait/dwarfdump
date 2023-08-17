@@ -490,6 +490,23 @@ int my_PLUGIN::is_sb() const
   return r->m_sb;
 }
 
+// when in stack presents expr_list with index 6 (and probably insn_list or int_list too) 
+// then this is not integer const but just EH block index
+// for sure good also to check GET_MODE - it should be < REG_NOTE_MAX and actually is not machine_mode 
+int my_PLUGIN::is_eh_num() const
+{
+  if ( m_rtexpr.empty() )
+    return 0;
+  auto r = m_rtexpr.rbegin();
+  if ( r->m_ce == CONST_INT )
+  {
+    r++;
+    if ( r == m_rtexpr.rend() )
+      return 0;
+  }
+  return (r->m_ce == EXPR_LIST) && (r->m_idx == 6);
+}
+
 int my_PLUGIN::is_symref() const
 {
   if ( m_rtexpr.empty() )
@@ -741,13 +758,14 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
         fprintf (m_outfp, " " HOST_WIDE_INT_PRINT_HEX,
                    (unsigned HOST_WIDE_INT) XWINT (in_rtx, idx));
       }
-      if ( m_db && m_dump_ic && !in_pe && GET_CODE (in_rtx) == CONST_INT )
+      if ( m_dump_ic && !in_pe && GET_CODE (in_rtx) == CONST_INT )
       {
-        if ( !inside_if() && !is_sb() && XWINT(in_rtx, idx) )
+        if ( !inside_if() && !is_sb() && !is_eh_num() && XWINT(in_rtx, idx) )
         {
           if ( need_dump() )
             dump_exprs();
-          m_db->add_ic(XWINT(in_rtx, idx));
+          if ( m_db )
+            m_db->add_ic(XWINT(in_rtx, idx));
         }
       }
       break;
@@ -1785,6 +1803,8 @@ unsigned int my_PLUGIN::execute(function *fun)
   FOR_ALL_BB_FN(bb, fun)
   { // Loop over all Basic Blocks in the function, fun = current function
       bb_index = bb->index;
+      if ( bb_index == 2 )
+        in_pe = 1;
       if ( need_dump() )
       {
         fprintf(m_outfp,"BB: %d\n", bb->index);
