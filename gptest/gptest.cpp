@@ -1656,7 +1656,7 @@ void st_labels::rec_check_labels(const_tree t)
   if ( code == BLOCK )
   {
     // code ripped from decls_for_scope
-    for ( ; t != NULL; t = BLOCK_CHAIN(t) )
+    // for ( ; t != NULL; t = BLOCK_CHAIN(t) )
     {
       for ( auto decl = BLOCK_VARS(t); decl != NULL; decl = DECL_CHAIN(decl) )
         rec_check_labels(decl);
