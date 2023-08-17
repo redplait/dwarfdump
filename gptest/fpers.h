@@ -28,6 +28,7 @@ class FPersistence
     // main method
     virtual void add_xref(xref_kind, const char *) {}
     virtual void add_literal(const char *, int size) {}
+    virtual void add_ic(int) {}
     // report errors
     virtual void report_error(const char *) {}
 };

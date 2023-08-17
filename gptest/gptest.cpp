@@ -442,9 +442,9 @@ int my_PLUGIN::is_call() const
   int idx = -1;
   for ( auto r = m_rtexpr.rbegin(); r != m_rtexpr.rend(); ++r )
   {
-    if ( r->first == CALL )
+    if ( r->m_ce == CALL )
       return !idx;
-    idx = r->second;
+    idx = r->m_idx;
   }
   return 0;
 }
@@ -457,11 +457,37 @@ int my_PLUGIN::is_write() const
   int idx = -1;
   for ( auto r = m_rtexpr.rbegin(); r != m_rtexpr.rend(); ++r )
   {
-    if ( r->first == SET )
+    if ( r->m_ce == SET )
       return !idx;
-    idx = r->second;
+    idx = r->m_idx;
   }
   return 0;
+}
+
+int my_PLUGIN::inside_if() const
+{
+  if ( m_rtexpr.empty() )
+    return 0;
+  for ( auto r = m_rtexpr.rbegin(); r != m_rtexpr.rend(); ++r )
+  {
+    if ( r->m_ce == IF_THEN_ELSE )
+      return 1;
+  }
+  return 0; 
+}
+
+int my_PLUGIN::is_sb() const
+{
+  if ( m_rtexpr.empty() )
+    return 0;
+  auto r = m_rtexpr.rbegin();
+  if ( r->m_ce == CONST_INT )
+  {
+    r++;
+    if ( r == m_rtexpr.rend() )
+      return 0;
+  }
+  return r->m_sb;
 }
 
 int my_PLUGIN::is_symref() const
@@ -469,7 +495,7 @@ int my_PLUGIN::is_symref() const
   if ( m_rtexpr.empty() )
     return 0;
   auto r = m_rtexpr.rbegin();
-  return ( r->first == SYMBOL_REF );  
+  return ( r->m_ce == SYMBOL_REF );  
 }
 
 int my_PLUGIN::is_symref_call() const
@@ -478,20 +504,27 @@ int my_PLUGIN::is_symref_call() const
     return 0;
   int idx = -1;
   auto r = m_rtexpr.rbegin();
-  if ( r->first != SYMBOL_REF )
+  if ( r->m_ce != SYMBOL_REF )
     return 0;  
   for ( ++r; r != m_rtexpr.rend(); ++r )
   {
-    if ( r->first == CALL )
+    if ( r->m_ce == CALL )
       return !idx;
-    idx = r->second;
+    idx = r->m_idx;
   }
   return 0;
 }
 
 void my_PLUGIN::expr_push(const_rtx in_rtx, int idx)
 {
-  m_rtexpr.push_back(std::make_pair((enum rtx_class)GET_CODE(in_rtx), idx));  
+  bool is_sb = RTX_FLAG (in_rtx, frame_related);
+  if ( is_sb )
+  {
+    // mark previous state as stack based too
+    if ( !m_rtexpr.empty() )
+      m_rtexpr.rbegin()->m_sb = true;
+  }
+  m_rtexpr.push_back( { (enum rtx_class)GET_CODE(in_rtx), idx, is_sb } );  
 }
 
 void my_PLUGIN::dump_known_uids()
@@ -512,7 +545,9 @@ void my_PLUGIN::dump_exprs()
   fprintf(m_outfp, "[stack");
   for ( auto &rt: m_rtexpr )
   {
-    fprintf(m_outfp, " %s:%d", GET_RTX_NAME(rt.first), rt.second);
+    fprintf(m_outfp, " %s:%d", GET_RTX_NAME(rt.m_ce), rt.m_idx);
+    if ( rt.m_sb )
+     fprintf(m_outfp, "/f");
   }
   fprintf(m_outfp, "]");
 }
@@ -705,6 +740,15 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
         fprintf (m_outfp, HOST_WIDE_INT_PRINT_DEC, XWINT (in_rtx, idx));
         fprintf (m_outfp, " " HOST_WIDE_INT_PRINT_HEX,
                    (unsigned HOST_WIDE_INT) XWINT (in_rtx, idx));
+      }
+      if ( m_db && m_dump_ic && !in_pe && GET_CODE (in_rtx) == CONST_INT )
+      {
+        if ( !inside_if() && !is_sb() && XWINT(in_rtx, idx) )
+        {
+          if ( need_dump() )
+            dump_exprs();
+          m_db->add_ic(XWINT(in_rtx, idx));
+        }
       }
       break;
 

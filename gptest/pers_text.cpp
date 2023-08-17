@@ -47,6 +47,7 @@ class pers_text: public FPersistence
    // main method
    virtual void add_xref(xref_kind, const char *);
    virtual void add_literal(const char *, int);
+   virtual void add_ic(int);
    // store errors
    virtual void report_error(const char *);
   protected:
@@ -115,9 +116,17 @@ void pers_text::add_literal(const char *what, int len)
     if ( what[i] >= ' ' )
       fputc(what[i], m_fp);
     else
-      fprintf(m_fp, "\\%03o", what[i]);
+      fprintf(m_fp, "\\x%02x", (unsigned char)what[i]);
   }
   fputc('\n', m_fp);
+}
+
+void pers_text::add_ic(int ic)
+{
+  if ( !m_fp )
+    return;
+  check();
+  fprintf(m_fp, "  i %d\n", ic);
 }
 
 void pers_text::report_error(const char *err)

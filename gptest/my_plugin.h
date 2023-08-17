@@ -112,6 +112,8 @@ class my_PLUGIN : public rtl_plugin_with_args
   int is_call() const;
   int is_write() const;
   int is_symref_call() const;
+  int inside_if() const;
+  int is_sb() const;
   // expr stack
   void expr_push(const_rtx, int idx);
   void expr_pop()
@@ -128,7 +130,19 @@ class my_PLUGIN : public rtl_plugin_with_args
   // db
   FPersistence *m_db;
   // expressions stack - rtx class and current index of expression
-  std::list<std::pair<enum rtx_class, int> > m_rtexpr;
+  struct rtx_item {
+    rtx_item(enum rtx_class c, int i):
+      m_ce(c), m_idx(i), m_sb(false)
+    { }
+    rtx_item(enum rtx_class c, int i, bool s):
+      m_ce(c), m_idx(i), m_sb(s)
+    { }
+    // data
+    enum rtx_class m_ce;
+    int m_idx;
+    bool m_sb;
+  };
+  std::list<rtx_item> m_rtexpr;
   // uid types inside each BB
   std::map<unsigned int, std::string> m_known_uids;
   // current basic_block number
