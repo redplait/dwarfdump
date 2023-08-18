@@ -980,7 +980,7 @@ void my_PLUGIN::dump_method(const_tree expr)
       if ( !found )
       {
         if ( need_dump() )
-          fprintf(m_outfp, "no_vmethod_found");
+          fprintf(m_outfp, "no_vmethod_found %X", TREE_CODE(expr));
         if ( m_db )
           pass_error("cannot find vmethod for type %d", TREE_CODE(class_type));
       }
@@ -1058,15 +1058,26 @@ const_tree my_PLUGIN::try_class_rec(const_tree binfo, const_tree igo, const_tree
   tree base_binfo;
   for ( int i = 0; BINFO_BASE_ITERATE(binfo, i, base_binfo); ++i )
   {
-    for ( tree f = TYPE_FIELDS(base_binfo); f; f = TREE_CHAIN(f) )
+    auto type = BINFO_TYPE(base_binfo);
+    auto rt = TYPE_NAME(type);
+//    if ( need_dump() && rt && type_has_name(rt) )
+//      fprintf(m_outfp, "try_class_rec %X for %s ", TREE_CODE(base_binfo), IDENTIFIER_POINTER(DECL_NAME(rt)) );
+    for ( tree f = TYPE_FIELDS(type); f; f = TREE_CHAIN(f) )
     {
       if ( !DECL_VIRTUAL_P(f) )
         continue;
-      if ( TREE_TYPE(f) != expr )
-        continue;
-      *found = f;
-      *base = base_binfo;
-      break;
+      if ( TREE_TYPE(f) == expr )
+      {
+        *found = f;
+        *base = type;
+        break;
+      }
+/*    if ( need_dump() )
+      {
+        if ( rt && type_has_name(rt) )
+          fprintf(m_outfp, "%s ", IDENTIFIER_POINTER(DECL_NAME(rt)) );
+        fprintf(m_outfp, "vm %p expr %p\n", TREE_TYPE(f), expr);
+      } */
     }
     if ( *found )
       return NULL_TREE;
@@ -1122,7 +1133,6 @@ const_tree my_PLUGIN::dump_class_rec(const_tree binfo, const_tree igo, int level
     fprintf(m_outfp, "vptr %s ", name);
   }
   fprintf(m_outfp, "\n");
-  margin(level);
   igo = TREE_CHAIN(binfo);
   tree base_binfo;
   for ( int i = 0; BINFO_BASE_ITERATE(binfo, i, base_binfo); ++i )
