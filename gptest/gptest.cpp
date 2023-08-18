@@ -1373,7 +1373,16 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
           fprintf(m_outfp, " obj %s", name);
         if ( code == SSA_NAME )
           dump_ssa_name(base, clutch);
-        else {
+        else if ( code == ADDR_EXPR )
+        {
+          obj = TREE_OPERAND(obj, 0);
+          code = TREE_CODE(obj);
+          name = get_tree_code_name(code);
+          if ( name && need_dump() )
+            fprintf(m_outfp, " addr_type %X %s", code, name);
+          if ( code == COMPONENT_REF )
+            dump_comp_ref(obj, clutch);
+        } else {
           if ( need_dump() )
             fprintf(m_outfp, " unknown obj_type_ref 0x%X", code);
           if ( m_db )
@@ -1644,7 +1653,7 @@ void my_PLUGIN::dump_func_tree(const_tree t, int level)
   {
     fprintf(m_outfp, "\n");
     // code ripped from decls_for_scope
-    for ( ; t != NULL; t = BLOCK_CHAIN(t) )
+    // for ( ; t != NULL; t = BLOCK_CHAIN(t) )
     {
       for ( auto decl = BLOCK_VARS(t); decl != NULL; decl = DECL_CHAIN(decl) )
         dump_func_tree(decl, level + 1);
