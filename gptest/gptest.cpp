@@ -979,6 +979,8 @@ void my_PLUGIN::dump_method(const_tree expr)
       }
       if ( !found )
       {
+        if ( need_dump() )
+          fprintf(m_outfp, "no_vmethod_found");
         if ( m_db )
           pass_error("cannot find vmethod for type %d", TREE_CODE(class_type));
       }
@@ -1084,7 +1086,7 @@ const_tree my_PLUGIN::dump_class_rec(const_tree binfo, const_tree igo, int level
     fprintf(m_outfp, "\n");
   margin(level);
   if ( BINFO_VIRTUAL_P(binfo) )
-    fprintf(m_outfp, "virtial ");
+    fprintf(m_outfp, "virtual ");
   auto rt = TYPE_NAME(type);
   if ( rt )
   {
@@ -1309,7 +1311,7 @@ void my_PLUGIN::dump_array_ref(const_tree expr, aux_type_clutch &clutch)
     dump_ssa_name(op1, clutch);
     if ( need_dump() )
       fprintf(m_outfp, ")");
-  } else if ( !code != INTEGER_CST )
+  } else if ( code != INTEGER_CST )
     claim_unknown(code, "arr_base1");
 }
 
