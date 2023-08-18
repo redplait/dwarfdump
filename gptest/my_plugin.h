@@ -85,6 +85,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   void dump_field_decl(const_tree expr);
   void try_nameless(const_tree expr, aux_type_clutch &);
   void dump_array_ref(const_tree expr, aux_type_clutch &);
+  void claim_unknown(tree_code, const char *);
   void dump_mem_ref(const_tree expr, aux_type_clutch &);
   void dump_mem_expr(const_tree expr, const_rtx);
   void dump_rmem_expr(const_tree expr, const_rtx);
@@ -96,6 +97,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   void dump_rtx(const_rtx, int level = 0);
   void dump_rtx_hl(const_rtx);
   void dump_func_tree(const_tree, int level = 0);
+  const_tree try_class_rec(const_tree binfo, const_tree igo, const_tree exp, tree *base, tree *found);
   const_tree dump_class_rec(const_tree, const_tree igo, int level);
   const char *is_cliteral(const_rtx, int &len);
   int dump_0_operand(const_rtx in_rtx, int idx, int level);

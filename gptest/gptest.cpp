@@ -851,6 +851,7 @@ void my_PLUGIN::dump_rmem_expr(const_tree expr, const_rtx in_rtx)
   }
 }
 
+// seems DECL_VINDEX returns function_decl.vindex so we can extract it only from FUNCTION_DECL
 HOST_WIDE_INT extract_vindex(const_tree expr)
 {
   auto fdecl = FUNCTION_DECL_CHECK(expr);
@@ -938,16 +939,16 @@ void my_PLUGIN::dump_method(const_tree expr)
   {
  //   if ( DECL_NAME(t) && need_dump() )
  //     fprintf(m_outfp, " MName %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
-    tree parent_type = TYPE_METHOD_BASETYPE(expr);
-    if ( parent_type )
+    tree class_type = TYPE_METHOD_BASETYPE(expr);
+    if ( class_type )
     {  
-      auto base = TYPE_NAME(parent_type);
+      auto base = TYPE_NAME(class_type);
       if ( DECL_NAME(base) && need_dump() )
         fprintf(m_outfp, " basetype %s", IDENTIFIER_POINTER(DECL_NAME(base)));
       
       tree found = NULL_TREE;
-      // lets try find virtual method with type expr
-      for ( tree f = TYPE_FIELDS(parent_type); f; f = TREE_CHAIN(f) )
+      // lets try find virtual method with it's type - it stored in expr
+      for ( tree f = TYPE_FIELDS(class_type); f; f = TREE_CHAIN(f) )
       {
         if ( !DECL_VIRTUAL_P(f) )
           continue;
@@ -957,6 +958,14 @@ void my_PLUGIN::dump_method(const_tree expr)
         if ( DECL_NAME(f) && need_dump() )
           fprintf(m_outfp, " vmethod %s", IDENTIFIER_POINTER(DECL_NAME(f)));
         break;
+      }
+      /* we have type of base class in parent_type and method_type - try to find name of this method in base classes */
+      if ( !found )
+      {
+        dump_class_rec(TYPE_BINFO(class_type), TYPE_BINFO(class_type), 0);
+        try_class_rec(TYPE_BINFO(class_type), TYPE_BINFO(class_type), expr, &class_type, &found);
+        if ( found )
+          base = TYPE_NAME(class_type);
       }
       if ( m_db && DECL_NAME(base) && found && DECL_NAME(found) )
       {
@@ -968,26 +977,10 @@ void my_PLUGIN::dump_method(const_tree expr)
           kind = vcall;
         m_db->add_xref(kind, pers_arg.c_str());
       }
-      /* we have type of base class in parent_type and vtbl index - try to find name of this method
       if ( !found )
       {
-        for ( tree f = TYPE_FIELDS(parent_type); f; f = TREE_CHAIN(f) )
-        {
-          if ( !DECL_VIRTUAL_P(f) )
-            continue;
-          if ( extract_vindex(f) != vi0 )
-            continue;
-          found = f;
-          if ( DECL_NAME(f) )
-            fprintf(m_outfp, " vmethod2 %s", IDENTIFIER_POINTER(DECL_NAME(f)));
-          break;  
-        }
-      } */
-      if ( !found )
-      {
-        dump_class_rec(TYPE_BINFO(parent_type), TYPE_BINFO(parent_type), 0);
         if ( m_db )
-          pass_error("cannot find vmethod for type %d", TREE_CODE(parent_type));
+          pass_error("cannot find vmethod for type %d", TREE_CODE(class_type));
       }
     }
     dump_tree_MF(expr);
@@ -1055,6 +1048,31 @@ void my_PLUGIN::store_aux(aux_type_clutch &clutch)
 }
 
 // stealed from class.cc dump_class_hierarchy_r
+const_tree my_PLUGIN::try_class_rec(const_tree binfo, const_tree igo, const_tree expr, tree *base, tree *found)
+{
+  if ( binfo != igo )
+    return NULL_TREE;
+  igo = TREE_CHAIN(binfo);
+  tree base_binfo;
+  for ( int i = 0; BINFO_BASE_ITERATE(binfo, i, base_binfo); ++i )
+  {
+    for ( tree f = TYPE_FIELDS(base_binfo); f; f = TREE_CHAIN(f) )
+    {
+      if ( !DECL_VIRTUAL_P(f) )
+        continue;
+      if ( TREE_TYPE(f) != expr )
+        continue;
+      *found = f;
+      *base = base_binfo;
+      break;
+    }
+    if ( *found )
+      return NULL_TREE;
+    igo = try_class_rec(base_binfo, igo, expr, base, found);
+  }
+  return igo;
+}
+
 const_tree my_PLUGIN::dump_class_rec(const_tree binfo, const_tree igo, int level)
 {
   if ( !need_dump() )
@@ -1291,7 +1309,16 @@ void my_PLUGIN::dump_array_ref(const_tree expr, aux_type_clutch &clutch)
     dump_ssa_name(op1, clutch);
     if ( need_dump() )
       fprintf(m_outfp, ")");
-  }
+  } else
+    claim_unknown(code, "arr_base1");
+}
+
+void my_PLUGIN::claim_unknown(tree_code code, const char *what)
+{
+  if ( need_dump() )
+    fprintf(m_outfp, " unknown %s 0x%X", what, code);
+  if ( m_db )
+    pass_error("unknown %s 0x%X", what, code);
 }
 
 void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
@@ -1382,11 +1409,10 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
             fprintf(m_outfp, " addr_type %X %s", code, name);
           if ( code == COMPONENT_REF )
             dump_comp_ref(obj, clutch);
+          else
+            claim_unknown(code, "addr_type");
         } else {
-          if ( need_dump() )
-            fprintf(m_outfp, " unknown obj_type_ref 0x%X", code);
-          if ( m_db )
-            pass_error("unknown obj_type_ref 0x%X", code);
+          claim_unknown(code, "obj_type_ref");
         }
       }
     }
