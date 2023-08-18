@@ -1309,7 +1309,7 @@ void my_PLUGIN::dump_array_ref(const_tree expr, aux_type_clutch &clutch)
     dump_ssa_name(op1, clutch);
     if ( need_dump() )
       fprintf(m_outfp, ")");
-  } else
+  } else if ( !code != INTEGER_CST )
     claim_unknown(code, "arr_base1");
 }
 
@@ -1409,6 +1409,8 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
             fprintf(m_outfp, " addr_type %X %s", code, name);
           if ( code == COMPONENT_REF )
             dump_comp_ref(obj, clutch);
+          else if ( code == MEM_REF )
+            dump_mem_ref(obj, clutch);
           else
             claim_unknown(code, "addr_type");
         } else {
