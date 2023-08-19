@@ -419,11 +419,13 @@ aux_type_clutch::aux_type_clutch(const_rtx in_rtx)
    last(NULL_TREE)
 {
   off = 0;
+  has_off = false;
   auto code = GET_CODE(in_rtx);
   if ( code == DEBUG_PARAMETER_REF || code == DEBUG_IMPLICIT_PTR )
     return;
   if ( MEM_OFFSET_KNOWN_P(in_rtx) )
   {
+    has_off = true;
     auto x = MEM_OFFSET(in_rtx);
     HOST_WIDE_INT const_x;
     if (x.is_constant (&const_x))
@@ -1377,17 +1379,26 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
         // should we sum them or ignore one ?
         auto code = TREE_CODE(off);
         if ( code == INTEGER_CST && tree_fits_shwi_p(off) )
-          clutch.off = tree_to_shwi(off);
+        {
+          int tmr_off = tree_to_shwi(off);
+          if ( tmr_off )
+          {
+            clutch.off = tmr_off;
+            clutch.has_off = true;
+          }
+        }
       }
       // case when ssa_name return record/union and clutch.off is non-zero, like
       // mem_ref base ssa_name( pointer_type ptr2 record_type SSAName abstract) off integer_cst 0 +8
-      if ( !clutch.completed && clutch.off && clutch.last && RECORD_OR_UNION_TYPE_P(clutch.last) )
+      if ( !clutch.completed && clutch.has_off && clutch.last && RECORD_OR_UNION_TYPE_P(clutch.last) )
       {
         tree found = NULL_TREE;
         // lets try find field member with offset clutch.off
         for ( tree f = TYPE_FIELDS(clutch.last); f; f = TREE_CHAIN(f) )
         {
           if ( TREE_CODE(f) != FIELD_DECL )
+            continue;
+          if ( DECL_VIRTUAL_P(f) )
             continue;
           if ( DECL_FIELD_OFFSET(f) && int_byte_position(f) == clutch.off )
           {  
@@ -1465,13 +1476,17 @@ void my_PLUGIN::dump_addr_expr(const_tree expr, aux_type_clutch &clutch)
     dump_comp_ref(obj, clutch);
   else if ( code == MEM_REF )
     dump_mem_ref(obj, clutch);
-  else if ( code == VAR_DECL )
+  else if ( code == PARM_DECL )
+  {
+    tree name = DECL_NAME(obj);
+    if ( name && need_dump() )
+      fprintf(m_outfp, " parm_name %s", IDENTIFIER_POINTER(name));
+  } else if ( code == VAR_DECL )
   {
     tree name = DECL_NAME(obj);
     if ( name && need_dump() )
       fprintf(m_outfp, " var_name %s", IDENTIFIER_POINTER(name));
-  }
-  else
+  } else if ( code != RESULT_DECL )
     claim_unknown(code, "addr_type");
 }
 

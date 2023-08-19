@@ -16,13 +16,13 @@
 struct aux_type_clutch
 {
   aux_type_clutch()
-   : off(0),
+   : off(0), has_off(false),
      level(0),
      completed(false),
      last(NULL_TREE)
   { }
   aux_type_clutch(const aux_type_clutch &r)
-   : off(r.off),
+   : off(r.off), has_off(r.has_off),
      level(r.level),
      completed(false),
      last(NULL_TREE)
@@ -33,6 +33,7 @@ struct aux_type_clutch
   std::string txt;
   int level;
   bool completed;
+  bool has_off;
   const_tree last;
 };
 
