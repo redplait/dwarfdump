@@ -941,7 +941,7 @@ void my_PLUGIN::dump_method(const_tree expr)
  //     fprintf(m_outfp, " MName %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
     tree class_type = TYPE_METHOD_BASETYPE(expr);
     if ( class_type )
-    {  
+    {
       auto base = TYPE_NAME(class_type);
       if ( DECL_NAME(base) && need_dump() )
         fprintf(m_outfp, " basetype %s", IDENTIFIER_POINTER(DECL_NAME(base)));
@@ -980,7 +980,10 @@ void my_PLUGIN::dump_method(const_tree expr)
       if ( !found )
       {
         if ( need_dump() )
+        {
           fprintf(m_outfp, "no_vmethod_found %X", TREE_CODE(expr));
+          // dump_tree_MF(class_type);      
+        }
         if ( m_db )
           pass_error("cannot find vmethod for type %d", TREE_CODE(class_type));
       }
@@ -1070,7 +1073,7 @@ const_tree my_PLUGIN::try_class_rec(const_tree binfo, const_tree igo, const_tree
       {
         *found = f;
         *base = type;
-        break;
+        return NULL_TREE;
       }
 /*    if ( need_dump() )
       {
@@ -1079,9 +1082,9 @@ const_tree my_PLUGIN::try_class_rec(const_tree binfo, const_tree igo, const_tree
         fprintf(m_outfp, "vm %p expr %p\n", TREE_TYPE(f), expr);
       } */
     }
+    igo = try_class_rec(base_binfo, igo, expr, base, found);
     if ( *found )
       return NULL_TREE;
-    igo = try_class_rec(base_binfo, igo, expr, base, found);
   }
   return igo;
 }
@@ -1366,7 +1369,16 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
             m_db->add_xref(ref_, clutch.txt.c_str());
           }
         }
-      }  
+      }
+      // probably we can use TMR_OFFSET
+      if ( !clutch.completed && clutch.last && RECORD_OR_UNION_TYPE_P(clutch.last) && off )
+      {
+        // what to do if we have both TMR_OFFSET and MEM_OFFSET from rtx?
+        // should we sum them or ignore one ?
+        auto code = TREE_CODE(off);
+        if ( code == INTEGER_CST && tree_fits_shwi_p(off) )
+          clutch.off = tree_to_shwi(off);
+      }
       // case when ssa_name return record/union and clutch.off is non-zero, like
       // mem_ref base ssa_name( pointer_type ptr2 record_type SSAName abstract) off integer_cst 0 +8
       if ( !clutch.completed && clutch.off && clutch.last && RECORD_OR_UNION_TYPE_P(clutch.last) )
@@ -1436,7 +1448,12 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
     auto code = TREE_CODE(off);
     auto name = get_tree_code_name(code);
     if ( name )
-      fprintf(m_outfp, " off %s", name);
+    {
+      if ( code == INTEGER_CST )
+        fprintf(m_outfp, " off");
+      else
+        fprintf(m_outfp, " off %s", name);
+    }
     if ( code == INTEGER_CST )
     {
       if ( tree_fits_shwi_p(off) )
