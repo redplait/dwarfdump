@@ -91,6 +91,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   void dump_rmem_expr(const_tree expr, const_rtx);
   void dump_ssa_name(const_tree expr, aux_type_clutch &);
   void dump_comp_ref(const_tree expr, aux_type_clutch &);
+  void dump_addr_expr(const_tree expr, aux_type_clutch &);
   void dump_method(const_tree expr);
   void dump_ftype(const_tree expr);
   void dump_tree_MF(const_tree expr);

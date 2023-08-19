@@ -1413,7 +1413,9 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
             m_db->add_xref(field, clutch.txt.c_str());
         }
       }
-    } else if ( code == OBJ_TYPE_REF )
+    } else if ( code == ADDR_EXPR )
+       dump_addr_expr(base, clutch);
+    else if ( code == OBJ_TYPE_REF )
     {
       auto obj = OBJ_TYPE_REF_OBJECT(base);
       if ( obj )
@@ -1426,17 +1428,7 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
           dump_ssa_name(base, clutch);
         else if ( code == ADDR_EXPR )
         {
-          obj = TREE_OPERAND(obj, 0);
-          code = TREE_CODE(obj);
-          name = get_tree_code_name(code);
-          if ( name && need_dump() )
-            fprintf(m_outfp, " addr_type %X %s", code, name);
-          if ( code == COMPONENT_REF )
-            dump_comp_ref(obj, clutch);
-          else if ( code == MEM_REF )
-            dump_mem_ref(obj, clutch);
-          else
-            claim_unknown(code, "addr_type");
+          dump_addr_expr(obj, clutch);
         } else {
           claim_unknown(code, "obj_type_ref");
         }
@@ -1460,6 +1452,27 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
         fprintf(m_outfp, " " HOST_WIDE_INT_PRINT_DEC, tree_to_shwi(off));
     }
   }
+}
+
+void my_PLUGIN::dump_addr_expr(const_tree expr, aux_type_clutch &clutch)
+{
+  auto obj = TREE_OPERAND(expr, 0);
+  auto code = TREE_CODE(obj);
+  auto name = get_tree_code_name(code);
+  if ( name && need_dump() )
+    fprintf(m_outfp, " addr_type %X %s", code, name);
+  if ( code == COMPONENT_REF )
+    dump_comp_ref(obj, clutch);
+  else if ( code == MEM_REF )
+    dump_mem_ref(obj, clutch);
+  else if ( code == VAR_DECL )
+  {
+    tree name = DECL_NAME(obj);
+    if ( name && need_dump() )
+      fprintf(m_outfp, " var_name %s", IDENTIFIER_POINTER(name));
+  }
+  else
+    claim_unknown(code, "addr_type");
 }
 
 void my_PLUGIN::dump_mem_expr(const_tree expr, const_rtx in_rtx)
@@ -1549,6 +1562,9 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
     } else if ( COMPONENT_REF == code )
     {
        dump_comp_ref(op0, clutch); 
+    } else if ( code == MEM_REF )
+    {
+      dump_mem_ref(op0, clutch);
     }
     if ( need_dump() )
       fprintf(m_outfp, ")");
