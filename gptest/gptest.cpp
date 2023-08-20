@@ -1429,6 +1429,42 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
     else if ( code == OBJ_TYPE_REF )
     {
       auto obj = OBJ_TYPE_REF_OBJECT(base);
+      auto token = OBJ_TYPE_REF_TOKEN(base);
+      auto ref_expr = OBJ_TYPE_REF_EXPR(base);
+      auto base_class = obj_type_ref_class(base);
+      if ( base_class )
+      {
+        code = TREE_CODE(base_class);
+        name = get_tree_code_name(code);
+        if ( name && need_dump() )
+          fprintf(m_outfp, " class %s", name);
+        if ( RECORD_OR_UNION_TYPE_P(base_class) )
+        {
+          if ( type_has_name(TYPE_NAME(base_class)) && need_dump() )
+            fprintf(m_outfp, " %s", IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(base_class))));
+          clutch.last = base_class;
+        } else {
+          claim_unknown(code, "otr_class");
+        }
+      }
+      if ( token )
+      {
+        code = TREE_CODE(token);
+        name = get_tree_code_name(code);
+        if ( name && need_dump() )
+          fprintf(m_outfp, " token %s", name);
+        if ( code == INTEGER_CST && tree_fits_shwi_p(token) )
+          fprintf(m_outfp, " " HOST_WIDE_INT_PRINT_DEC, tree_to_shwi(token));
+      }
+      if ( ref_expr )
+      {
+        code = TREE_CODE(ref_expr);
+        name = get_tree_code_name(code);
+        if ( name && need_dump() )
+          fprintf(m_outfp, " ref_expr %s", name);
+        if ( code == SSA_NAME )
+          dump_ssa_name(ref_expr, clutch);
+      }
       if ( obj )
       {
         code = TREE_CODE(obj);
