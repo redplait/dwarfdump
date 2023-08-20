@@ -468,6 +468,20 @@ int my_PLUGIN::is_write() const
   return 0;
 }
 
+// set:X reg:0
+int my_PLUGIN::is_set_reg() const
+{
+  if ( m_rtexpr.empty() )
+    return 0;
+  auto r = m_rtexpr.rbegin();
+  if ( r->m_ce != REG || r->m_idx )
+    return 0;
+  ++r;
+  if ( r == m_rtexpr.rend() )
+    return 0;
+  return r->m_ce == SET;
+}
+
 int my_PLUGIN::inside_if() const
 {
   if ( m_rtexpr.empty() )
@@ -1301,7 +1315,10 @@ void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
         } else if ( ct0 == METHOD_TYPE )
         {
           clutch.last = t;
-          dump_method(t);
+          // don`t need type method when just assign in to register
+          // anyway type and name will be gathered for second part of SET
+          if ( !is_set_reg() )
+            dump_method(t);
         } else if ( ct0 == FUNCTION_TYPE )
         {
           clutch.last = t;
