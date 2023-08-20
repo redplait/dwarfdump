@@ -129,6 +129,8 @@ extern void dump_function_header(FILE *, tree, dump_flags_t);
 extern void make_decl_rtl (tree);
 extern char *print_generic_expr_to_str (tree);
 extern tree get_identifier (const char *);
+extern tree gimple_get_virt_method_for_vtable (HOST_WIDE_INT, tree, unsigned HOST_WIDE_INT, bool *can_refer = NULL);
+extern bool vtable_pointer_value_to_vtable (const_tree, tree *, unsigned HOST_WIDE_INT *);
 
 // ripped from print-rtl-function.cc
 static void
@@ -952,13 +954,17 @@ void my_PLUGIN::dump_method(const_tree expr)
       // lets try find virtual method with it's type - it stored in expr
       for ( tree f = TYPE_FIELDS(class_type); f; f = TREE_CHAIN(f) )
       {
-        if ( !DECL_VIRTUAL_P(f) )
+        // skip vars
+        if ( TREE_CODE(f) == FIELD_DECL )
           continue;
+        // method not neseccary must be virtual  
+        // if ( !DECL_VIRTUAL_P(f) )
+        //  continue;
         if ( TREE_TYPE(f) != expr )
           continue;
         found = f;
         if ( DECL_NAME(f) && need_dump() )
-          fprintf(m_outfp, " vmethod %s", IDENTIFIER_POINTER(DECL_NAME(f)));
+          fprintf(m_outfp, " method %s", IDENTIFIER_POINTER(DECL_NAME(f)));
         break;
       }
       /* we have type of base class in parent_type and method_type - try to find name of this method in base classes */
@@ -983,11 +989,11 @@ void my_PLUGIN::dump_method(const_tree expr)
       {
         if ( need_dump() )
         {
-          fprintf(m_outfp, "no_vmethod_found %X", TREE_CODE(expr));
+          fprintf(m_outfp, "no_method_found %X", TREE_CODE(expr));
           // dump_tree_MF(class_type);      
         }
         if ( m_db )
-          pass_error("cannot find vmethod for type %d", TREE_CODE(class_type));
+          pass_error("cannot find method for type %d", TREE_CODE(class_type));
       }
     }
     dump_tree_MF(expr);
@@ -1069,8 +1075,12 @@ const_tree my_PLUGIN::try_class_rec(const_tree binfo, const_tree igo, const_tree
 //      fprintf(m_outfp, "try_class_rec %X for %s ", TREE_CODE(base_binfo), IDENTIFIER_POINTER(DECL_NAME(rt)) );
     for ( tree f = TYPE_FIELDS(type); f; f = TREE_CHAIN(f) )
     {
-      if ( !DECL_VIRTUAL_P(f) )
+      // skip vars
+      if ( TREE_CODE(f) == FIELD_DECL )
         continue;
+      // method not neseccary must be virtual
+      // if ( !DECL_VIRTUAL_P(f) )
+      //  continue;
       if ( TREE_TYPE(f) == expr )
       {
         *found = f;
@@ -1443,6 +1453,34 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
           if ( type_has_name(TYPE_NAME(base_class)) && need_dump() )
             fprintf(m_outfp, " %s", IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(base_class))));
           clutch.last = base_class;
+          HOST_WIDE_INT vindex = tree_to_uhwi(token);
+          for ( tree f = TYPE_FIELDS(base_class); f; f = TREE_CHAIN(f) )
+          {
+            if ( !DECL_VIRTUAL_P(f) )
+              continue;
+            if ( TREE_CODE(f) != FUNCTION_DECL )
+              continue;
+            tree vi = DECL_VINDEX(f);
+            if ( !vi || vi == error_mark_node )
+              continue;
+            // fprintf(m_outfp, "fname %s vindex %p code %X\n", IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(f))), vi, TREE_CODE(vi)); fflush(m_outfp);  
+            if ( extract_vindex(f) == vindex )
+            {  
+              clutch.completed = true;
+              if ( type_has_name(TYPE_NAME(base_class)) )
+              {
+                clutch.txt = IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(base_class)));
+                clutch.txt += ".";
+                clutch.txt += IDENTIFIER_POINTER(DECL_NAME(f));
+              } else
+                clutch.txt = IDENTIFIER_POINTER(DECL_NAME(f));
+              if ( m_db )
+                m_db->add_xref(vcall, clutch.txt.c_str());
+              if ( need_dump() )
+                fprintf(m_outfp, " vcall %s", clutch.txt.c_str());
+              return;
+            }
+          }
         } else {
           claim_unknown(code, "otr_class");
         }
@@ -1679,7 +1717,7 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
     if ( need_dump() )
       fprintf(m_outfp, " no type_name");
     if ( m_db )
-      pass_error("dump_comp_ref: no type_name for ctx %d", code);
+      pass_error("dump_comp_ref: no type_name for ctx %X", code);
   }
 //  if ( !clutch.txt.empty() )
 //    fprintf(m_outfp, "dump_comp_ref level %d %s", clutch.level, clutch.txt.c_str());
