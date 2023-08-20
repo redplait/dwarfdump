@@ -1188,6 +1188,8 @@ void my_PLUGIN::dump_type_tree(const_tree in_t)
   if ( TYPE_UID(t) ) fprintf(m_outfp, " uid %d", TYPE_UID(t));        \
   fputc(')', m_outfp); }
 
+  t = get_containing_scope(in_t);
+  DUMP_NODE("scope");
 //  t = TYPE_POINTER_TO(in_t);
 //  DUMP_NODE("pointer_to");
 //  t = TYPE_REFERENCE_TO(in_t);
@@ -1715,7 +1717,10 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
   if ( !tn )
   {
     if ( need_dump() )
+    {
       fprintf(m_outfp, " no type_name");
+      dump_type_tree(ctx);
+    }
     if ( m_db )
       pass_error("dump_comp_ref: no type_name for ctx %X", code);
   }
