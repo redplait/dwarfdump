@@ -35,7 +35,7 @@ const struct pass_data my_PLUGIN_pass_data =
     -fplugin-arg-gptest-password=password for db access
     -fplugin-arg-gptest-asmproto
     -fplugin-arg-gptest-dumprtl
-    -fplugin-arg-gptest-ic to dunp imteger constants, oprionally you can peek config filename
+    -fplugin-arg-gptest-ic to dunp imteger constants, optionally you can peek config filename
     -fplugin-arg-gptest-verbose
  */
 const char *pname_verbose = "verbose";
@@ -62,9 +62,12 @@ my_PLUGIN::my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int 
     m_asmproto = existsArgument("asmproto"); 
     m_dump_rtl = existsArgument("dumprtl");
     m_dump_ic = existsArgument("ic");
-    const char *ic_name = findArgumentValue("ic");
-    if ( ic_name )
-      read_ic_config(ic_name);
+    if ( m_dump_ic )
+    {
+      const char *ic_name = findArgumentValue("ic");
+      if ( ic_name )
+        read_ic_config(ic_name);
+    }
     m_db_str = findArgumentValue("db");
     if ( m_db_str )
       m_db = get_pers();
@@ -577,6 +580,24 @@ void my_PLUGIN::dump_known_uids()
   }
 }
 
+void my_PLUGIN::make_expr_cmt(const_rtx in_rtx, std::string &cmt)
+{
+  if ( m_rtexpr.empty() )
+    return;
+  rtx_code code = GET_CODE(in_rtx);
+  if ( INSN_CHAIN_CODE_P(code) )
+    cmt = std::to_string(INSN_UID (in_rtx));
+  else
+    cmt.clear();
+  for ( auto &rt: m_rtexpr )
+  {
+    cmt += ' ';
+    cmt += GET_RTX_NAME(rt.m_ce);
+    cmt += ':';
+    cmt += std::to_string(rt.m_idx);
+  }
+}
+
 void my_PLUGIN::dump_exprs()
 {
   if ( !need_dump() || m_rtexpr.empty() )
@@ -787,7 +808,16 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
           if ( need_dump() )
             dump_exprs();
           if ( m_db )
+          {
+            std::string cmt;
+            make_expr_cmt(in_rtx, cmt);
+            if ( !cmt.empty() )
+            {
+              // fprintf(stdout, "%s\n", cmt.c_str());
+              m_db->add_comment(cmt.c_str());
+            }
             m_db->add_ic(XWINT(in_rtx, idx));
+          }
         }
       }
       break;

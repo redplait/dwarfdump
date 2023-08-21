@@ -130,6 +130,7 @@ class my_PLUGIN : public rtl_plugin_with_args
     m_rtexpr.pop_back();
   }
   void dump_exprs();
+  void make_expr_cmt(const_rtx in_rtx, std::string &);
   void dump_known_uids();
   // args
   bool m_dump_rtl;
