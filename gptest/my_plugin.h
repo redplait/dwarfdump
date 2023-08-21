@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <list>
 #include <map>
+#include <set>
 
 #include "fpers.h"
 
@@ -79,6 +80,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   void start_file(const char *);
   void stop_file();
  private:
+  void read_ic_config(const char *);
   void margin(int);
   int is_vptr(const_tree);
   void store_aux(aux_type_clutch &);
@@ -119,6 +121,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   int inside_if() const;
   int is_eh_num() const;
   int is_sb() const;
+  int is_set_reg() const;
   // expr stack
   void expr_push(const_rtx, int idx);
   void expr_pop()
@@ -153,4 +156,6 @@ class my_PLUGIN : public rtl_plugin_with_args
   // current basic_block number
   int bb_index;
   int in_pe; // current insn in prologue/epilogue
+  std::set<enum rtx_class> ic_allowed;
+  std::set<enum rtx_class> ic_denied;
 };

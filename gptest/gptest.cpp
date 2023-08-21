@@ -9,6 +9,7 @@
 #include "langhooks.h"
 
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <stdarg.h>
 #include <algorithm>
@@ -34,7 +35,7 @@ const struct pass_data my_PLUGIN_pass_data =
     -fplugin-arg-gptest-password=password for db access
     -fplugin-arg-gptest-asmproto
     -fplugin-arg-gptest-dumprtl
-    -fplugin-arg-gptest-ic to dunp imteger constants
+    -fplugin-arg-gptest-ic to dunp imteger constants, oprionally you can peek config filename
     -fplugin-arg-gptest-verbose
  */
 const char *pname_verbose = "verbose";
@@ -61,6 +62,9 @@ my_PLUGIN::my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int 
     m_asmproto = existsArgument("asmproto"); 
     m_dump_rtl = existsArgument("dumprtl");
     m_dump_ic = existsArgument("ic");
+    const char *ic_name = findArgumentValue("ic");
+    if ( ic_name )
+      read_ic_config(ic_name);
     m_db_str = findArgumentValue("db");
     if ( m_db_str )
       m_db = get_pers();
@@ -2155,4 +2159,55 @@ int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version
     std::cerr << "Plugin " << plugin_info->base_name << " successfully initialized, pid " << getpid() << "\n";
 
     return 0;
+}
+
+void my_PLUGIN::read_ic_config(const char *fname)
+{
+  std::ifstream ifs(fname);
+  if ( !ifs.is_open() )
+  {
+    fprintf(stderr, "cannot open IC config file %s\n", fname);
+    return;
+  }
+  struct cmpStrings {
+    bool operator()(const char *a, const char *b) const {
+      return strcmp(a, b) < 0;
+    }
+  };
+  std::map<const char *, enum rtx_class, cmpStrings> rtx_names;
+  for ( int i = 0; i < NUM_RTX_CODE; ++i )
+    rtx_names[rtx_name[i]] = (enum rtx_class)i;
+  // read file
+  int line_no = 1;
+  while( ifs )
+  {
+    std::string line;
+    std::getline(ifs, line);
+    line_no++;
+    // trim spaces
+    const char *s = line.c_str();
+    while( *s )
+    {
+      if ( !isspace(*s) )
+        break;
+      ++s;
+    }
+    if ( !*s || *s == ';' ) // commants start with ;
+      continue;
+    auto *rset = &ic_allowed;
+    if ( *s == '+' )
+      ++s;
+    else if ( *s == '-' )
+    {
+      ++s;
+      rset = &ic_denied;
+    }
+    auto what = rtx_names.find(s);
+    if ( what == rtx_names.end() )
+    {
+      fprintf(stderr, "bad keyword %s on line %d\n", s, line_no);
+      continue;
+    }
+    rset->insert(what->second);
+  }
 }
