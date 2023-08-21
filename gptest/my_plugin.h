@@ -81,6 +81,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   void stop_file();
  private:
   void read_ic_config(const char *);
+  int ic_filter();
   void margin(int);
   int is_vptr(const_tree);
   void store_aux(aux_type_clutch &);

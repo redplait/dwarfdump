@@ -782,7 +782,7 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
       }
       if ( m_dump_ic && !in_pe && GET_CODE (in_rtx) == CONST_INT )
       {
-        if ( !inside_if() && !is_sb() && !is_eh_num() && XWINT(in_rtx, idx) )
+        if ( !inside_if() && !is_sb() && !is_eh_num() && XWINT(in_rtx, idx) && ic_filter() )
         {
           if ( need_dump() )
             dump_exprs();
@@ -2161,6 +2161,32 @@ int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version
     return 0;
 }
 
+// return 1 if some integer constant should be recorded
+int my_PLUGIN::ic_filter()
+{
+  if ( ic_allowed.empty() && ic_denied.empty() )
+    return 1;
+  // first check ic_denied
+  if ( !ic_denied.empty() )
+  {
+    for ( auto r = m_rtexpr.begin(); r != m_rtexpr.end(); ++r )
+    {
+      auto den = ic_denied.find(r->m_ce);
+      if ( den != ic_denied.end() )
+        return 0;
+    }
+  }
+  if ( ic_allowed.empty() )
+    return 1;
+  for ( auto r = m_rtexpr.begin(); r != m_rtexpr.end(); ++r )  
+  {
+    auto den = ic_allowed.find(r->m_ce);
+    if ( den != ic_allowed.end() )
+      return 1;
+  }
+  return 0;
+}
+
 void my_PLUGIN::read_ic_config(const char *fname)
 {
   std::ifstream ifs(fname);
@@ -2171,7 +2197,7 @@ void my_PLUGIN::read_ic_config(const char *fname)
   }
   struct cmpStrings {
     bool operator()(const char *a, const char *b) const {
-      return strcmp(a, b) < 0;
+      return strcasecmp(a, b) < 0;
     }
   };
   std::map<const char *, enum rtx_class, cmpStrings> rtx_names;
