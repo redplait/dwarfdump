@@ -733,6 +733,9 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
         case Dwarf32::dwarf_ops::DW_OP_deref:
            pl->locs.push_back({ deref, 0, 0});
           break;
+        case Dwarf32::dwarf_ops::DW_OP_constu:
+           value = ElfFile::ULEB128(data, bytes_available);
+          break;
         case Dwarf32::dwarf_ops::DW_OP_plus_uconst:
            pl->locs.push_back({ plus_uconst, 0, (int)ElfFile::ULEB128(data, bytes_available)});
           break;
@@ -1656,7 +1659,7 @@ bool ElfFile::GetAllClasses()
         info += 8;
         info_bytes -= 8;
       }
-      printf("hdr5: %lx\n", info-debug_info_);
+      DBG_PRINTF("hdr5: %lx\n", info-debug_info_);
     }
     // read debug lines
     if ( !read_debug_lines() )
