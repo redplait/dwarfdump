@@ -112,6 +112,8 @@ int TreeBuilder::should_keep(Element *e)
       return 0;
     old_rank = ci->second.second;
   } else {
+    if ( !e->name_ )
+      return 0;
     UniqName2 key { e->type_, e->name_ };
     const auto ci = m_dumped_db2.find(key);
     if ( ci == m_dumped_db2.cend() )

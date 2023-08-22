@@ -152,8 +152,12 @@ bool PlainRender::dump_type(uint64_t key, OUT std::string &res, named *n, int le
        el->second->type_ == ElementType::unspec_type
      )
   {
-    res = el->second->name_;
-    return true;
+    if ( el->second->name_ )
+    {
+      res = el->second->name_;
+      return true;
+    } else
+      return false;
   }
   if ( el->second->type_ == ElementType::structure_type )
   {

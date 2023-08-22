@@ -563,20 +563,24 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& b
       break;
 
     // Constant
+    case Dwarf32::Form::DW_FORM_addrx1:
     case Dwarf32::Form::DW_FORM_data1:
     case Dwarf32::Form::DW_FORM_strx1:
       data++;
       bytes_available--;
       break;
+    case Dwarf32::Form::DW_FORM_addrx2:  
     case Dwarf32::Form::DW_FORM_data2:
     case Dwarf32::Form::DW_FORM_strx2:
       data += 2;
       bytes_available -= 2;
       break;
+    case Dwarf32::Form::DW_FORM_addrx3:
     case Dwarf32::Form::DW_FORM_strx3:
       data += 3;
       bytes_available -= 3;
       break;
+    case Dwarf32::Form::DW_FORM_addrx4:  
     case Dwarf32::Form::DW_FORM_strx4:  
     case Dwarf32::Form::DW_FORM_data4:
       data += 4;
@@ -593,6 +597,8 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& b
     case Dwarf32::Form::DW_FORM_sdata:
     case Dwarf32::Form::DW_FORM_addrx:
     case Dwarf32::Form::DW_FORM_strx:
+    case Dwarf32::Form::DW_FORM_loclistx:
+    case Dwarf32::Form::DW_FORM_rnglistx:
       ElfFile::ULEB128(data, bytes_available);
       break;
     case Dwarf32::Form::DW_FORM_udata:
@@ -655,6 +661,7 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& b
       data += 4;
       bytes_available -= 4;
       break;
+
     case Dwarf32::Form::DW_FORM_string:
       while (*data) {
           data++;
@@ -665,7 +672,7 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& b
       break;
 
     default:
-      fprintf(stderr, "ERR: Unpexpected form type 0x%x\n", form);
+      fprintf(stderr, "ERR: Unpexpected form type 0x%x at %lx\n", form,  data - debug_info_);
       break;
   }
 }
@@ -675,11 +682,12 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
 {
   ptrdiff_t doff = data - debug_info_;
   // fprintf(stderr, "DecodeAddrLocation form %d off %lX\n", form, doff);
-  if ( form == Dwarf32::Form::DW_FORM_sec_offset )
+  if ( form == Dwarf32::Form::DW_FORM_sec_offset || form == Dwarf32::Form::DW_FORM_loclistx )
     return 0;
   uint32_t length = 0;
   switch(form)
   {
+    case Dwarf32::Form::DW_FORM_addrx:
     case Dwarf32::Form::DW_FORM_exprloc:
     case Dwarf32::Form::DW_FORM_block:
       length = ElfFile::ULEB128(data, bytes_available);
@@ -1008,6 +1016,7 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
       info += address_size_;
       bytes_available -= address_size_;
       break;
+    case Dwarf32::Form::DW_FORM_addrx:  
     case Dwarf32::Form::DW_FORM_sdata:
     case Dwarf32::Form::DW_FORM_udata:
     case Dwarf32::Form::DW_FORM_ref_udata:
@@ -1037,6 +1046,28 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
   uint32_t str_pos = 0;
 
   switch(form) {
+    case Dwarf32::Form::DW_FORM_strx2:
+      str_pos = *reinterpret_cast<const uint16_t*>(info);
+      info += 2;
+      bytes_available -= 2;
+      if ( str_pos > tree_builder->debug_str_size_ )
+      {
+        fprintf(stderr, "stringx2 %X is not in string section at %lX\n", str_pos, s - debug_info_);
+        fflush(stderr);
+      } else
+        str = (const char*)&tree_builder->debug_str_[str_pos];
+     break;
+    case Dwarf32::Form::DW_FORM_strx1:
+      str_pos = *reinterpret_cast<const uint8_t*>(info);
+      info += 1;
+      bytes_available -= 1;
+      if ( str_pos > tree_builder->debug_str_size_ )
+      {
+        fprintf(stderr, "stringx1 %X is not in string section at %lX\n", str_pos, s - debug_info_);
+        fflush(stderr);
+      } else
+        str = (const char*)&tree_builder->debug_str_[str_pos];
+     break;
     case Dwarf32::Form::DW_FORM_strp:
       str_pos = *reinterpret_cast<const uint32_t*>(info);
       info += sizeof(str_pos);
@@ -1625,6 +1656,7 @@ bool ElfFile::GetAllClasses()
         info += 8;
         info_bytes -= 8;
       }
+      printf("hdr5: %lx\n", info-debug_info_);
     }
     // read debug lines
     if ( !read_debug_lines() )
