@@ -138,8 +138,11 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   tree_builder(tb),
   debug_info_(nullptr), debug_info_size_(0),
   debug_abbrev_(nullptr), debug_abbrev_size_(0),
+  debug_loc_(nullptr), debug_loc_size_(0),
+  debug_str_offsets_(nullptr), debug_str_offsets_size_(0),
   debug_line_(nullptr), debug_line_size_(0),
-  free_info(false), free_abbrev(false), free_strings(false), free_loc(false), free_line(false)
+  offsets_base(0),
+  free_info(false), free_abbrev(false), free_strings(false), free_str_offsets(false), free_loc(false), free_line(false)
 {
   // read elf file
   if ( !reader.load(filepath.c_str()) )
@@ -150,12 +153,14 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   }
   success = true;
 
-  // Search the .debug_info and .debug_abbrev
+  // compressed sections
   section *zinfo = nullptr;
   section *zabbrev = nullptr;
   section *zstrings = nullptr;
   section *zloc = nullptr;
   section *zline = nullptr;
+  section *zstr_off = nullptr;
+  // Search the .debug_info and .debug_abbrev
   tree_builder->debug_str_ = nullptr;
   tree_builder->debug_str_size_ = 0;
   Elf_Half n = reader.sections.size();
@@ -177,6 +182,12 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       tree_builder->debug_str_size_ = s->get_size();
       if ( check_compressed_section(s, tree_builder->debug_str_, tree_builder->debug_str_size_) )
         free_strings = true;
+    } else if (!strcmp(s->get_name().c_str(), ".debug_str_offsets")) {
+      debug_str_offsets_ = reinterpret_cast<const unsigned char*>(s->get_data());
+      debug_str_offsets_size_ = s->get_size();
+      if ( check_compressed_section(s, debug_str_offsets_, debug_str_offsets_size_) )
+        free_str_offsets = true;
+      // printf("debug_str_offsets_size %lx\n", debug_str_offsets_size_);
     } else if (!strcmp(name, ".debug_loc")) {
       debug_loc_ = reinterpret_cast<const unsigned char*>(s->get_data());
       debug_loc_size_ = s->get_size();
@@ -198,6 +209,8 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       zloc = s;
     else if ( g_opt_F && !strcmp(name, ".zdebug_line") )
       zline = s;
+    else if ( !strcmp(name, ".zdebug_str_offsets") )
+      zstr_off = s;
   }
   // check if we need to decompress some sections
   if ( zinfo )
@@ -250,6 +263,16 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
     }
     free_line = true;
   }
+  if ( zstr_off )
+  {
+    if ( !unzip_section(zstr_off, debug_str_offsets_, debug_str_offsets_size_) )
+    {
+      fprintf(stderr, "cannot unpack section %s\n", zstr_off->get_name().c_str());
+      success = false;
+      return;
+    }
+    free_str_offsets = true;
+  }
   tree_builder->m_rnames = get_regnames(reader.get_machine());
   tree_builder->m_snames = this;
   success = (debug_info_ && debug_abbrev_);
@@ -270,6 +293,7 @@ ElfFile::~ElfFile()
     free_section(tree_builder->debug_str_, free_strings);
   free_section(debug_loc_, free_loc);
   free_section(debug_line_, free_line);
+  free_section(debug_str_offsets_, free_str_offsets);
 }
 
 bool ElfFile::read_debug_lines()
@@ -1042,6 +1066,16 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
   return value;
 };
 
+const char* ElfFile::get_indexed_str(uint32_t str_pos)
+{
+  if ( !debug_str_offsets_size_ || !offsets_base )
+    return nullptr;
+  uint64_t index_offset = str_pos * 4;
+  if ( index_offset + offsets_base > debug_str_offsets_size_ )
+    return nullptr;
+  uint32_t str_offset = *(uint32_t *)(debug_str_offsets_ + index_offset + offsets_base);
+  return (const char*)&tree_builder->debug_str_[str_offset];
+}
 const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &info, 
                                                       size_t& bytes_available) {
   const char* str = nullptr;
@@ -1049,27 +1083,38 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
   uint32_t str_pos = 0;
 
   switch(form) {
+    case Dwarf32::Form::DW_FORM_strx4:
+      str_pos = *reinterpret_cast<const uint32_t*>(info);
+      info += 4;
+      bytes_available -= 4;
+      if ( (size_t)str_pos > debug_str_offsets_size_ )
+      {
+        fprintf(stderr, "stringx4 %X is not in str_offsets section size %lx at %lX\n", str_pos, debug_str_offsets_size_, s - debug_info_);
+        fflush(stderr);
+      } else
+        str = get_indexed_str(str_pos);
+     break;
     case Dwarf32::Form::DW_FORM_strx2:
       str_pos = *reinterpret_cast<const uint16_t*>(info);
       info += 2;
       bytes_available -= 2;
-      if ( str_pos > tree_builder->debug_str_size_ )
+      if ( (size_t)str_pos > debug_str_offsets_size_ )
       {
-        fprintf(stderr, "stringx2 %X is not in string section at %lX\n", str_pos, s - debug_info_);
+        fprintf(stderr, "stringx2 %X is not in str_offsets section size %lx at %lX\n", str_pos, debug_str_offsets_size_, s - debug_info_);
         fflush(stderr);
       } else
-        str = (const char*)&tree_builder->debug_str_[str_pos];
+        str = get_indexed_str(str_pos);
      break;
     case Dwarf32::Form::DW_FORM_strx1:
       str_pos = *reinterpret_cast<const uint8_t*>(info);
       info += 1;
       bytes_available -= 1;
-      if ( str_pos > tree_builder->debug_str_size_ )
+      if ( (size_t)str_pos > debug_str_offsets_size_ )
       {
-        fprintf(stderr, "stringx1 %X is not in string section at %lX\n", str_pos, s - debug_info_);
+        fprintf(stderr, "stringx1 %X is not in str_offsets section size %lx at %lX\n", str_pos, debug_str_offsets_size_, s - debug_info_);
         fflush(stderr);
       } else
-        str = (const char*)&tree_builder->debug_str_[str_pos];
+        str = get_indexed_str(str_pos);
      break;
     case Dwarf32::Form::DW_FORM_strp:
       str_pos = *reinterpret_cast<const uint32_t*>(info);
@@ -1350,6 +1395,18 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         return true;
       }
       return false;
+    case Dwarf32::Attribute::DW_AT_str_offsets_base:
+      if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
+      {
+        offsets_base = FormDataValue(form, info, info_bytes);
+        // check that it located somewhere inside .debug_str_offsets section
+        if ( (size_t)offsets_base > debug_str_offsets_size_ )
+        {
+          fprintf(stderr, "bad DW_AT_str_offsets_base %lx, size of .debug_str_offsets %lx\n", offsets_base, debug_str_offsets_size_);
+          offsets_base = 0;
+        }
+        return true;
+      }
     // Name
     case Dwarf32::Attribute::DW_AT_producer:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
@@ -1466,7 +1523,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     }
     // address
     case Dwarf32::Attribute::DW_AT_low_pc: {
-      // printf("low_pc form %d\n", form);
+      // printf("low_pc form %X\n", form);
       if ( m_regged )
       {
         uint64_t addr = FormDataValue(form, info, info_bytes);
