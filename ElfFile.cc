@@ -140,9 +140,10 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   debug_abbrev_(nullptr), debug_abbrev_size_(0),
   debug_loc_(nullptr), debug_loc_size_(0),
   debug_str_offsets_(nullptr), debug_str_offsets_size_(0),
+  debug_addr_(nullptr), debug_addr_size_(0),
   debug_line_(nullptr), debug_line_size_(0),
-  offsets_base(0),
-  free_info(false), free_abbrev(false), free_strings(false), free_str_offsets(false), free_loc(false), free_line(false)
+  offsets_base(0), addr_base(0),
+  free_info(false), free_abbrev(false), free_strings(false), free_str_offsets(false), free_addr(false), free_loc(false), free_line(false)
 {
   // read elf file
   if ( !reader.load(filepath.c_str()) )
@@ -160,6 +161,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   section *zloc = nullptr;
   section *zline = nullptr;
   section *zstr_off = nullptr;
+  section *zaddr = nullptr;
   // Search the .debug_info and .debug_abbrev
   tree_builder->debug_str_ = nullptr;
   tree_builder->debug_str_size_ = 0;
@@ -188,6 +190,11 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       if ( check_compressed_section(s, debug_str_offsets_, debug_str_offsets_size_) )
         free_str_offsets = true;
       // printf("debug_str_offsets_size %lx\n", debug_str_offsets_size_);
+    } else if (!strcmp(s->get_name().c_str(), ".debug_addr")) {
+      debug_addr_ = reinterpret_cast<const unsigned char*>(s->get_data());
+      debug_addr_size_ = s->get_size();
+      if ( check_compressed_section(s, debug_addr_, debug_addr_size_) )
+        free_addr = true;
     } else if (!strcmp(name, ".debug_loc")) {
       debug_loc_ = reinterpret_cast<const unsigned char*>(s->get_data());
       debug_loc_size_ = s->get_size();
@@ -211,6 +218,8 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       zline = s;
     else if ( !strcmp(name, ".zdebug_str_offsets") )
       zstr_off = s;
+    else if ( !strcmp(name, ".zdebug_addr") )
+      zaddr = s;
   }
   // check if we need to decompress some sections
   if ( zinfo )
@@ -273,6 +282,17 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
     }
     free_str_offsets = true;
   }
+  if ( zaddr )
+  {
+    if ( !unzip_section(zaddr, debug_addr_, debug_addr_size_) )
+    {
+      fprintf(stderr, "cannot unpack section %s\n", zstr_off->get_name().c_str());
+      success = false;
+      return;
+    }
+    free_addr = true;
+  }
+
   tree_builder->m_rnames = get_regnames(reader.get_machine());
   tree_builder->m_snames = this;
   success = (debug_info_ && debug_abbrev_);
@@ -294,6 +314,7 @@ ElfFile::~ElfFile()
   free_section(debug_loc_, free_loc);
   free_section(debug_line_, free_line);
   free_section(debug_str_offsets_, free_str_offsets);
+  free_section(debug_addr_, free_addr);
 }
 
 bool ElfFile::read_debug_lines()
@@ -1043,7 +1064,25 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
       info += address_size_;
       bytes_available -= address_size_;
       break;
-    case Dwarf32::Form::DW_FORM_addrx:  
+    // addrx
+    case Dwarf32::Form::DW_FORM_addrx1:
+      value = *reinterpret_cast<const uint8_t*>(info);
+      info++;
+      bytes_available--;
+      return get_indexed_addr(value, address_size_);  
+    case Dwarf32::Form::DW_FORM_addrx2:
+      value = *reinterpret_cast<const uint16_t*>(info);
+      info += 2;
+      bytes_available -= 2;
+      return get_indexed_addr(value, address_size_);  
+    case Dwarf32::Form::DW_FORM_addrx4:
+      value = *reinterpret_cast<const uint32_t*>(info);
+      info += 4;
+      bytes_available -= 4;
+      return get_indexed_addr(value, address_size_);  
+    case Dwarf32::Form::DW_FORM_addrx:
+      value = ElfFile::ULEB128(info, bytes_available);
+      return get_indexed_addr(value, address_size_);
     case Dwarf32::Form::DW_FORM_sdata:
     case Dwarf32::Form::DW_FORM_udata:
     case Dwarf32::Form::DW_FORM_ref_udata:
@@ -1065,6 +1104,31 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
 
   return value;
 };
+
+uint64_t ElfFile::get_indexed_addr(uint64_t pos, int size)
+{
+  if ( !debug_addr_size_ || !addr_base )
+    return 0;
+  pos *= address_size_;
+  if ( pos + size + addr_base > debug_addr_size_ )
+    return 0;
+  switch(size)
+  {
+    case 1: { const uint8_t *b = (const uint8_t *)(debug_addr_ + addr_base + pos);
+      return *b;
+    }
+    case 2: { const uint16_t *b = (const uint16_t *)(debug_addr_ + addr_base + pos);
+      return *b;
+    }
+    case 4: { const uint32_t *b = (const uint32_t *)(debug_addr_ + addr_base + pos);
+      return *b;
+    }
+    case 8: { const uint64_t *b = (const uint64_t *)(debug_addr_ + addr_base + pos);
+      return *b;
+    }
+  }
+  return 0;
+}
 
 const char* ElfFile::get_indexed_str(uint32_t str_pos)
 {
@@ -1395,6 +1459,19 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         return true;
       }
       return false;
+    case Dwarf32::Attribute::DW_AT_addr_base:
+      if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
+      {
+        addr_base = FormDataValue(form, info, info_bytes);
+        // check that it located somewhere inside .debug_addr section
+        if ( (size_t)addr_base > debug_addr_size_ )
+        {
+          fprintf(stderr, "bad DW_AT_addr_base %lx, size of .debug_addr %lx\n", addr_base, debug_addr_size_);
+          addr_base = 0;
+        }
+        return true;
+      }
+      return false;
     case Dwarf32::Attribute::DW_AT_str_offsets_base:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
       {
@@ -1407,6 +1484,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         }
         return true;
       }
+      return false;
     // Name
     case Dwarf32::Attribute::DW_AT_producer:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )

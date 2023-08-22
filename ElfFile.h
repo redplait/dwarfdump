@@ -62,6 +62,8 @@ private:
     size_t& info_bytes, const void* unit_base);
   void free_section(const unsigned char *&s, bool);
   bool read_debug_lines();
+  const char *get_indexed_str(uint32_t);
+  uint64_t get_indexed_addr(uint64_t, int size);
 
   elfio reader;
   TreeBuilder *tree_builder;
@@ -72,6 +74,10 @@ private:
   size_t debug_abbrev_size_;
   const unsigned char *debug_loc_;
   size_t debug_loc_size_;
+  const unsigned char *debug_str_offsets_;
+  size_t debug_str_offsets_size_;
+  const unsigned char *debug_addr_;
+  size_t debug_addr_size_;
   // for file names we need section .debug_line
   const unsigned char *debug_line_;
   size_t debug_line_size_;
@@ -91,6 +97,9 @@ private:
   int64_t cu_base;
   int64_t m_next; // value of DW_AT_sibling
   int m_level;
+  // DW_AT_str_offsets_base
+  int64_t offsets_base; // dwarf5 from DW_AT_str_offsets_base
+  int64_t addr_base;    // dwarf5 from DW_AT_addr_base
   // file and dir names from .debug_line
   DWARF2_Internal_LineInfo m_li;
   const unsigned char *m_curr_lines;  
@@ -110,6 +119,8 @@ private:
   bool free_info;
   bool free_abbrev;
   bool free_strings;
+  bool free_str_offsets;
+  bool free_addr;
   bool free_loc;
   bool free_line;
 };
