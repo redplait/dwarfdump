@@ -535,6 +535,20 @@ int64_t ElfFile::SLEB128(const unsigned char* &data, size_t& bytes_available) {
   return (int64_t)result;
 }
 
+uint32_t ElfFile::read_x3(const unsigned char* &data, size_t& bytes_available)
+{
+  uint32_t res = 0;
+  if ( bytes_available < 3)
+  {
+    fprintf(stderr, "read_x3 tries to read behind available data at %lx\n", data - debug_info_);
+    return 0;
+  }
+  memcpy(&res, data, 3);
+  data += 3;
+  bytes_available -= 3;
+  return res;
+}
+
 void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& bytes_available) 
 {
   uint32_t length = 0;
@@ -1040,6 +1054,9 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
       value = *reinterpret_cast<const uint16_t*>(info);
       info += 2;
       bytes_available -= 2;
+      return get_indexed_addr(value, address_size_);
+    case Dwarf32::Form::DW_FORM_addrx3:
+      value = read_x3(info, bytes_available);
       return get_indexed_addr(value, address_size_);  
     case Dwarf32::Form::DW_FORM_addrx4:
       value = *reinterpret_cast<const uint32_t*>(info);
@@ -1129,6 +1146,17 @@ const char* ElfFile::check_strx2(uint32_t str_pos)
     return get_indexed_str(str_pos);
 }
 
+const char* ElfFile::check_strx3(uint32_t str_pos)
+{
+  if ( (size_t)str_pos > debug_str_offsets_size_ )
+  {
+    fprintf(stderr, "stringx3 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_size_);
+    fflush(stderr);
+    return nullptr;
+  } else
+    return get_indexed_str(str_pos);
+}
+
 const char* ElfFile::check_strx1(uint32_t str_pos)
 {
   if ( (size_t)str_pos > debug_str_offsets_size_ )
@@ -1157,6 +1185,14 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
         return nullptr;
       }
       return check_strx4(str_pos);
+    case Dwarf32::Form::DW_FORM_strx3:
+      str_pos = read_x3(info, bytes_available);
+      if ( curr_asgn )
+      {
+        push2dlist(&ElfFile::check_strx3, str_pos);
+        return nullptr;
+      }
+      return check_strx3(str_pos);
     case Dwarf32::Form::DW_FORM_strx2:
       str_pos = *reinterpret_cast<const uint16_t*>(info);
       info += 2;

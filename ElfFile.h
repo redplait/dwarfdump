@@ -141,7 +141,9 @@ private:
   }
   const char *check_strx4(uint32_t);
   const char *check_strx2(uint32_t);
+  const char *check_strx3(uint32_t);
   const char *check_strx1(uint32_t);
+  uint32_t read_x3(const unsigned char* &data, size_t& bytes_available);
   // base offsets
   int64_t offsets_base; // dwarf5 from DW_AT_str_offsets_base
   int64_t addr_base;    // dwarf5 from DW_AT_addr_base
