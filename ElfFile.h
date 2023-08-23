@@ -97,7 +97,50 @@ private:
   int64_t cu_base;
   int64_t m_next; // value of DW_AT_sibling
   int m_level;
-  // DW_AT_str_offsets_base
+  // for cases like some string in compulation unit and then later DW_AT_str_offsets_base we need push delayed handlers
+  typedef void (ElfFile::*t_dassign)(const char *);
+  typedef const char *(ElfFile::*t_check)(uint32_t);
+  t_dassign curr_asgn;
+  struct one_delayed_str {
+   t_dassign asgn;
+   t_check check;
+   uint32_t value;
+  };
+  std::list<one_delayed_str> m_dlist;
+  void push2dlist(t_check c, uint32_t v)
+  {
+    m_dlist.push_back( { curr_asgn, c, v} );
+    curr_asgn = nullptr;
+  }
+  void apply_dlist()
+  {
+    for ( auto &d: m_dlist )
+    {
+      auto val = (this->*(d.check))(d.value);
+      (this->*(d.asgn))(val);
+    }
+    m_dlist.clear();
+  }
+  void asgn_producer(const char *v)
+  {
+    tree_builder->cu.cu_producer = v;
+  }
+  void asgn_comp_dir(const char *v)
+  {
+    tree_builder->cu.cu_comp_dir = v;
+  }
+  void asgn_cu_name(const char *v)
+  {
+    tree_builder->cu.cu_name = v;
+  }
+  void asgn_package(const char *v)
+  {
+    tree_builder->cu.cu_package = v;
+  }
+  const char *check_strx4(uint32_t);
+  const char *check_strx2(uint32_t);
+  const char *check_strx1(uint32_t);
+  // base offsets
   int64_t offsets_base; // dwarf5 from DW_AT_str_offsets_base
   int64_t addr_base;    // dwarf5 from DW_AT_addr_base
   // file and dir names from .debug_line
