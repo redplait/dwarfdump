@@ -693,7 +693,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
   uint32_t length = 0;
   switch(form)
   {
-    case Dwarf32::Form::DW_FORM_addrx:
+    // case Dwarf32::Form::DW_FORM_addrx:
     case Dwarf32::Form::DW_FORM_exprloc:
     case Dwarf32::Form::DW_FORM_block:
       length = ElfFile::ULEB128(data, bytes_available);
@@ -719,6 +719,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
   }
   const unsigned char *end = data + length;
   int value = 0;
+  uint64_t v64 = 0;
   while( data < end && bytes_available )
   {
     unsigned op = *data;
@@ -726,6 +727,10 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
     bytes_available--;
     switch(op)
     {
+      case Dwarf32::dwarf_ops::DW_OP_addrx:
+         v64 = ElfFile::ULEB128(data, bytes_available);
+         return get_indexed_addr(v64, address_size_);
+        break;
       case Dwarf32::dwarf_ops::DW_OP_addr:
         if ( address_size_ == 8 )
           return *reinterpret_cast<const uint64_t*>(data);
