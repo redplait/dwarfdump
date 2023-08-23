@@ -141,9 +141,11 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   debug_loc_(nullptr), debug_loc_size_(0),
   debug_str_offsets_(nullptr), debug_str_offsets_size_(0),
   debug_addr_(nullptr), debug_addr_size_(0),
+  debug_loclists_(nullptr), debug_loclists_size_(0),
   debug_line_(nullptr), debug_line_size_(0),
   offsets_base(0), addr_base(0),
-  free_info(false), free_abbrev(false), free_strings(false), free_str_offsets(false), free_addr(false), free_loc(false), free_line(false)
+  free_info(false), free_abbrev(false), free_strings(false), free_str_offsets(false), 
+   free_addr(false), free_loc(false), free_line(false), free_loclists(false)
 {
   // read elf file
   if ( !reader.load(filepath.c_str()) )
@@ -155,13 +157,15 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   success = true;
 
   // compressed sections
-  section *zinfo = nullptr;
-  section *zabbrev = nullptr;
-  section *zstrings = nullptr;
-  section *zloc = nullptr;
-  section *zline = nullptr;
-  section *zstr_off = nullptr;
-  section *zaddr = nullptr;
+  section 
+   *zinfo = nullptr,
+   *zabbrev = nullptr,
+   *zstrings = nullptr,
+   *zloc = nullptr,
+   *zline = nullptr,
+   *zstr_off = nullptr,
+   *zaddr = nullptr,
+   *zloclists = nullptr;
   // Search the .debug_info and .debug_abbrev
   tree_builder->debug_str_ = nullptr;
   tree_builder->debug_str_size_ = 0;
@@ -184,6 +188,11 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       tree_builder->debug_str_size_ = s->get_size();
       if ( check_compressed_section(s, tree_builder->debug_str_, tree_builder->debug_str_size_) )
         free_strings = true;
+    } else if (!strcmp(s->get_name().c_str(), ".debug_loclists")) {
+      debug_loclists_ = reinterpret_cast<const unsigned char*>(s->get_data());
+      debug_loclists_size_ = s->get_size();
+      if ( check_compressed_section(s, debug_loclists_, debug_loclists_size_) )
+        free_loclists = true;
     } else if (!strcmp(s->get_name().c_str(), ".debug_str_offsets")) {
       debug_str_offsets_ = reinterpret_cast<const unsigned char*>(s->get_data());
       debug_str_offsets_size_ = s->get_size();
@@ -220,6 +229,8 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       zstr_off = s;
     else if ( !strcmp(name, ".zdebug_addr") )
       zaddr = s;
+    else if ( !strcmp(name, ".zdebug_loclists") )
+      zloclists = s;
   }
   // check if we need to decompress some sections
 #define UNPACK_ZSECTION(zsec, zs_, zs_size, free_zs) \
@@ -240,6 +251,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   UNPACK_ZSECTION(zline, debug_line_, debug_line_size_, free_line)
   UNPACK_ZSECTION(zstr_off, debug_str_offsets_, debug_str_offsets_size_, free_str_offsets)
   UNPACK_ZSECTION(zaddr, debug_addr_, debug_addr_size_ , free_addr)
+  UNPACK_ZSECTION(zloclists, debug_loclists_, debug_loclists_size_, free_loclists)
 
   tree_builder->m_rnames = get_regnames(reader.get_machine());
   tree_builder->m_snames = this;
@@ -263,6 +275,7 @@ ElfFile::~ElfFile()
   free_section(debug_line_, free_line);
   free_section(debug_str_offsets_, free_str_offsets);
   free_section(debug_addr_, free_addr);
+  free_section(debug_loclists_, free_loclists);
 }
 
 bool ElfFile::read_debug_lines()

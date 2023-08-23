@@ -78,6 +78,8 @@ private:
   size_t debug_str_offsets_size_;
   const unsigned char *debug_addr_;
   size_t debug_addr_size_;
+  const unsigned char *debug_loclists_;
+  size_t debug_loclists_size_;
   // for file names we need section .debug_line
   const unsigned char *debug_line_;
   size_t debug_line_size_;
@@ -166,4 +168,5 @@ private:
   bool free_addr;
   bool free_loc;
   bool free_line;
+  bool free_loclists;
 };
