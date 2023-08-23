@@ -143,7 +143,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   debug_addr_(nullptr), debug_addr_size_(0),
   debug_loclists_(nullptr), debug_loclists_size_(0),
   debug_line_(nullptr), debug_line_size_(0),
-  offsets_base(0), addr_base(0),
+  offsets_base(0), addr_base(0), loclist_base(0),
   free_info(false), free_abbrev(false), free_strings(false), free_str_offsets(false), 
    free_addr(false), free_loc(false), free_line(false), free_loclists(false)
 {
@@ -1453,6 +1453,18 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         return true;
       }
       return false;
+    case Dwarf32::Attribute::DW_AT_loclists_base:
+     if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
+     {
+       loclist_base = FormDataValue(form, info, info_bytes);
+        // check that it located somewhere inside .debug_loclists section
+        if ( (size_t)loclist_base > debug_loclists_size_ )
+        {
+          fprintf(stderr, "bad DW_AT_loclist_base %lx, size of .debug_loclists %lx\n", loclist_base, debug_loclists_size_);
+          loclist_base = 0;
+        }
+        return true;
+     }
     case Dwarf32::Attribute::DW_AT_addr_base:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
       {
@@ -1809,7 +1821,10 @@ bool ElfFile::GetAllClasses()
       fprintf(g_outf, "reset level\n");
     m_level = 0;
 
+    // reset bases for new compilation unit
     offsets_base = 0;
+    addr_base = 0;
+    loclist_base = 0;
     // For all compilation tags
     while (info < info_end) {
       m_tag_id = info - debug_info_; 

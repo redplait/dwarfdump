@@ -99,7 +99,7 @@ private:
   int64_t cu_base;
   int64_t m_next; // value of DW_AT_sibling
   int m_level;
-  // for cases like some string in compulation unit and then later DW_AT_str_offsets_base we need push delayed handlers
+  // for cases like some string in compilation unit and then later DW_AT_str_offsets_base we need push delayed handlers
   typedef void (ElfFile::*t_dassign)(const char *);
   typedef const char *(ElfFile::*t_check)(uint32_t);
   t_dassign curr_asgn;
@@ -145,6 +145,7 @@ private:
   // base offsets
   int64_t offsets_base; // dwarf5 from DW_AT_str_offsets_base
   int64_t addr_base;    // dwarf5 from DW_AT_addr_base
+  int64_t loclist_base; // dwarf5 from DW_AT_loclists_base
   // file and dir names from .debug_line
   DWARF2_Internal_LineInfo m_li;
   const unsigned char *m_curr_lines;  
