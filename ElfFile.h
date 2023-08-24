@@ -29,6 +29,8 @@ typedef struct
   unsigned char  li_line_range;
   unsigned char  li_opcode_base;
   unsigned int   li_offset_size;
+  // for delayed loading for version 5 - bcs we don`t know str_offsets
+  const unsigned char *m_ptr;
 } DWARF2_Internal_LineInfo;
 
 class ElfFile : public ISectionNames
@@ -64,6 +66,7 @@ private:
   bool read_debug_lines();
   const char *get_indexed_str(uint32_t);
   uint64_t get_indexed_addr(uint64_t, int size);
+  uint64_t fetch_indexed_value(uint64_t, const unsigned char *, uint64_t s_size, uint64_t base);
 
   elfio reader;
   TreeBuilder *tree_builder;

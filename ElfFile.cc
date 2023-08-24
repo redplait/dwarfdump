@@ -431,6 +431,7 @@ bool ElfFile::read_debug_lines()
     }
   } else {
     // TODO: implement load_debug_section_with_follow
+    m_li.m_ptr = ptr;
     fprintf(stderr, "debug_section_with_follow for version %d is not supported\n", m_li.li_version);
     return true; // safe to skip this unit bcs m_curr_lines points to next one
   }
@@ -697,16 +698,70 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& b
   }
 }
 
+uint64_t ElfFile::fetch_indexed_value(uint64_t idx, const unsigned char *s, uint64_t s_size, uint64_t base)
+{
+  if ( !s )
+    return -1;
+  if ( s_size < 4 )
+    return -1;
+  uint32_t pointer_size, bias;
+  if ( *reinterpret_cast<const uint32_t*>(s) == 0xffffffff )
+  {
+    pointer_size = 8;
+    bias = 20;
+  } else {
+    pointer_size = 4;
+    bias = 12;
+  }
+  uint64_t offset = idx * pointer_size;
+  if ( base )
+    offset += base;
+  else
+    offset += bias;
+  if ( offset + pointer_size > s_size )
+  {
+    fprintf(stderr, "fetch_indexed_value tries to read behind available data at %lx, section size %lx\n", offset, s_size);
+    return -1;
+  }
+  if ( 4 == pointer_size )
+    return *reinterpret_cast<const uint32_t*>(s + offset);
+  else
+    return *reinterpret_cast<const uint64_t*>(s + offset);
+}
+
 // var addresses decoded as block + OP_addr
 uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* data, size_t bytes_available, param_loc *pl) 
 {
   ptrdiff_t doff = data - debug_info_;
   // fprintf(stderr, "DecodeAddrLocation form %d off %lX\n", form, doff);
-  if ( form == Dwarf32::Form::DW_FORM_sec_offset || form == Dwarf32::Form::DW_FORM_loclistx )
+  if ( form == Dwarf32::Form::DW_FORM_sec_offset )
     return 0;
   uint32_t length = 0;
+  uint64_t lindex;
+  uint64_t laddr = 0;
   switch(form)
   {
+    case Dwarf32::Form::DW_FORM_loclistx:
+      lindex = ElfFile::ULEB128(data, bytes_available);
+      if ( !loclist_base )
+      {
+        fprintf(stderr, "no loclist_base for DW_FORM_loclistx at %lx\n", data - debug_info_);
+        return 0;
+      }
+      laddr = fetch_indexed_value(lindex, debug_loclists_, debug_loclists_size_, loclist_base);
+      if ( (uint64_t)-1 == laddr )
+        return 0;
+      laddr += loclist_base;
+      if ( laddr > debug_loclists_size_ )
+      {
+        fprintf(stderr, "laddr %lx is not inside loclists section size %lx\n", laddr, debug_loclists_size_);
+        return 0;
+      }
+      data = (debug_loclists_ + laddr);
+      // TODO: add processing of locations block with DW_LLE here 
+      // see function display_offset_entry_loclists
+      return 0;
+     break;
     // case Dwarf32::Form::DW_FORM_addrx:
     case Dwarf32::Form::DW_FORM_exprloc:
     case Dwarf32::Form::DW_FORM_block:
@@ -739,6 +794,12 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
     unsigned op = *data;
     data++;
     bytes_available--;
+    // ignore DW_OP_lixX
+    if ( op >= Dwarf32::dwarf_ops::DW_OP_lit0 && op <= Dwarf32::dwarf_ops::DW_OP_lit31 )
+    {
+      value = op - Dwarf32::dwarf_ops::DW_OP_lit0;
+      continue;
+    }
     switch(op)
     {
       case Dwarf32::dwarf_ops::DW_OP_addrx:
@@ -890,6 +951,8 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
         }
         case Dwarf32::dwarf_ops::DW_OP_fbreg:
            pl->locs.push_back({ fbreg, 0, (int)ElfFile::SLEB128(data, bytes_available)});
+         break;
+        case Dwarf32::dwarf_ops::DW_OP_stack_value:
          break;
       default:
         fprintf(stderr, "DecodeAddrLocation: unknown op %X at %lX\n", op, doff);

@@ -525,4 +525,26 @@ DW_OP (DW_OP_reinterpret, 0xa9)
 DW_OP (DW_OP_GNU_push_tls_address, 0xe0)
 DW_OP (DW_OP_GNU_implicit_pointer, 0xf2)
   };
+
+/* Type codes for location list entries.  */
+enum dwarf_location_list_entry_type
+  {
+    DW_LLE_end_of_list = 0x00,
+    DW_LLE_base_addressx = 0x01,
+    DW_LLE_startx_endx = 0x02,
+    DW_LLE_startx_length = 0x03,
+    DW_LLE_offset_pair = 0x04,
+    DW_LLE_default_location = 0x05,
+    DW_LLE_base_address = 0x06,
+    DW_LLE_start_end = 0x07,
+    DW_LLE_start_length = 0x08,
+
+    /* <http://lists.dwarfstd.org/private.cgi/dwarf-discuss-dwarfstd.org/2017-April/004347.html>
+       has the proposal for now; only available to list members.
+
+       A (possibly updated) copy of the proposal is available at
+       <http://people.redhat.com/aoliva/papers/sfn/dwarf6-sfn-lvu.txt>.  */
+    DW_LLE_GNU_view_pair = 0x09,
+#define DW_LLE_view_pair DW_LLE_GNU_view_pair
+};
 };
