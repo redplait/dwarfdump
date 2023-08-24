@@ -143,9 +143,10 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   debug_addr_(nullptr), debug_addr_size_(0),
   debug_loclists_(nullptr), debug_loclists_size_(0),
   debug_line_(nullptr), debug_line_size_(0),
+  debug_line_str_(nullptr), debug_line_str_size_(0),
   offsets_base(0), addr_base(0), loclist_base(0),
   free_info(false), free_abbrev(false), free_strings(false), free_str_offsets(false), 
-   free_addr(false), free_loc(false), free_line(false), free_loclists(false)
+  free_addr(false), free_loc(false), free_line(false), free_line_str(false), free_loclists(false)
 {
   // read elf file
   if ( !reader.load(filepath.c_str()) )
@@ -163,6 +164,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
    *zstrings = nullptr,
    *zloc = nullptr,
    *zline = nullptr,
+   *zline_str = nullptr,
    *zstr_off = nullptr,
    *zaddr = nullptr,
    *zloclists = nullptr;
@@ -214,6 +216,11 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       debug_line_size_ = s->get_size();
       if ( check_compressed_section(s, debug_line_, debug_line_size_) )
         free_line = true;
+    } else if (g_opt_F && !strcmp(name, ".debug_line_str")) {
+      debug_line_str_ = reinterpret_cast<const unsigned char*>(s->get_data());
+      debug_line_str_size_ = s->get_size();
+      if ( check_compressed_section(s, debug_line_str_, debug_line_str_size_) )
+        free_line_str = true;
     } // check compressed versions
     else if ( !strcmp(name, ".zdebug_info") )
       zinfo = s;
@@ -225,6 +232,8 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       zloc = s;
     else if ( g_opt_F && !strcmp(name, ".zdebug_line") )
       zline = s;
+    else if ( g_opt_F && !strcmp(name, ".zdebug_line_str") )
+      zline_str = s;
     else if ( !strcmp(name, ".zdebug_str_offsets") )
       zstr_off = s;
     else if ( !strcmp(name, ".zdebug_addr") )
@@ -249,6 +258,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   UNPACK_ZSECTION(zstrings, tree_builder->debug_str_, tree_builder->debug_str_size_, free_strings)
   UNPACK_ZSECTION(zloc, debug_loc_, debug_loc_size_, free_loc)
   UNPACK_ZSECTION(zline, debug_line_, debug_line_size_, free_line)
+  UNPACK_ZSECTION(zline_str, debug_line_str_, debug_line_str_size_, free_line_str)
   UNPACK_ZSECTION(zstr_off, debug_str_offsets_, debug_str_offsets_size_, free_str_offsets)
   UNPACK_ZSECTION(zaddr, debug_addr_, debug_addr_size_ , free_addr)
   UNPACK_ZSECTION(zloclists, debug_loclists_, debug_loclists_size_, free_loclists)
@@ -273,6 +283,7 @@ ElfFile::~ElfFile()
     free_section(tree_builder->debug_str_, free_strings);
   free_section(debug_loc_, free_loc);
   free_section(debug_line_, free_line);
+  free_section(debug_line_str_, free_line_str);
   free_section(debug_str_offsets_, free_str_offsets);
   free_section(debug_addr_, free_addr);
   free_section(debug_loclists_, free_loclists);
@@ -282,6 +293,7 @@ bool ElfFile::read_debug_lines()
 {
   if ( debug_line_ == nullptr )
     return false;
+  m_li.m_ptr = nullptr;
   // check that this unit is still inside section
   if ( m_curr_lines >= debug_line_ + debug_line_size_ )
     return false;
@@ -430,12 +442,163 @@ bool ElfFile::read_debug_lines()
       }
     }
   } else {
-    // TODO: implement load_debug_section_with_follow
     m_li.m_ptr = ptr;
-    fprintf(stderr, "debug_section_with_follow for version %d is not supported\n", m_li.li_version);
     return true; // safe to skip this unit bcs m_curr_lines points to next one
   }
   return true;
+}
+
+bool ElfFile::read_delayed_lines()
+{
+  if ( debug_line_ == nullptr )
+    return false;
+  if ( !offsets_base )
+    return false;
+  if ( !m_li.m_ptr )
+    return false;
+  m_li.m_ptr = read_formatted_table(true);
+  if ( !m_li.m_ptr )
+    return false;
+  m_li.m_ptr = read_formatted_table(false);
+  if ( !m_li.m_ptr )
+    return false;
+  return true;
+}
+
+const unsigned char *ElfFile::read_formatted_table(bool is_dir)
+{
+  auto ptr = m_li.m_ptr;
+  size_t bytes_available = m_curr_lines - ptr;
+  unsigned char format_count = *ptr;
+  ptr++;
+  bytes_available--;
+  // first - DW_LNCT_XX, second - attr form
+  std::vector<std::pair<uint64_t, uint64_t> > columns;
+  columns.resize(format_count);
+  for ( unsigned char formati = 0; formati < format_count; ++formati )
+  {
+    auto a1 = ULEB128(ptr, bytes_available);
+    auto a2 = ULEB128(ptr, bytes_available);
+    columns[formati] = { a1, a2 };
+  }
+  uint64_t data_count = ULEB128(ptr, bytes_available);
+  if ( !data_count || !format_count || !bytes_available )
+    return ptr;
+  for ( uint64_t datai = 0; datai < data_count; ++datai )
+  {
+    const char *name = nullptr;
+    uint64_t idx = -1;
+    for ( unsigned char formati = 0; formati < format_count; ++formati )
+    {
+      // read_and_display_attr_value args:
+      // attribute
+      // form
+      // implicit_const
+      // start
+      // data
+      // end
+      // cu_offset
+      // pointer_size
+      // offset_size
+      // dwarf_version
+      // ...
+      if ( columns[formati].first == Dwarf32::dwarf_line_number_content_type::DW_LNCT_path )
+      {
+        // fprintf(stderr, "path form %lx for %s\n", columns[formati].second, is_dir ? "dirs" : "fnames");
+        uint32_t str_pos;
+        switch(columns[formati].second)
+        {
+          case Dwarf32::Form::DW_FORM_strx4:
+            str_pos = *reinterpret_cast<const uint32_t*>(ptr);
+            ptr += 4;
+            bytes_available -= 4;
+            name = check_strx4(str_pos);
+           break;
+          case Dwarf32::Form::DW_FORM_strx2:
+            str_pos = *reinterpret_cast<const uint16_t*>(ptr);
+            ptr += 2;
+            bytes_available -= 2;
+            name = check_strx2(str_pos);
+           break;
+          case Dwarf32::Form::DW_FORM_strx3:
+            str_pos = read_x3(ptr, bytes_available);
+            name = check_strx3(str_pos);
+           break;
+          case Dwarf32::Form::DW_FORM_strx1:
+            str_pos = *reinterpret_cast<const uint8_t*>(ptr);
+            ptr += 1;
+            bytes_available -= 1;
+            name = check_strx1(str_pos);
+           break;
+          case Dwarf32::Form::DW_FORM_line_strp:
+            str_pos = *reinterpret_cast<const uint32_t*>(ptr);
+          // fprintf(stderr, "srtp value %X\n", str_pos);  
+            ptr += 4;
+            bytes_available -= 4;
+            name = check_strp(str_pos);
+           break;
+           break;
+          default:
+           fprintf(stderr, "unknown path form %lX in read_formatted_table for %s\n", columns[formati].second,
+             is_dir ? "dirs" : "fnames"
+           );
+           return nullptr;
+        }
+        // store results
+        if ( is_dir && name )
+        {
+          m_dl_dirs[datai] = (const char *)name;
+          if ( g_opt_d )
+            fprintf(g_outf, "dir %ld %s\n", datai, name);
+          name = nullptr;
+        } else if ( !is_dir && name && idx != (uint64_t)-1 )
+        {
+          // put to file names map
+          m_dl_files[datai] = { (unsigned int)idx, name };
+          if ( g_opt_d )
+            fprintf(g_outf, "file %ld dir %ld %s\n", datai, idx, name);
+          name = nullptr;
+          idx = -1;
+        }
+      } else if ( columns[formati].first == Dwarf32::dwarf_line_number_content_type::DW_LNCT_directory_index )
+      {
+        // fprintf(stderr, "dir form %lx %x\n", columns[formati].second, Dwarf32::Form::DW_FORM_ref_udata);
+        if ( columns[formati].second == Dwarf32::Form::DW_FORM_ref_udata ||
+             columns[formati].second == Dwarf32::Form::DW_FORM_udata
+           )
+          idx = ElfFile::ULEB128(ptr, bytes_available);
+        else if ( columns[formati].second == Dwarf32::Form::DW_FORM_data1 )
+        {
+          idx = *reinterpret_cast<const uint8_t*>(ptr);
+          ptr++;
+          bytes_available--;
+        } else if ( columns[formati].second == Dwarf32::Form::DW_FORM_data2 )
+        {
+          idx = *reinterpret_cast<const uint8_t*>(ptr);
+          ptr += 2;
+          bytes_available -= 2;
+        } else {
+           fprintf(stderr, "unknown directory_index form %lX in read_formatted_table for %s\n", columns[formati].second,
+             is_dir ? "dirs" : "fnames"
+           );
+           return nullptr;
+        }
+        if ( !is_dir && name && idx != (uint64_t)-1 )
+        {
+          // put to file names map
+          m_dl_files[datai] = { (unsigned int)idx, name };
+          if ( g_opt_d )
+            fprintf(g_outf, "file %ld dir %ld %s\n", datai, idx, name);
+          name = nullptr;
+          idx = -1;
+        }
+      } else {
+        // skip
+        ElfFile::PassData((Dwarf32::Form)columns[formati].second, ptr, bytes_available);
+      }
+    }
+  }
+  return ptr;
 }
 
 bool ElfFile::get_filename(unsigned int fid, std::string &res)
@@ -634,8 +797,9 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& b
       break;
 
     // Line offset
+    case Dwarf32::Form::DW_FORM_line_strp:
     case Dwarf32::Form::DW_FORM_sec_offset:
-      data += 4;
+      data += 4; // actually this is offset_size
       bytes_available -= 4;
       break;
 
@@ -1187,6 +1351,19 @@ const char* ElfFile::get_indexed_str(uint32_t str_pos)
   return (const char*)&tree_builder->debug_str_[str_offset];
 }
 
+const char* ElfFile::check_strp(uint32_t str_pos)
+{
+  if ( !debug_line_str_ )
+    return nullptr;
+  if ( (size_t)str_pos > debug_line_str_size_ )
+  {
+    fprintf(stderr, "strp %X is not in debug_line_str section size %lx\n", str_pos, debug_line_str_size_);
+    fflush(stderr);
+    return nullptr;
+  } else
+    return (const char*)debug_line_str_ + str_pos;
+}
+
 const char* ElfFile::check_strx4(uint32_t str_pos)
 {
   if ( (size_t)str_pos > debug_str_offsets_size_ )
@@ -1593,6 +1770,8 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
           offsets_base = 0;
         }
         apply_dlist();
+        if ( g_opt_F && debug_line_ && m_li.m_ptr )
+          read_delayed_lines();
         return true;
       }
       return false;

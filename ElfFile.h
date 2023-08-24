@@ -64,6 +64,8 @@ private:
     size_t& info_bytes, const void* unit_base);
   void free_section(const unsigned char *&s, bool);
   bool read_debug_lines();
+  bool read_delayed_lines();
+  unsigned const char *read_formatted_table(bool);
   const char *get_indexed_str(uint32_t);
   uint64_t get_indexed_addr(uint64_t, int size);
   uint64_t fetch_indexed_value(uint64_t, const unsigned char *, uint64_t s_size, uint64_t base);
@@ -86,6 +88,9 @@ private:
   // for file names we need section .debug_line
   const unsigned char *debug_line_;
   size_t debug_line_size_;
+  // for file names in dwarf5 we also need .debug_line_str
+  const unsigned char *debug_line_str_;
+  size_t debug_line_str_size_;
 
   struct TagSection {
       unsigned int number;
@@ -146,6 +151,7 @@ private:
   const char *check_strx2(uint32_t);
   const char *check_strx3(uint32_t);
   const char *check_strx1(uint32_t);
+  const char *check_strp(uint32_t);
   uint32_t read_x3(const unsigned char* &data, size_t& bytes_available);
   // base offsets
   int64_t offsets_base; // dwarf5 from DW_AT_str_offsets_base
@@ -174,5 +180,6 @@ private:
   bool free_addr;
   bool free_loc;
   bool free_line;
+  bool free_line_str;
   bool free_loclists;
 };

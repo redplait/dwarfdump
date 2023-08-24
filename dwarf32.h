@@ -252,6 +252,7 @@ namespace Dwarf32 {
     DW_FORM_strx = 0x1a,
     DW_FORM_addrx = 0x1b,
     DW_FORM_data16 = 0x1e,
+    DW_FORM_line_strp = 0x1f,
     DW_FORM_implicit_const = 0x21,
     DW_FORM_loclistx = 0x22,
     DW_FORM_rnglistx = 0x23,
@@ -525,6 +526,18 @@ DW_OP (DW_OP_reinterpret, 0xa9)
 DW_OP (DW_OP_GNU_push_tls_address, 0xe0)
 DW_OP (DW_OP_GNU_implicit_pointer, 0xf2)
   };
+
+/* Content type codes in line table directory_entry_format and file_name_entry_format sequences.  */
+enum dwarf_line_number_content_type
+{
+  DW_LNCT_path = 0x1,
+  DW_LNCT_directory_index = 0x2,
+  DW_LNCT_timestamp = 0x3,
+  DW_LNCT_size = 0x4,
+  DW_LNCT_MD5 = 0x5,
+  DW_LNCT_lo_user = 0x2000,
+  DW_LNCT_hi_user = 0x3fff
+};
 
 /* Type codes for location list entries.  */
 enum dwarf_location_list_entry_type
