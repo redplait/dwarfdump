@@ -19,6 +19,19 @@ enum param_op_type
   call_frame_cfa,
   plus_uconst,
   tls_index,
+  deref_size, // size in idx
+  convert,    // type id in idx
+  fvalue, // litXX, value in idx
+  fneg,   // DW_OP_neg
+  fnot,   // DW_OP_not
+  fand,   // DW_OP_and
+  fminus, // DW_OP_minus
+  f_or,   // DW_OP_or
+  fplus,  // DW_OP_plus
+  fshl,   // DW_OP_shl
+  fshr,   // DW_OP_shr
+  fshra,  // DW_OP_shra
+  fxor,   // DW_OP_xor
 };
 
 struct one_param_loc
@@ -39,6 +52,14 @@ struct param_loc
   inline bool is_tls() const
   {
     return 1 == locs.size() && locs.front().type == tls_index;
+  }
+  void push_exp(enum param_op_type type)
+  {
+    locs.push_back( { type, 0, 0 } );
+  }
+  void push_value(unsigned int v)
+  {
+    locs.push_back( { fvalue, v, 0 } );
   }
 };
 

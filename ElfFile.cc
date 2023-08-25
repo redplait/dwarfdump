@@ -537,7 +537,6 @@ const unsigned char *ElfFile::read_formatted_table(bool is_dir)
             bytes_available -= 4;
             name = check_strp(str_pos);
            break;
-           break;
           default:
            fprintf(stderr, "unknown path form %lX in read_formatted_table for %s\n", columns[formati].second,
              is_dir ? "dirs" : "fnames"
@@ -560,7 +559,7 @@ const unsigned char *ElfFile::read_formatted_table(bool is_dir)
           name = nullptr;
           idx = -1;
         }
-      } else if ( columns[formati].first == Dwarf32::dwarf_line_number_content_type::DW_LNCT_directory_index )
+      } else if ( !is_dir && columns[formati].first == Dwarf32::dwarf_line_number_content_type::DW_LNCT_directory_index )
       {
         // fprintf(stderr, "dir form %lx %x\n", columns[formati].second, Dwarf32::Form::DW_FORM_ref_udata);
         if ( columns[formati].second == Dwarf32::Form::DW_FORM_ref_udata ||
@@ -583,7 +582,7 @@ const unsigned char *ElfFile::read_formatted_table(bool is_dir)
            );
            return nullptr;
         }
-        if ( !is_dir && name && idx != (uint64_t)-1 )
+        if ( name && idx != (uint64_t)-1 )
         {
           // put to file names map
           m_dl_files[datai] = { (unsigned int)idx, name };
@@ -961,7 +960,8 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
     // ignore DW_OP_lixX
     if ( op >= Dwarf32::dwarf_ops::DW_OP_lit0 && op <= Dwarf32::dwarf_ops::DW_OP_lit31 )
     {
-      value = op - Dwarf32::dwarf_ops::DW_OP_lit0;
+      if ( pl )
+        pl->push_value(op - Dwarf32::dwarf_ops::DW_OP_lit0);
       continue;
     }
     switch(op)
@@ -983,11 +983,23 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
         case Dwarf32::dwarf_ops::DW_OP_deref:
            pl->locs.push_back({ deref, 0, 0});
           break;
+        case Dwarf32::dwarf_ops::DW_OP_convert:
+        case Dwarf32::dwarf_ops::DW_OP_GNU_convert:
+        case Dwarf32::dwarf_ops::DW_OP_reinterpret:
+        case Dwarf32::dwarf_ops::DW_OP_GNU_reinterpret:
+          pl->locs.push_back({ plus_uconst, (unsigned int)ElfFile::ULEB128(data, bytes_available), 0 });
+          break;
         case Dwarf32::dwarf_ops::DW_OP_constu:
            value = ElfFile::ULEB128(data, bytes_available);
           break;
         case Dwarf32::dwarf_ops::DW_OP_plus_uconst:
            pl->locs.push_back({ plus_uconst, 0, (int)ElfFile::ULEB128(data, bytes_available)});
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_deref_size:
+           value = (int)*reinterpret_cast<const uint8_t*>(data);
+           bytes_available -= 1;
+           data += 1;
+           pl->locs.push_back({ deref_size, (unsigned int)value, 0 } );
           break;
         case Dwarf32::dwarf_ops::DW_OP_const1u:
            value = (int)*reinterpret_cast<const uint8_t*>(data);
@@ -1031,7 +1043,47 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
           break;
         case Dwarf32::dwarf_ops::DW_OP_GNU_push_tls_address:
            pl->locs.push_back({ tls_index, 0, value});
-          break;          
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_neg:
+           if ( pl )
+             pl->push_exp(fneg);
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_not:
+           if ( pl )
+             pl->push_exp(fnot);
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_and:
+           if ( pl )
+             pl->push_exp(fand);
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_minus:
+           if ( pl )
+             pl->push_exp(fminus);
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_or:
+           if ( pl )
+             pl->push_exp(f_or);
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_plus:
+           if ( pl )
+             pl->push_exp(fplus);
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_shl:
+           if ( pl )
+             pl->push_exp(fshl);
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_shr:
+           if ( pl )
+             pl->push_exp(fshr);
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_shra:
+           if ( pl )
+             pl->push_exp(fshra);
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_xor:
+           if ( pl )
+             pl->push_exp(fxor);
+          break;
         case Dwarf32::dwarf_ops::DW_OP_piece:
          // TODO: should I mark this location as splitted in several places?
          ElfFile::ULEB128(data, bytes_available);

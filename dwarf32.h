@@ -525,6 +525,9 @@ DW_OP (DW_OP_reinterpret, 0xa9)
 /* GNU extensions.  */
 DW_OP (DW_OP_GNU_push_tls_address, 0xe0)
 DW_OP (DW_OP_GNU_implicit_pointer, 0xf2)
+DW_OP (DW_OP_GNU_deref_type, 0xf6)
+DW_OP (DW_OP_GNU_convert, 0xf7)
+DW_OP (DW_OP_GNU_reinterpret, 0xf9)
   };
 
 /* Content type codes in line table directory_entry_format and file_name_entry_format sequences.  */

@@ -621,6 +621,15 @@ bool PlainRender::dump_params_locations(std::vector<FormalParam> &params, std::s
           s += std::to_string(l.offset);
          }
          break;
+        case fvalue:
+          s += " ";
+          s += std::to_string(l.idx);
+        case convert:
+          s += "convert_to ";
+          s += std::to_string(l.idx);
+        case deref_size:
+          s += "OP_deref_size ";
+          s += std::to_string(l.idx);
         case fbreg:
           s += "OP_fbreg ";
           s += std::to_string(l.offset);
@@ -632,6 +641,36 @@ bool PlainRender::dump_params_locations(std::vector<FormalParam> &params, std::s
         case tls_index:
           s += "TlsIndex ";
           s += std::to_string(l.offset);
+         break;
+        case fneg:
+          s += "neg";
+         break;
+        case fnot:
+          s += "not";
+         break;
+        case fand:
+          s += "and";
+         break;
+        case fminus:
+          s += "minus";
+         break;
+        case f_or:
+          s += "or";
+         break;
+        case fplus:
+          s += "plus";
+         break;
+        case fshl:
+          s += "shl";
+         break;
+        case fshr:
+          s += "shr";
+         break;
+        case fshra:
+          s += "shra";
+         break;
+        case fxor:
+          s += "xor";
          break;
       }
       s += " ";
