@@ -987,7 +987,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
         case Dwarf32::dwarf_ops::DW_OP_GNU_convert:
         case Dwarf32::dwarf_ops::DW_OP_reinterpret:
         case Dwarf32::dwarf_ops::DW_OP_GNU_reinterpret:
-          pl->locs.push_back({ plus_uconst, (unsigned int)ElfFile::ULEB128(data, bytes_available), 0 });
+          pl->locs.push_back({ convert, (unsigned int)ElfFile::ULEB128(data, bytes_available), 0 });
           break;
         case Dwarf32::dwarf_ops::DW_OP_constu:
            value = ElfFile::ULEB128(data, bytes_available);
