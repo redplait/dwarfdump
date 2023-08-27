@@ -1886,6 +1886,15 @@ void my_PLUGIN::dump_func_tree(const_tree t, int level)
       for ( subblock = BLOCK_SUBBLOCKS(t); subblock != NULL_TREE; subblock = BLOCK_CHAIN(subblock) )
          dump_func_tree(subblock, level + 1);
     }
+  } else if ( DECL_HAS_DEBUG_EXPR_P(t) )
+  {
+    auto deb = DECL_DEBUG_EXPR(CONST_CAST_TREE(t));
+    if ( deb )
+    {
+      code = TREE_CODE(deb);
+      auto name = get_tree_code_name(code);
+      fprintf(m_outfp, "DEBUG_EXPR %s", name);
+    }
   } else if ( code == LABEL_DECL )
   {
     rtx r = DECL_RTL_IF_SET( CONST_CAST_TREE(t) );
