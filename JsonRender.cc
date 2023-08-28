@@ -149,8 +149,8 @@ std::string JsonRender::GenerateJson(Element &e) {
   if ( e.dumped_ )
     put(result, "dumped", e.dumped_);
   RenderGoAttrs(result, e.type_id_);  
-  if ( !e.filename_.empty() )
-    put(result, "file", e.filename_.c_str());
+  if ( !e.fullname_.empty() )
+    put(result, "file", e.fullname_.c_str());
   if ( e.type_ == ElementType::ptr2member && e.cont_type_ )
     put(result, "cont_type", e.cont_type_);
   if ( e.owner_ != nullptr )
