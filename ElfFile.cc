@@ -600,11 +600,12 @@ const unsigned char *ElfFile::read_formatted_table(bool is_dir)
   return ptr;
 }
 
-bool ElfFile::get_filename(unsigned int fid, std::string &res)
+bool ElfFile::get_filename(unsigned int fid, std::string &res, const char *&f)
 {
   auto fiter = m_dl_files.find(fid);
   if ( fiter == m_dl_files.end() )
     return false;
+  f = fiter->second.second;
   auto diter = m_dl_dirs.find(fiter->second.first);
   if ( diter != m_dl_dirs.end() )
   {
@@ -1882,8 +1883,9 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         if ( fid )
         {
           std::string fname;
-          if ( get_filename(fid, fname) )
-            tree_builder->SetFilename(fname);
+          const char *f;
+          if ( get_filename(fid, fname, f) )
+            tree_builder->SetFilename(fname, f);
         }
         return true;
       }

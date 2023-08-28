@@ -168,7 +168,7 @@ private:
     m_dl_dirs.clear();
     m_dl_files.clear();
   }
-  bool get_filename(unsigned int fid, std::string &);
+  bool get_filename(unsigned int fid, std::string &, const char *&);
   // sections from original elf file
   std::vector<saved_section> m_orig_sects;
   bool m_regged;

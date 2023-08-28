@@ -29,14 +29,19 @@ void add_filter(const char *s)
 
 bool need_dump(const char *f)
 {
+  auto has_allowed = !s_allowed.empty();
   if ( !f )
+  {
+    if ( has_allowed )
+      return false;
     return true;
+  }
   if ( s_allowed.empty() && s_denied.empty() )
     return true;
   auto d = s_denied.find(f);
   if ( d != s_denied.end() )
     return false;
-  if ( s_allowed.empty() )
+  if ( !has_allowed )
     return true;
   auto a = s_allowed.find(f);
   return (a != s_allowed.end());

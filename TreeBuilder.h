@@ -143,7 +143,7 @@ public:
   void AddElement(ElementType element_type, uint64_t tag_id, int level);
   bool AddVariant();
   bool AddFormalParam(uint64_t tag_id, int level, bool);
-  void SetFilename(std::string &);
+  void SetFilename(std::string &, const char *);
   void SetElementName(const char* name, uint64_t off);
   void SetLinkageName(const char* name);
   void SetElementSize(uint64_t size);
@@ -251,7 +251,8 @@ protected:
       type_ = e.type_;
       id_ = e.id_;
       level_ = e.level_;
-      filename_ = std::move(e.filename_);
+      fname_ = e.fname_;
+      fullname_ = std::move(e.fullname_);
       name_ = e.name_;
       link_name_ = e.link_name_;
       size_ = e.size_;
@@ -296,6 +297,7 @@ protected:
       type_(type), 
       id_(id),
       level_(level),
+      fname_(nullptr),
       name_(nullptr),
       link_name_(nullptr),
       size_(0), 
@@ -321,7 +323,8 @@ protected:
     ElementType type_;
     uint64_t id_;
     int level_;
-    std::string filename_; // when -F option was used
+    const char *fname_;
+    std::string fullname_; // when -F option was used
     const char* name_;
     const char *link_name_;
     size_t size_;

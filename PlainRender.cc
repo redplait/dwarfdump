@@ -1,6 +1,7 @@
 #include "PlainRender.h"
 #include "dwarf32.h"
 #include "debug.h"
+#include "nfilter.h"
 #include <string.h>
 
 static const char *s_marg = "  ";
@@ -712,8 +713,8 @@ void PlainRender::dump_var(Element *e)
 {
   if ( e->link_name_ && e->link_name_ != e->name_ )
     fprintf(g_outf, "// LinkageName: %s\n", e->link_name_);
-  if ( !e->filename_.empty() )
-    fprintf(g_outf, "// FileName: %s\n", e->filename_.c_str());
+  if ( !e->fullname_.empty() )
+    fprintf(g_outf, "// FileName: %s\n", e->fullname_.c_str());
   std::string tname;
   named n { e->name_ };
   dump_type(e->type_id_, tname, &n);
@@ -802,9 +803,10 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
       continue;
     if ( ElementType::var_type == e.type_ )
     {
-      if ( e.addr_ )
+      if ( e.addr_ && need_dump(e.fname_) )
         m_vars.push_back(&e);
-      else {
+      else if ( need_dump(e.fname_) ) 
+      {
         auto ti = m_tls.find(e.id_);
         if ( ti != m_tls.end() )
           m_vars.push_back(&e);
@@ -827,6 +829,8 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
     if ( !e.name_ )
       continue;
     if ( e.level_ > 1 )
+      continue;
+    if ( !need_dump(e.fname_) )
       continue;
     // skip base types
     if ( ElementType::base_type == e.type_ || ElementType::unspec_type == e.type_ )
@@ -882,8 +886,8 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
       fprintf(g_outf, "// TypeId %lX\n", e.id_);
     if ( e.link_name_ && e.link_name_ != e.name_ )
       fprintf(g_outf, "// LinkageName: %s\n", e.link_name_);
-    if ( !e.filename_.empty() )
-      fprintf(g_outf, "// FileName: %s\n", e.filename_.c_str());
+    if ( !e.fullname_.empty() )
+      fprintf(g_outf, "// FileName: %s\n", e.fullname_.c_str());
     switch(e.type_)
     {
       case ElementType::enumerator_type:

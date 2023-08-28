@@ -535,7 +535,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
   current_element_type_ = element_type; 
 }
 
-void TreeBuilder::SetFilename(std::string &fn)
+void TreeBuilder::SetFilename(std::string &fn, const char *fname)
 {
   if (current_element_type_ == ElementType::none)
     return;
@@ -544,10 +544,13 @@ void TreeBuilder::SetFilename(std::string &fn)
     return;
   }
   if ( recent_ )
-    recent_->filename_ = std::move(fn);
-  else
-    elements_.back().filename_ = std::move(fn);
-
+  {
+    recent_->fname_ = fname;
+    recent_->fullname_ = std::move(fn);
+  } else {
+    elements_.back().fname_ = fname;
+    elements_.back().fullname_ = std::move(fn);
+  }
 }
 
 void TreeBuilder::SetLinkageName(const char* name)
