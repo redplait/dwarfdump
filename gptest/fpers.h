@@ -6,6 +6,7 @@ enum xref_kind {
   vcall, // virtual method call
   xref,  // some reference
   field, // xref to some structure field
+  fconst, // floating point const
 };
 
 class FPersistence

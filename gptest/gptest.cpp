@@ -1849,13 +1849,18 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
   {
     fprintf(m_outfp, " WIDE_INT ");
     cwi_output_hex(m_outfp, in_rtx);
-  } else if ( code == CONST_DOUBLE && need_dump() && FLOAT_MODE_P (GET_MODE (in_rtx)))
+  } else if ( code == CONST_DOUBLE && FLOAT_MODE_P (GET_MODE (in_rtx)))
   {
     char s[60];
     real_to_decimal (s, CONST_DOUBLE_REAL_VALUE (in_rtx), sizeof (s), 0, 1);
-    fprintf (m_outfp, " CONST_DOUBLE %s", s);
-    real_to_hexadecimal (s, CONST_DOUBLE_REAL_VALUE (in_rtx), sizeof (s), 0, 1);
-    fprintf (m_outfp, " [%s]", s);
+    if ( need_dump() )
+    {
+      fprintf (m_outfp, " CONST_DOUBLE %s", s);
+      real_to_hexadecimal (s, CONST_DOUBLE_REAL_VALUE (in_rtx), sizeof (s), 0, 1);
+      fprintf (m_outfp, " [%s]", s);
+    }
+    if ( m_db )
+      m_db->add_xref(fconst, s);
   }
 
   if ( need_dump() )

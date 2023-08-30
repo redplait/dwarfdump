@@ -98,6 +98,9 @@ void pers_text::add_xref(xref_kind kind, const char *what)
     case field:
      c = 'f';
      break;
+    case fconst:
+     c = 'F';
+     break;
     default: return; // wtf?
   }
   fprintf(m_fp, "  %c %s\n", c, what);

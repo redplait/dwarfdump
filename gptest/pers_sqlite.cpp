@@ -387,6 +387,9 @@ void pers_sqlite::add_xref(xref_kind kind, const char *sym)
     case field:
      c = 'f';
      break;
+    case fconst:
+     c = 'F';
+     break;
     default: return; // wtf?
   }
   insert_xref(check_symbol(sym), c);
