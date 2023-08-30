@@ -1845,7 +1845,19 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
       fprintf(m_outfp, " +");
       print_poly_int (m_outfp, MEM_OFFSET(in_rtx));
     }
+  } else if ( code == CONST_WIDE_INT && need_dump() )
+  {
+    fprintf(m_outfp, " WIDE_INT ");
+    cwi_output_hex(m_outfp, in_rtx);
+  } else if ( code == CONST_DOUBLE && need_dump() && FLOAT_MODE_P (GET_MODE (in_rtx)))
+  {
+    char s[60];
+    real_to_decimal (s, CONST_DOUBLE_REAL_VALUE (in_rtx), sizeof (s), 0, 1);
+    fprintf (m_outfp, " CONST_DOUBLE %s", s);
+    real_to_hexadecimal (s, CONST_DOUBLE_REAL_VALUE (in_rtx), sizeof (s), 0, 1);
+    fprintf (m_outfp, " [%s]", s);
   }
+
   if ( need_dump() )
     fputs("\n", m_outfp);  
   // dump operands
@@ -2175,7 +2187,7 @@ int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version
       return 1;
     }
     pass.pass = mp;
-    pass.reference_pass_name = "final";
+    pass.reference_pass_name = "final"; // "dwarf2";
     pass.ref_pass_instance_number = 1;
     pass.pos_op = PASS_POS_INSERT_BEFORE;
 
