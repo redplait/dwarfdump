@@ -325,8 +325,28 @@ int my_PLUGIN::dump_0_operand(const_rtx in_rtx, int idx, int level)
       }
     }
     return 0;
-  }
-  if ( idx == 7 && JUMP_P(in_rtx) )
+  } else if ( idx == 3 && NOTE_P(in_rtx) )
+  {
+    switch(NOTE_KIND(in_rtx))
+    {
+      case NOTE_INSN_EH_REGION_BEG:
+         if ( need_dump() )
+           fprintf(m_outfp, "EH_REGION_BEG %d", NOTE_EH_HANDLER(in_rtx));
+        break;
+      case NOTE_INSN_EH_REGION_END:
+         if ( need_dump() )
+           fprintf(m_outfp, "EH_REGION_END %d", NOTE_EH_HANDLER(in_rtx));
+        break;
+      case NOTE_INSN_VAR_LOCATION:
+          if ( need_dump() )
+            fprintf(m_outfp, "VAR_LOC ");
+          expr_push(NOTE_VAR_LOCATION(in_rtx), idx);
+          dump_rtx(NOTE_VAR_LOCATION(in_rtx), level + 1);
+          expr_pop();
+          return 1;
+        break;
+    }
+  } else if ( idx == 7 && JUMP_P(in_rtx) )
   {
     const_rtx jl = JUMP_LABEL(in_rtx);
     if ( !jl )
@@ -1881,8 +1901,12 @@ void my_PLUGIN::dump_func_tree(const_tree t, int level)
   {
     if ( code == BLOCK )
       fprintf(m_outfp, "%s %d", name, BLOCK_NUMBER(t));
-    else
-      fprintf(m_outfp, "%s", name);
+    else {
+      if ( DECL_P(t) )
+        fprintf(m_outfp, "%s %d", name, DECL_UID(t));
+      else
+        fprintf(m_outfp, "%s", name); 
+    }
   }
   if ( code == BLOCK )
   {
@@ -2098,6 +2122,11 @@ unsigned int my_PLUGIN::execute(function *fun)
             in_pe = 0;
           else if ( nk == NOTE_INSN_EPILOGUE_BEG )
             in_pe = 1;
+          if ( nk == NOTE_INSN_EH_REGION_BEG ||
+               nk == NOTE_INSN_EH_REGION_END ||
+               nk == NOTE_INSN_VAR_LOCATION
+             )
+            dump_rtx_hl(insn); 
         }
         if ( m_dump_rtl )  
           w.print_rtl_single_with_indent(insn, 0);
