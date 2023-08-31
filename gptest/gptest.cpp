@@ -509,6 +509,19 @@ int my_PLUGIN::is_set_reg() const
   return r->m_ce == SET;
 }
 
+// var_location
+int my_PLUGIN::is_var_loc() const
+{
+  if ( m_rtexpr.empty() )
+    return 0;
+  for ( auto r = m_rtexpr.rbegin(); r != m_rtexpr.rend(); ++r )
+  {
+    if ( r->m_ce == VAR_LOCATION )
+      return 1;
+  }
+  return 0;
+}
+
 int my_PLUGIN::inside_if() const
 {
   if ( m_rtexpr.empty() )
@@ -1821,6 +1834,13 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
       if ( need_dump() )
         fprintf(m_outfp, " VMEM");
       dump_mem_expr(PAT_VAR_LOCATION_DECL(in_rtx), in_rtx);
+      auto loc = PAT_VAR_LOCATION_LOC(in_rtx);
+      if ( loc )
+      {
+        expr_push(loc, 0);
+        dump_rtx (loc, level + 1);
+        expr_pop();
+      }
       idx = GET_RTX_LENGTH (VAR_LOCATION);       
     }
   }
@@ -1876,8 +1896,8 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
     if ( need_dump() )
     {
       fprintf (m_outfp, " CONST_DOUBLE %s", s);
-      real_to_hexadecimal (s, CONST_DOUBLE_REAL_VALUE (in_rtx), sizeof (s), 0, 1);
-      fprintf (m_outfp, " [%s]", s);
+//      real_to_hexadecimal (s, CONST_DOUBLE_REAL_VALUE (in_rtx), sizeof (s), 0, 1);
+//      fprintf (m_outfp, " [%s]", s);
     }
     if ( m_db )
       m_db->add_xref(fconst, s);

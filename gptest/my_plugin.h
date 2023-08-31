@@ -123,6 +123,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   int is_eh_num() const;
   int is_sb() const;
   int is_set_reg() const;
+  int is_var_loc() const;
   // expr stack
   void expr_push(const_rtx, int idx);
   void expr_pop()
