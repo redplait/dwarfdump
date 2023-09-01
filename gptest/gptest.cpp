@@ -241,6 +241,8 @@ print_param (FILE *outfile, rtx_writer &w, tree arg)
 {
   fprintf (outfile, "  (param");
   print_any_param_name (outfile, arg);
+  if ( DECL_UID(arg) )
+    fprintf(outfile, " UID %d", DECL_UID(arg));
   fprintf (outfile, "\n");
 
   /* Print the value of DECL_RTL (without lazy-evaluation).  */
@@ -1613,14 +1615,12 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
     if ( name )
     {
       if ( code == INTEGER_CST )
+      {
         fprintf(m_outfp, " off");
-      else
+        if ( tree_fits_shwi_p(off) )
+          fprintf(m_outfp, " " HOST_WIDE_INT_PRINT_DEC, tree_to_shwi(off));
+      } else
         fprintf(m_outfp, " off %s", name);
-    }
-    if ( code == INTEGER_CST )
-    {
-      if ( tree_fits_shwi_p(off) )
-        fprintf(m_outfp, " " HOST_WIDE_INT_PRINT_DEC, tree_to_shwi(off));
     }
   }
 }
@@ -1659,6 +1659,17 @@ void my_PLUGIN::dump_mem_expr(const_tree expr, const_rtx in_rtx)
   auto name = get_tree_code_name(code);
   if ( name && need_dump() )
     fprintf(m_outfp, " %s", name);
+  if ( need_dump() && is_var_loc() )
+  {
+    if ( code == PARM_DECL || code == VAR_DECL )
+    {
+      tree name = DECL_NAME(expr);
+      if ( name )
+        fprintf(m_outfp, " %s", IDENTIFIER_POINTER(name));
+      else
+        fprintf(m_outfp, " UID %d", DECL_UID(expr));
+    }
+  }
   aux_type_clutch clutch(in_rtx);  
   if ( code == MEM_REF )
   {
@@ -1827,22 +1838,10 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
   if ( code > NUM_RTX_CODE )
     return;
   int limit = GET_RTX_LENGTH(code);
-  if (GET_CODE (in_rtx) == VAR_LOCATION )
+  if ( code == VAR_LOCATION )
   {
     if ( TREE_CODE (PAT_VAR_LOCATION_DECL (in_rtx)) != STRING_CST )
-    {
-      if ( need_dump() )
-        fprintf(m_outfp, " VMEM");
-      dump_mem_expr(PAT_VAR_LOCATION_DECL(in_rtx), in_rtx);
-      auto loc = PAT_VAR_LOCATION_LOC(in_rtx);
-      if ( loc )
-      {
-        expr_push(loc, 0);
-        dump_rtx (loc, level + 1);
-        expr_pop();
-      }
-      idx = GET_RTX_LENGTH (VAR_LOCATION);       
-    }
+      idx = GET_RTX_LENGTH (VAR_LOCATION);
   }
   if ( CONST_DOUBLE_AS_FLOAT_P(in_rtx) )
     idx = 5;
@@ -1872,7 +1871,28 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
     fprintf(m_outfp, " %d lim %d %s", idx, limit, format_ptr);
   }
 
-  if ( code == MEM )
+  if ( code == VAR_LOCATION )
+  {
+    if ( TREE_CODE (PAT_VAR_LOCATION_DECL (in_rtx)) != STRING_CST )
+    {
+      if ( need_dump() )
+        fprintf(m_outfp, " VMEM");
+      dump_mem_expr(PAT_VAR_LOCATION_DECL(in_rtx), in_rtx);
+      auto loc = PAT_VAR_LOCATION_LOC(in_rtx);
+      if ( loc )
+      {
+        expr_push(loc, 0);
+        if ( need_dump() )
+        {
+          fprintf(m_outfp, "\n");
+          margin(level);
+        }
+        dump_rtx (loc, level + 1);
+        expr_pop();
+      }
+      return;
+    }
+  } else if ( code == MEM )
   {
     if ( MEM_EXPR(in_rtx) )
     {
@@ -2142,10 +2162,10 @@ unsigned int my_PLUGIN::execute(function *fun)
             in_pe = 0;
           else if ( nk == NOTE_INSN_EPILOGUE_BEG )
             in_pe = 1;
-          if ( nk == NOTE_INSN_EH_REGION_BEG ||
-               nk == NOTE_INSN_EH_REGION_END ||
-               nk == NOTE_INSN_VAR_LOCATION
-             )
+          else if ( nk == NOTE_INSN_EH_REGION_BEG ||
+                    nk == NOTE_INSN_EH_REGION_END ||
+                    nk == NOTE_INSN_VAR_LOCATION
+                  )
             dump_rtx_hl(insn); 
         }
         if ( m_dump_rtl )  
