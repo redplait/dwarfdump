@@ -80,6 +80,8 @@ class my_PLUGIN : public rtl_plugin_with_args
   void start_file(const char *);
   void stop_file();
  private:
+  void fill_blocks(function *);
+  const char *find_uid(unsigned int);
   void read_ic_config(const char *);
   int ic_filter();
   void margin(int);
@@ -154,8 +156,10 @@ class my_PLUGIN : public rtl_plugin_with_args
     bool m_sb;
   };
   std::list<rtx_item> m_rtexpr;
-  // uid types inside each BB
-  std::map<unsigned int, std::string> m_known_uids;
+  // for BB with single in-edge, key is BB index, value is index of parent BB
+  std::map<int, int> m_blocks;
+  // uid types, key is UID and block index
+  std::map<std::pair<unsigned int, int>, std::string> m_known_uids;
   // current basic_block number
   int bb_index;
   int in_pe; // current insn in prologue/epilogue

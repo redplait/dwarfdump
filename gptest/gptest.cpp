@@ -1135,10 +1135,11 @@ void my_PLUGIN::store_aux(aux_type_clutch &clutch)
     t = TREE_TYPE(t);
   if ( FUNCTION_TYPE == TREE_CODE(t) )
   {
-    m_known_uids[TYPE_UID(t)] = clutch.txt;
+    auto uid = TYPE_UID(t);
+    m_known_uids[ { uid, bb_index } ] = clutch.txt;
     if ( need_dump() )
     {
-      fprintf(m_outfp, " store fptr uid %x", TYPE_UID(t));
+      fprintf(m_outfp, " store fptr uid %x", uid);
     }
   }
 }
@@ -1436,6 +1437,25 @@ void my_PLUGIN::claim_unknown(tree_code code, const char *what)
     pass_error("unknown %s 0x%X", what, code);
 }
 
+const char *my_PLUGIN::find_uid(unsigned int uid)
+{
+  std::pair<unsigned int, int> key{ uid, bb_index };
+  auto iter = m_known_uids.find(key);
+  if ( iter != m_known_uids.end() )
+    return iter->second.c_str();
+  while(1)
+  {
+    auto parent = m_blocks.find(key.second);
+    if ( parent == m_blocks.end() )
+      break;
+    key.second = parent->second;
+    iter = m_known_uids.find(key);
+    if ( iter != m_known_uids.end() )
+      return iter->second.c_str();
+  }
+  return nullptr;
+}
+
 void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
 {
   auto base = TMR_BASE(expr);
@@ -1456,11 +1476,11 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
       // check if we seen uid from dump_ssa_name
       if ( !clutch.completed && clutch.last )
       {
-        auto iter = m_known_uids.find(TYPE_UID(clutch.last));
-        if ( iter != m_known_uids.end() )
+        auto uid_name = find_uid(TYPE_UID(clutch.last));
+        if ( uid_name )
         {
           clutch.completed = true;
-          clutch.txt = iter->second;
+          clutch.txt = uid_name;
           if ( m_db )
           {
             xref_kind ref_ = field;
@@ -2083,6 +2103,25 @@ unsigned int st_labels::execute(function *fun)
   return 0;
 }
 
+void my_PLUGIN::fill_blocks(function *fun)
+{
+  m_blocks.clear();
+  m_known_uids.clear();
+  basic_block bb;
+  FOR_ALL_BB_FN(bb, fun)
+  {
+    if ( bb->index == ENTRY_BLOCK || bb->index == EXIT_BLOCK )
+      continue;
+    if ( !single_pred_p(bb) )
+      continue;
+    auto idx = single_pred(bb)->index;
+    // avoid dead-loops when the only pred block is the same block
+    if ( idx == bb->index )
+      continue;
+    m_blocks[bb->index] = idx;
+  }
+}
+
 unsigned int my_PLUGIN::execute(function *fun)
 {
   // find the name of the function
@@ -2137,8 +2176,9 @@ unsigned int my_PLUGIN::execute(function *fun)
     dump_func_tree(DECL_INITIAL(current_function_decl));
   }
 
-  basic_block bb;
   in_pe = 1; // wait for note with INSN_FUNCTION_BEG for first block
+  fill_blocks(fun);
+  basic_block bb;
   FOR_ALL_BB_FN(bb, fun)
   { // Loop over all Basic Blocks in the function, fun = current function
       bb_index = bb->index;
@@ -2179,7 +2219,6 @@ unsigned int my_PLUGIN::execute(function *fun)
       }
       // prepare for processing of next block
       in_pe = 0;
-      m_known_uids.clear();
       if ( m_db )
         m_db->bb_stop(bb_index);
   }
