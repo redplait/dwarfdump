@@ -1129,6 +1129,17 @@ void my_PLUGIN::store_aux(aux_type_clutch &clutch)
   auto t = TREE_TYPE(clutch.last);
   if ( !t )
     return;
+  if ( ARRAY_TYPE == TREE_CODE(t) )
+  {
+    t = TREE_TYPE(t);
+    code = TREE_CODE(t);
+    if ( need_dump() )
+    {
+      name = get_tree_code_name(code);
+      if ( name )
+        fprintf(m_outfp, " arr_type %s", name);
+    }
+  }
   if ( !POINTER_TYPE_P(t) )
     return;
   while( POINTER_TYPE_P(t))
@@ -1476,9 +1487,12 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
       // check if we seen uid from dump_ssa_name
       if ( !clutch.completed && clutch.last )
       {
-        auto uid_name = find_uid(TYPE_UID(clutch.last));
+        auto uid = TYPE_UID(clutch.last);
+        auto uid_name = find_uid(uid);
         if ( uid_name )
         {
+          if ( need_dump() )
+            fprintf(m_outfp, " uid %x: %s", uid, uid_name);
           clutch.completed = true;
           clutch.txt = uid_name;
           if ( m_db )
@@ -1699,6 +1713,7 @@ void my_PLUGIN::dump_mem_expr(const_tree expr, const_rtx in_rtx)
   if ( code == ARRAY_REF )
   {
     dump_array_ref(expr, clutch);
+    store_aux(clutch);
     return;
   }
   if ( code != COMPONENT_REF )
@@ -2214,7 +2229,6 @@ unsigned int my_PLUGIN::execute(function *fun)
       if ( need_dump() )
       {
         end_any_block (m_outfp, bb);
-        dump_known_uids();
         fprintf(m_outfp,"\n----------------------------------------------------------------\n\n");
       }
       // prepare for processing of next block
@@ -2222,6 +2236,7 @@ unsigned int my_PLUGIN::execute(function *fun)
       if ( m_db )
         m_db->bb_stop(bb_index);
   }
+  dump_known_uids();
   if ( m_db )
     m_db->func_stop(); 
   return 0;
