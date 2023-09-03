@@ -1786,6 +1786,9 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
     } else if ( code == MEM_REF )
     {
       dump_mem_ref(op0, clutch);
+    } else if ( code == ARRAY_REF )
+    {
+      dump_array_ref(op0, clutch);
     }
     if ( need_dump() )
       fprintf(m_outfp, ")");
