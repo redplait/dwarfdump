@@ -450,7 +450,7 @@ aux_type_clutch::aux_type_clutch(const_rtx in_rtx)
    last(NULL_TREE)
 {
   off = 0;
-  has_off = false;
+  has_off = is_lvar = false;
   auto code = GET_CODE(in_rtx);
   if ( code == DEBUG_PARAMETER_REF || code == DEBUG_IMPLICIT_PTR )
     return;
@@ -1793,7 +1793,10 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
     if ( need_dump() )
       fprintf(m_outfp, ")");
     if ( code == VAR_DECL )
+    {
+      clutch.is_lvar = true;
       return;
+    }
   }
   if ( !op1 )
     return;    

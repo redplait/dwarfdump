@@ -17,13 +17,13 @@
 struct aux_type_clutch
 {
   aux_type_clutch()
-   : off(0), has_off(false),
+   : off(0), has_off(false), is_lvar(false),
      level(0),
      completed(false),
      last(NULL_TREE)
   { }
   aux_type_clutch(const aux_type_clutch &r)
-   : off(r.off), has_off(r.has_off),
+   : off(r.off), has_off(r.has_off), is_lvar(r.is_lvar),
      level(r.level),
      completed(false),
      last(NULL_TREE)
@@ -35,6 +35,7 @@ struct aux_type_clutch
   int level;
   bool completed;
   bool has_off;
+  bool is_lvar;
   const_tree last;
 };
 
