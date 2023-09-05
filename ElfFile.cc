@@ -958,7 +958,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
     unsigned op = *data;
     data++;
     bytes_available--;
-    // ignore DW_OP_lixX
+    // ignore DW_OP_litX
     if ( op >= Dwarf32::dwarf_ops::DW_OP_lit0 && op <= Dwarf32::dwarf_ops::DW_OP_lit31 )
     {
       if ( pl )
@@ -1996,6 +1996,11 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       return true;
     }
 
+    case Dwarf32::Attribute::DW_AT_address_class: {
+      int ac = (int)FormDataValue(form, info, info_bytes);
+      tree_builder->SetAddressClass(ac);
+      return true;
+    }
     // Offset
     case Dwarf32::Attribute::DW_AT_data_member_location: {
       uint64_t offset = FormDataValue(form, info, info_bytes);

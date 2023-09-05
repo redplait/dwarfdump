@@ -747,6 +747,15 @@ void TreeBuilder::SetElementSize(uint64_t size) {
     elements_.back().size_ = size; 
 }
 
+void TreeBuilder::SetAddressClass(int v)
+{
+  if ( m_stack.empty() ) {
+    fprintf(stderr, "Can't set the address class when stack is empty\n");
+    return;
+  }
+  elements_.back().addr_class_ = v;
+}
+
 void TreeBuilder::SetBitSize(int v)
 {
    if (current_element_type_ != ElementType::member) {

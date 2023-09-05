@@ -156,6 +156,7 @@ public:
   void SetParamDirection(unsigned char);
   void SetContainingType(uint64_t);
   void SetBitSize(int);
+  void SetAddressClass(int);
   void SetBitOffset(int);
   void SetParentAccess(int);
   void SetVirtuality(int);
@@ -268,6 +269,7 @@ protected:
       access_ = e.access_;
       bit_size_ = e.bit_size_;
       bit_offset_ = e.bit_offset_;
+      addr_class_ = e.addr_class_;
       m_comp = e.m_comp;
       e.m_comp = nullptr;
       noret_ = e.noret_;
@@ -293,16 +295,16 @@ protected:
       }
     }
     Element(ElementType type, uint64_t id, int level, Element *o) :
-      owner_(o), 
-      type_(type), 
+      owner_(o),
+      type_(type),
       id_(id),
       level_(level),
       fname_(nullptr),
       name_(nullptr),
       link_name_(nullptr),
-      size_(0), 
-      type_id_(0), 
-      offset_(0), 
+      size_(0),
+      type_id_(0),
+      offset_(0),
       count_(0),
       addr_(0),
       align_(0),
@@ -313,6 +315,7 @@ protected:
       access_(0),
       bit_size_(0),
       bit_offset_(0),
+      addr_class_(0),
       m_comp(nullptr),
       noret_(false),
       decl_(false),
@@ -340,6 +343,7 @@ protected:
     int access_;
     int bit_size_;
     int bit_offset_;
+    int addr_class_; // from DW_AT_address_class
     Compound *m_comp;
     bool noret_;
     bool decl_;
