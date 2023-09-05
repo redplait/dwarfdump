@@ -60,11 +60,14 @@ struct ArmRegNames: public RegNames
   }
 };
 
+typedef const char *(*addr_type)(unsigned int);
+
 struct tableRegNames: public RegNames
 {
   tableRegNames(const char * const* tab, size_t size)
    : tab_(tab),
-     tab_size(size)
+     tab_size(size),
+     addr_type_(nullptr)
   {}
   virtual const char *reg_name(unsigned int regno)
   {
@@ -72,9 +75,35 @@ struct tableRegNames: public RegNames
       return tab_[regno];
     return NULL;
   }
+  virtual const char *get_addr_type(unsigned int regno)
+  {
+    if ( addr_type_ )
+      return addr_type_(regno);
+    return nullptr;
+  }
   const char * const* tab_;
   size_t tab_size;
+  addr_type addr_type_;
 };
+
+#define DW_ADDR_near16 1 /* 16-bit offset, no segment */
+#define DW_ADDR_far16  2 /* 16-bit offset, 16-bit segment */
+#define DW_ADDR_huge16 3 /* 16-bit offset, 16-bit segment */
+#define DW_ADDR_near32 4 /* 32-bit offset, no segment */
+#define DW_ADDR_far32  5 /* 32-bit offset, 16-bit segm */
+
+const char *i386_addr_type(unsigned int v)
+{
+  switch(v)
+  {
+    case DW_ADDR_near16: return "near16";
+    case DW_ADDR_far16:  return "far16";
+    case DW_ADDR_huge16: return "huge16";
+    case DW_ADDR_near32: return "near32";
+    case DW_ADDR_far32:  return "far32";
+  }
+  return nullptr;
+}
 
 // most of code ripped from binutils dwarf.c
 static const char *const dwarf_regnames_i386[] =
@@ -173,6 +202,14 @@ static const char *const dwarf_regnames_aarch64[] =
   "z16", "z17", "z18", "z19", "z20", "z21", "z22", "z23",
   "z24", "z25", "z26", "z27", "z28", "z29", "z30", "z31",
 };
+
+const char *s390_addr_type(unsigned int v)
+{
+  if ( v & (1 << 4) )
+   return "mode32";
+  return nullptr;
+}
+
 
 static const char *const dwarf_regnames_s390[] =
 {
@@ -304,6 +341,23 @@ static const char *const regnames_ppc[] =
   /* 107 */ "VF30",
   /* 108 */ "VF31",
   /* 109 */ "VRSAVE",
+};
+
+const char *ft32_addr_type(unsigned int v)
+{
+  if ( v & (1 << 4) )
+   return "flash";
+  return nullptr;
+}
+
+static const char *const regnames_ft32[] =
+{
+  "fp", "sp",
+  "r0", "r1", "r2", "r3",  "r4", "r5", "r6", "r7",
+  "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+  "r16", "r17", "r18", "r19",  "r20", "r21", "r22", "r23",
+  "r24", "r25", "r26", "r27", "r28", "cc",
+  "pc"
 };
 
 // mips register names ripped from llvm/lib/Target/Mips
@@ -543,16 +597,19 @@ static const char *const regnames_sparc[] =
 
 RegNames *get_regnames(ELFIO::Elf_Half mac)
 {
+  tableRegNames *tres = nullptr;
   RegNames *res = nullptr;
   switch(mac)
   {
     case ELFIO::EM_386:
-       res = new tableRegNames(dwarf_regnames_i386, ARRAY_SIZE(dwarf_regnames_i386));
-       return res;
+       tres = new tableRegNames(dwarf_regnames_i386, ARRAY_SIZE(dwarf_regnames_i386));
+       tres->addr_type_ = i386_addr_type;
+       return tres;
       break;
     case ELFIO::EM_486: // 6
-       res = new tableRegNames(dwarf_regnames_iamcu, ARRAY_SIZE(dwarf_regnames_iamcu));
-       return res;
+       tres = new tableRegNames(dwarf_regnames_iamcu, ARRAY_SIZE(dwarf_regnames_iamcu));
+       tres->addr_type_ = i386_addr_type;
+       return tres;
       break;
     case ELFIO::EM_X86_64:
     case 180: // EM_L1OM
@@ -569,13 +626,19 @@ RegNames *get_regnames(ELFIO::Elf_Half mac)
        return res;
       break;
     case ELFIO::EM_S390:
-       res = new tableRegNames(dwarf_regnames_s390, ARRAY_SIZE(dwarf_regnames_s390));
-       return res;
+       tres = new tableRegNames(dwarf_regnames_s390, ARRAY_SIZE(dwarf_regnames_s390));
+       tres->addr_type_ = s390_addr_type;
+       return tres;
       break;
     case ELFIO::EM_PPC:
     case ELFIO::EM_PPC64: // TODO - perhaps they have different registers set?
        res = new tableRegNames(regnames_ppc, ARRAY_SIZE(regnames_ppc));
        return res;
+      break;
+    case ELFIO::EM_FT32:
+       tres = new tableRegNames(regnames_ft32, ARRAY_SIZE(regnames_ft32));
+       tres->addr_type_ = ft32_addr_type;
+       return tres;
       break;
     case ELFIO::EM_MIPS:
        res = new tableRegNames(regnames_mips, ARRAY_SIZE(regnames_mips));
