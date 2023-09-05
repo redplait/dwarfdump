@@ -69,6 +69,11 @@ struct tableRegNames: public RegNames
      tab_size(size),
      addr_type_(nullptr)
   {}
+  tableRegNames(const char * const* tab, size_t size, addr_type a)
+   : tab_(tab),
+     tab_size(size),
+     addr_type_(a)
+  {}
   virtual const char *reg_name(unsigned int regno)
   {
     if ( regno < tab_size )
@@ -597,19 +602,16 @@ static const char *const regnames_sparc[] =
 
 RegNames *get_regnames(ELFIO::Elf_Half mac)
 {
-  tableRegNames *tres = nullptr;
   RegNames *res = nullptr;
   switch(mac)
   {
     case ELFIO::EM_386:
-       tres = new tableRegNames(dwarf_regnames_i386, ARRAY_SIZE(dwarf_regnames_i386));
-       tres->addr_type_ = i386_addr_type;
-       return tres;
+       res = new tableRegNames(dwarf_regnames_i386, ARRAY_SIZE(dwarf_regnames_i386), &i386_addr_type);
+       return res;
       break;
     case ELFIO::EM_486: // 6
-       tres = new tableRegNames(dwarf_regnames_iamcu, ARRAY_SIZE(dwarf_regnames_iamcu));
-       tres->addr_type_ = i386_addr_type;
-       return tres;
+       res = new tableRegNames(dwarf_regnames_iamcu, ARRAY_SIZE(dwarf_regnames_iamcu), &i386_addr_type);
+       return res;
       break;
     case ELFIO::EM_X86_64:
     case 180: // EM_L1OM
@@ -626,9 +628,8 @@ RegNames *get_regnames(ELFIO::Elf_Half mac)
        return res;
       break;
     case ELFIO::EM_S390:
-       tres = new tableRegNames(dwarf_regnames_s390, ARRAY_SIZE(dwarf_regnames_s390));
-       tres->addr_type_ = s390_addr_type;
-       return tres;
+       res = new tableRegNames(dwarf_regnames_s390, ARRAY_SIZE(dwarf_regnames_s390), &s390_addr_type);
+       return res;
       break;
     case ELFIO::EM_PPC:
     case ELFIO::EM_PPC64: // TODO - perhaps they have different registers set?
@@ -636,9 +637,8 @@ RegNames *get_regnames(ELFIO::Elf_Half mac)
        return res;
       break;
     case ELFIO::EM_FT32:
-       tres = new tableRegNames(regnames_ft32, ARRAY_SIZE(regnames_ft32));
-       tres->addr_type_ = ft32_addr_type;
-       return tres;
+       res = new tableRegNames(regnames_ft32, ARRAY_SIZE(regnames_ft32), &ft32_addr_type);
+       return res;
       break;
     case ELFIO::EM_MIPS:
        res = new tableRegNames(regnames_mips, ARRAY_SIZE(regnames_mips));
