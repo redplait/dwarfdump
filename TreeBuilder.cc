@@ -512,27 +512,23 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       break;
 
     case ElementType::var_type:
-       if ( level > 1 ) // this is local var
        {
-         if ( g_opt_x )
+         elements_.push_back(Element(element_type, tag_id, level, get_owner()));
+         last_var_ = &elements_.back();
+         recent_ = nullptr;
+         if ( level > 1 ) // this is local var
          {
            auto owner = get_top_func();
            if ( !owner )
            {
              fprintf(stderr, "Can't add a local var when there is no top function\n");
+             current_element_type_ = none;
              return;
            }
            if ( !owner->m_comp )
              owner->m_comp = new Compound();
-           owner->m_comp->lvars_.push_back({element_type, tag_id, level, owner});
-           last_var_ = &owner->m_comp->lvars_.back();
-           recent_ = nullptr;
-         } else
-           return;
-       } else {
-         elements_.push_back(Element(element_type, tag_id, level, get_owner()));
-         last_var_ = &elements_.back();
-         recent_ = nullptr;
+           owner->m_comp->lvars_.push_back(last_var_);
+         }
        }
       break;
 
@@ -570,8 +566,13 @@ void TreeBuilder::SetFilename(std::string &fn, const char *fname)
     fprintf(stderr, "Can't set an file name if the element list is empty\n");
     return;
   }
-  if ( current_element_type_ == ElementType::var_type && last_var_ )
+  if ( current_element_type_ == ElementType::var_type )
   {
+    if ( !last_var_ )
+    {
+      fprintf(stderr, "Can't set an file name when no last_var\n");
+      return;
+    }
     last_var_->fname_ = fname;
     last_var_->fullname_ = std::move(fn);
     return;
@@ -594,8 +595,13 @@ void TreeBuilder::SetLinkageName(const char* name)
     fprintf(stderr, "Can't set an linkage name if the element list is empty\n");
     return;
   }
-  if ( current_element_type_ == ElementType::var_type && last_var_ )
+  if ( current_element_type_ == ElementType::var_type )
   {
+    if ( !last_var_ )
+    {
+      fprintf(stderr, "Can't set an linkage name when no last_var\n");
+      return;
+    }
     last_var_->link_name_ = name;
     return;
   }

@@ -433,7 +433,7 @@ protected:
     std::vector<EnumItem> enums_;
     std::vector<FormalParam> params_;
     std::list<Method> methods_;
-    std::list<Element> lvars_; // local vars with -x option
+    std::list<Element *> lvars_; // local vars with -x option
   };
 
   Element *get_owner();

@@ -842,14 +842,6 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
       add_var(e);
       continue;
     }
-    // collect local vars
-    if ( (ElementType::subroutine == e.type_ || ElementType::method == e.type_) &&
-         e.m_comp && !e.m_comp->lvars_.empty()
-       )
-    {
-      for ( auto &v: e.m_comp->lvars_ )
-        add_var(v);
-    }
     if ( ElementType::ns_end == e.type_ )
     {
       fprintf(g_outf, "}; // namespace %s\n", e.name_);
