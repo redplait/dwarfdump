@@ -440,7 +440,8 @@ void TreeBuilder::SetParentAccess(int a)
 
 void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int level) {
   level -= ns_count;
-  // fprintf(g_outf, "AddElement %d id %lX level %d ns_count %d\n", element_type, tag_id, level, ns_count);
+  // fprintf(g_outf, "AddElement %d id %lX level %d ns_count %d last_var %p\n", element_type, tag_id, level, ns_count, last_var_);
+  last_var_ = nullptr;
   switch(element_type) {
     case ElementType::variant_type:
     case ElementType::member:       // Member
@@ -510,6 +511,31 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       }
       break;
 
+    case ElementType::var_type:
+       if ( level > 1 ) // this is local var
+       {
+         if ( g_opt_x )
+         {
+           auto owner = get_top_func();
+           if ( !owner )
+           {
+             fprintf(stderr, "Can't add a local var when there is no top function\n");
+             return;
+           }
+           if ( !owner->m_comp )
+             owner->m_comp = new Compound();
+           owner->m_comp->lvars_.push_back({element_type, tag_id, level, owner});
+           last_var_ = &owner->m_comp->lvars_.back();
+           recent_ = nullptr;
+         } else
+           return;
+       } else {
+         elements_.push_back(Element(element_type, tag_id, level, get_owner()));
+         last_var_ = &elements_.back();
+         recent_ = nullptr;
+       }
+      break;
+
     case ElementType::subroutine:
       if ( can_have_methods(level) )
       {
@@ -522,6 +548,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         recent_ = &top->m_comp->methods_.back();
         return;
       }
+      // fall to default
     default:
       elements_.push_back(Element(element_type, tag_id, level, get_owner()));
       if ( element_type == ElementType::subroutine ||
@@ -543,6 +570,12 @@ void TreeBuilder::SetFilename(std::string &fn, const char *fname)
     fprintf(stderr, "Can't set an file name if the element list is empty\n");
     return;
   }
+  if ( current_element_type_ == ElementType::var_type && last_var_ )
+  {
+    last_var_->fname_ = fname;
+    last_var_->fullname_ = std::move(fn);
+    return;
+  }
   if ( recent_ )
   {
     recent_->fname_ = fname;
@@ -561,6 +594,11 @@ void TreeBuilder::SetLinkageName(const char* name)
     fprintf(stderr, "Can't set an linkage name if the element list is empty\n");
     return;
   }
+  if ( current_element_type_ == ElementType::var_type && last_var_ )
+  {
+    last_var_->link_name_ = name;
+    return;
+  }
   if ( recent_ )
     recent_->link_name_ = name;
   else
@@ -575,8 +613,10 @@ void TreeBuilder::SetTlsIndex(param_loc *pl)
     fprintf(stderr, "Can't set an tls index if the element list is empty\n");
     return;
   }
-  auto &top = elements_.back();
-  m_tls[top.id_] = pl->locs.front().offset;
+  auto *top = &elements_.back();
+  if ( last_var_ )
+    top = last_var_;
+  m_tls[top->id_] = pl->locs.front().offset;
 }
 
 void TreeBuilder::SetLocation(param_loc *pl)
@@ -651,7 +691,7 @@ void TreeBuilder::SetVarParam(bool v)
   top->m_comp->params_.back().var_ = v;
 }
 
-void TreeBuilder::SetElementName(const char* name, uint64_t off) 
+void TreeBuilder::SetElementName(const char* name, uint64_t off)
 {
   if (current_element_type_ == ElementType::none) {
     return;
@@ -696,6 +736,17 @@ void TreeBuilder::SetElementName(const char* name, uint64_t off)
     top->m_comp->enums_.back().name = name;
     return;
   }  
+
+  if (current_element_type_ == ElementType::var_type) 
+  {
+    if ( !last_var_ )
+    {
+      fprintf(stderr, "Can't set the var name when there is no last_var\n");
+      return;
+    }
+    last_var_->name_ = name;
+    return;
+  }
 
   if (current_element_type_ == ElementType::member) {
     if ( m_stack.empty() ) {
@@ -751,6 +802,16 @@ void TreeBuilder::SetAddressClass(int v)
 {
   if ( m_stack.empty() ) {
     fprintf(stderr, "Can't set the address class when stack is empty\n");
+    return;
+  }
+  if (current_element_type_ == ElementType::member )
+  {
+    auto top = m_stack.top();
+    if (!top->m_comp || top->m_comp->members_.empty()) {
+      fprintf(stderr, "Can't set the address class if the members list is empty\n");
+      return;
+    }
+    top->m_comp->members_.back().addr_class_ = v;
     return;
   }
   elements_.back().addr_class_ = v;
@@ -965,6 +1026,14 @@ void TreeBuilder::SetElementType(uint64_t type_id) {
       break;
     case ElementType::subrange_type:
       break; // do nothing
+    case ElementType::var_type:
+       if ( !last_var_ )
+       {
+        fprintf(stderr, "Can't set the var type %lx when no last_var\n", type_id);
+        return;
+       }
+       last_var_->type_id_ = type_id;
+      break;
     default:
       if ( recent_)
         recent_->type_id_ = type_id;
@@ -1007,6 +1076,16 @@ void TreeBuilder::SetAbs(uint64_t ct)
       current_element_type_ != ElementType::var_type
      )
     return;
+  if ( current_element_type_ == ElementType::var_type )
+  {
+    if ( !last_var_ )
+    {
+      fprintf(stderr, "Can't set abstract_origin when there is no last_var\n");
+      return;
+    }
+    last_var_->abs_ = ct;
+    return;
+  }
   if (!elements_.size()) {
     fprintf(stderr, "Can't set abstract_origin when element list is empty\n");
     return;
@@ -1040,15 +1119,34 @@ void TreeBuilder::SetSpec(uint64_t ct)
     fprintf(stderr, "Can't set specification when element list is empty\n");
     return;
   }
+  if ( current_element_type_ == ElementType::var_type )
+  {
+    if ( !last_var_ )
+    {
+      fprintf(stderr, "Can't set specification when there is no last_var\n");
+      return;
+    }
+    last_var_->spec_ = ct;
+    return;
+  }  
   // fprintf(g_outf, "spec %lX for %lX\n", ct, elements_.back().id_);
   elements_.back().spec_ = ct;
 }
 
 void TreeBuilder::SetAddr(uint64_t count)
 {
+  if ( current_element_type_ == ElementType::var_type )
+  {
+    if ( !last_var_ )
+    {
+      fprintf(stderr, "Can't set address when there is no last_var\n");
+      return;
+    }
+    last_var_->addr_ = count;
+    return;
+  }
   if (current_element_type_ != ElementType::subroutine &&
-      current_element_type_ != ElementType::method &&
-      current_element_type_ != ElementType::var_type
+      current_element_type_ != ElementType::method
      )
      return;
   if (!elements_.size()) {
@@ -1096,6 +1194,20 @@ TreeBuilder::Element *TreeBuilder::get_owner()
   if ( m_stack.empty() )
     return nullptr;
   return m_stack.top();
+}
+
+TreeBuilder::Element *TreeBuilder::get_top_func()
+{
+  if ( m_stack.empty() )
+    return nullptr;
+  auto t = m_stack.top();
+  do
+  {
+    if ( t->type_ == ElementType::method || t->type_ == ElementType::subroutine )
+      return t;
+    t = t->owner_;
+  } while(t);
+  return nullptr;
 }
 
 const char* TreeBuilder::Element::TypeName() {

@@ -795,6 +795,42 @@ void PlainRender::dump_complex_type(Element &e)
   fprintf(g_outf, "}");
 }
 
+bool PlainRender::need_add_var(const Element &e) const
+{
+  if ( ElementType::var_type != e.type_ )
+    return false;
+  if ( e.addr_ && need_dump(e.fname_) )
+    return true;
+  if ( need_dump(e.fname_) )
+  {
+    auto ti = m_tls.find(e.id_);
+    if ( ti != m_tls.end() )
+      return true;
+  }
+  return false;
+}
+
+bool PlainRender::add_var(Element &e)
+{
+  if ( ElementType::var_type != e.type_ )
+    return false;
+  if ( e.addr_ && need_dump(e.fname_) )
+  {
+    m_vars.push_back(&e);
+    return true;
+  }
+  if ( need_dump(e.fname_) )
+  {
+    auto ti = m_tls.find(e.id_);
+    if ( ti != m_tls.end() )
+    {
+      m_vars.push_back(&e);
+      return true;
+    }
+  }
+  return false;
+}
+
 void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
 {
   for ( auto &e: els )
@@ -803,15 +839,16 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
       continue;
     if ( ElementType::var_type == e.type_ )
     {
-      if ( e.addr_ && need_dump(e.fname_) )
-        m_vars.push_back(&e);
-      else if ( need_dump(e.fname_) ) 
-      {
-        auto ti = m_tls.find(e.id_);
-        if ( ti != m_tls.end() )
-          m_vars.push_back(&e);
-      }
+      add_var(e);
       continue;
+    }
+    // collect local vars
+    if ( (ElementType::subroutine == e.type_ || ElementType::method == e.type_) &&
+         e.m_comp && !e.m_comp->lvars_.empty()
+       )
+    {
+      for ( auto &v: e.m_comp->lvars_ )
+        add_var(v);
     }
     if ( ElementType::ns_end == e.type_ )
     {

@@ -15,7 +15,8 @@ int g_opt_d = 0,
     g_opt_s = 0,
     g_opt_L = 0,
     g_opt_V = 0,
-    g_opt_v = 0;
+    g_opt_v = 0,
+    g_opt_x = 0;
 FILE *g_outf = NULL;
 
 void dump2file(std::string &name, const void *data, size_t size)

@@ -7,7 +7,7 @@
 #include "regnames.h"
 #include "GoTypes.h"
 
-extern int g_opt_g, g_opt_k, g_opt_l, g_opt_s, g_opt_v;
+extern int g_opt_g, g_opt_k, g_opt_l, g_opt_s, g_opt_v, g_opt_x;
 extern FILE *g_outf;
 
 enum param_op_type
@@ -433,12 +433,15 @@ protected:
     std::vector<EnumItem> enums_;
     std::vector<FormalParam> params_;
     std::list<Method> methods_;
+    std::list<Element> lvars_; // local vars with -x option
   };
 
   Element *get_owner();
+  Element *get_top_func();
   int should_keep(Element *);
   // per compilation unit data
   bool m_hdr_dumped;
+  Element *last_var_ = nullptr;
   Element *recent_ = nullptr;
   std::stack<Element *> m_stack;
   std::list<Element> elements_;
