@@ -1074,6 +1074,22 @@ void TreeBuilder::SetContainingType(uint64_t ct)
   elements_.back().cont_type_ = ct;
 }
 
+void TreeBuilder::SetLocX(uint64_t ct)
+{
+  if (!elements_.size())
+    return;
+  if ( current_element_type_ == ElementType::var_type )
+  {
+    if ( !last_var_ )
+    {
+      fprintf(stderr, "Can't set loclistx when there is no last_var\n");
+      return;
+    }
+    last_var_->locx_ = ct;
+    return;
+  }
+}
+
 void TreeBuilder::SetAbs(uint64_t ct)
 {
   // formal paraameters also can have abstract_origin

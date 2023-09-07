@@ -169,6 +169,7 @@ public:
   void SetExplicit();
   void SetSpec(uint64_t);
   void SetAbs(uint64_t);
+  void SetLocX(uint64_t);
   void SetDiscr(uint64_t);
   void SetInlined(int);
   void SetVarParam(bool);
@@ -265,6 +266,7 @@ protected:
       cont_type_ = e.cont_type_;
       spec_ = e.spec_;
       abs_ = e.abs_;
+      locx_ = e.locx_;
       inlined_ = e.inlined_;
       access_ = e.access_;
       bit_size_ = e.bit_size_;
@@ -311,6 +313,7 @@ protected:
       cont_type_(0),
       spec_(0),
       abs_(0),
+      locx_(0),
       inlined_(0),
       access_(0),
       bit_size_(0),
@@ -339,6 +342,7 @@ protected:
     uint64_t cont_type_; // for ptr2member
     uint64_t spec_;
     uint64_t abs_; // for DW_AT_abstract_origin
+    uint64_t locx_; // offset to debug_loclists section
     int inlined_;
     int access_;
     int bit_size_;

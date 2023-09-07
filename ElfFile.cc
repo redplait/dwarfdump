@@ -925,6 +925,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
       data = (debug_loclists_ + laddr);
       // TODO: add processing of locations block with DW_LLE here 
       // see function display_offset_entry_loclists
+      tree_builder->SetLocX(laddr);
       return 0;
      break;
     // case Dwarf32::Form::DW_FORM_addrx:
