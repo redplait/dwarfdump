@@ -137,6 +137,8 @@ std::string JsonRender::GenerateJson(Element &e) {
       put(result, "bit_offset", e.bit_offset_);
       put(result, "bit_size", e.bit_size_);
     }
+    if ( e.addr_class_ )
+      put(result, "addr_class", e.addr_class_);
     RenderGoAttrs(result, e.type_id_);
     result += "\"offset\":"+std::to_string(e.offset_);
     result += "}";
@@ -188,6 +190,8 @@ std::string JsonRender::GenerateJson(Element &e) {
   }
   if ( e.inlined_ )
     put(result, "inline", e.inlined_);
+  if ( e.addr_class_ )
+      put(result, "addr_class", e.addr_class_);
   if ( e.type_ == ElementType::var_type )
   {
     auto ti = m_tls.find(e.id_);
