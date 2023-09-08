@@ -684,6 +684,26 @@ bool PlainRender::dump_params_locations(std::vector<FormalParam> &params, std::s
 void PlainRender::dump_func(Element *e)
 {
   std::string tmp;
+  if ( g_opt_x && e->has_lvars() )
+  {
+    int latch = 0;
+    int idx = 0;
+    for ( auto lv: e->m_comp->lvars_ )
+    {
+      if ( need_add_var(*lv) )
+        continue; // this var will be dumped in dump_vars
+      if ( !latch )
+      {
+        fprintf(g_outf, "// LocalVars:\n");
+        latch |= 1;
+      }
+      fprintf(g_outf, "//  LVar%d\n", idx);
+      ++idx;
+      if ( lv->locx_ )
+        fprintf(g_outf, "//   locx %lx\n", lv->locx_);
+      dump_one_var(lv, 1);
+    }
+  }
   dump_spec(e);
   if ( e->m_comp && dump_params_locations(e->m_comp->params_, tmp) )
   {
@@ -709,60 +729,75 @@ void PlainRender::dump_func(Element *e)
   fprintf(g_outf, ")");
 }
 
-void PlainRender::dump_var(Element *e)
+const char *lmargin = "   ";
+
+void PlainRender::dump_var(Element *e, int local)
 {
+  const char *margin = local ? lmargin : "";
   if ( e->link_name_ && e->link_name_ != e->name_ )
-    fprintf(g_outf, "// LinkageName: %s\n", e->link_name_);
-  if ( !e->fullname_.empty() )
-    fprintf(g_outf, "// FileName: %s\n", e->fullname_.c_str());
+    fprintf(g_outf, "// %sLinkageName: %s\n", margin, e->link_name_);
+  if ( !local && !e->fullname_.empty() )
+    fprintf(g_outf, "// %sFileName: %s\n", margin, e->fullname_.c_str());
   std::string tname;
   named n { e->name_ };
   dump_type(e->type_id_, tname, &n);
   auto tn = n.name();
   if ( tn != nullptr )
-    fprintf(g_outf, "%s %s;\n", tname.c_str(), e->name_);
-  else
-    fprintf(g_outf, "%s;\n", tname.c_str());
+  {
+    if ( local )
+      fprintf(g_outf, "// %s%s %s\n", margin, tname.c_str(), e->name_);
+    else
+      fprintf(g_outf, "%s %s;\n", tname.c_str(), e->name_);
+  } else {
+    if ( local )
+      fprintf(g_outf, "// %s%s\n", margin, tname.c_str());
+    else
+      fprintf(g_outf, "%s;\n", tname.c_str());
+  }
+}
+
+void PlainRender::dump_one_var(Element *e, int local)
+{
+  const char *margin = local ? lmargin : "";
+  if ( e->addr_ )
+  {
+    const char *s_name = nullptr;
+    if ( g_opt_s && m_snames != nullptr )
+      s_name = m_snames->find_sname(e->addr_);
+    if ( s_name == nullptr )
+      fprintf(g_outf, "// %sAddr 0x%lX\n", margin, e->addr_);
+    else
+      fprintf(g_outf, "// %sAddr 0x%lX %s\n", margin, e->addr_, s_name);
+  }
+  auto ti = m_tls.find(e->id_);
+  if ( ti != m_tls.end() )
+    fprintf(g_outf, "// %sTlsIndex 0x%X\n", margin, ti->second);
+  if ( g_opt_v )
+    fprintf(g_outf, "// %sTypeId %lX\n", margin, e->id_);
+  if ( e->name_ )
+    dump_var(e, local);
+  else if ( e->spec_ )
+  {
+    auto el = m_els.find(e->spec_);
+    if ( el == m_els.end() )
+      fprintf(g_outf, "// cannot find var with spec %lX\n", e->spec_);
+    else
+      dump_var(el->second, local);
+  } else if ( e->abs_ )
+  {
+    auto el = m_els.find(e->abs_);
+    if ( el == m_els.end() )
+      fprintf(g_outf, "// cannot find var with abs %lX\n", e->abs_);
+    else
+      dump_var(el->second, local);
+  } else
+    fprintf(g_outf, "// unknown var id %lX\n", e->id_);
 }
 
 void PlainRender::dump_vars()
 {
   for ( auto &e: m_vars )
-  {
-    if ( e->addr_ )
-    {
-      const char *s_name = nullptr;
-      if ( g_opt_s && m_snames != nullptr )
-        s_name = m_snames->find_sname(e->addr_);
-      if ( s_name == nullptr )
-        fprintf(g_outf, "// Addr 0x%lX\n", e->addr_);
-      else
-        fprintf(g_outf, "// Addr 0x%lX %s\n", e->addr_, s_name);
-    }
-    auto ti = m_tls.find(e->id_);
-    if ( ti != m_tls.end() )
-      fprintf(g_outf, "// TlsIndex 0x%X\n", ti->second);
-    if ( g_opt_v )
-      fprintf(g_outf, "// TypeId %lX\n", e->id_);
-    if ( e->name_ )
-      dump_var(e);
-    else if ( e->spec_ )
-    {
-      auto el = m_els.find(e->spec_);
-      if ( el == m_els.end() )
-        fprintf(g_outf, "// cannot find var with spec %lX\n", e->spec_);
-      else
-        dump_var(el->second);
-    } else if ( e->abs_ )
-    {
-      auto el = m_els.find(e->abs_);
-      if ( el == m_els.end() )
-        fprintf(g_outf, "// cannot find var with abs %lX\n", e->abs_);
-      else
-        dump_var(el->second);
-    } else
-      fprintf(g_outf, "// unknown var id %lX\n", e->id_);
-  }
+    dump_one_var(e, 0);
 }
 
 int PlainRender::dump_parents(Element &e)
