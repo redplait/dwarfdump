@@ -33,14 +33,17 @@ typedef struct
   const unsigned char *m_ptr;
 } DWARF2_Internal_LineInfo;
 
-class ElfFile : public ISectionNames
+class ElfFile : public ISectionNames, public IGetLoclistX
 {
 public:
   ElfFile(std::string filepath, bool& success, TreeBuilder *);
   ~ElfFile();
   bool GetAllClasses();
   bool SaveSections(std::string &fname);
+  // ISectionNames
   virtual const char *find_sname(uint64_t);
+  // IGetLoclistX
+  virtual bool get_loclistx(uint64_t off, std::list<LocListXItem> &);
 private:
   bool unzip_section(ELFIO::section *, const unsigned char * &data, size_t &);
   bool check_compressed_section(ELFIO::section *, const unsigned char * &data, size_t &);
@@ -49,7 +52,7 @@ private:
   static uint32_t ULEB128(const unsigned char* &data, size_t& bytes_available);
   static int64_t SLEB128(const unsigned char* &data, size_t& bytes_available);
   void PassData(Dwarf32::Form form, const unsigned char* &data, size_t& bytes_available);
-  uint64_t DecodeAddrLocation(Dwarf32::Form form, const unsigned char* info, size_t bytes_available, param_loc *);
+  uint64_t DecodeAddrLocation(Dwarf32::Form form, const unsigned char* info, size_t bytes_available, param_loc *, const unsigned char *);
   uint64_t DecodeLocation(Dwarf32::Form form, const unsigned char* info, size_t bytes_available);
   uint64_t FormDataValue(Dwarf32::Form form,
       const unsigned char* &info, size_t& bytes_available);

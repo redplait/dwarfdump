@@ -22,6 +22,7 @@ enum param_op_type
   deref_size, // size in idx
   convert,    // type id in idx
   fvalue, // litXX, value in idx
+  svalue, // value in sv;
   fneg,   // DW_OP_neg
   fnot,   // DW_OP_not
   fand,   // DW_OP_and
@@ -32,22 +33,26 @@ enum param_op_type
   fshr,   // DW_OP_shr
   fshra,  // DW_OP_shra
   fxor,   // DW_OP_xor
+  fmul,   // DW_OP_mul
 };
 
 struct one_param_loc
 {
   enum param_op_type type;
-  unsigned int idx;
+  union
+  {
+    unsigned int idx;
+    int64_t sv;
+  };
   int offset;
 };
 
 struct param_loc
 {
   std::list<one_param_loc> locs;
-  uint64_t loc_off = 0; // if non-zero - offset into .debug_loc section
   inline bool empty() const
   {
-    return locs.empty() && !loc_off;
+    return locs.empty();
   }
   inline bool is_tls() const
   {
@@ -60,6 +65,30 @@ struct param_loc
   void push_value(unsigned int v)
   {
     locs.push_back( { fvalue, v, 0 } );
+  }
+  void push_svalue(int64_t s)
+  {
+    one_param_loc tmp;
+    tmp.type = svalue;
+    tmp.sv = s;
+    tmp.offset = 0;
+    locs.push_back(tmp);
+  }
+};
+
+struct LocListXItem
+{
+  uint64_t start;
+  uint64_t end;
+  param_loc loc;
+  LocListXItem()
+  {
+    start = end = 0;
+  }
+  LocListXItem(uint64_t s, uint64_t e)
+  {
+    start = s;
+    end = e;
   }
 };
 
@@ -193,6 +222,7 @@ public:
   bool is_go() const;
   RegNames *m_rnames = nullptr;
   ISectionNames *m_snames = nullptr;
+  IGetLoclistX *m_locX = nullptr;
   // for names with direct string - seems that if name lesser pointer size they are directed
   // so renderer should be able to distinguish if some name located in string pool
   // in other case this name should be considered as direct string
@@ -375,6 +405,12 @@ protected:
       if ( m_comp == nullptr )
         return false;
       return !m_comp->methods_.empty();
+    }
+    inline bool has_lvars() const
+    {
+      if ( m_comp == nullptr )
+        return false;
+      return !m_comp->lvars_.empty();
     }
     size_t get_rank() const
     {

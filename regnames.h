@@ -1,5 +1,13 @@
 #pragma once
 #include <elfio/elfio.hpp>
+#include <list>
+
+struct LocListXItem;
+
+struct IGetLoclistX
+{
+  virtual bool get_loclistx(uint64_t off, std::list<LocListXItem> &) = 0;
+};
 
 struct ISectionNames
 {

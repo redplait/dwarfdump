@@ -894,10 +894,130 @@ uint64_t ElfFile::fetch_indexed_value(uint64_t idx, const unsigned char *s, uint
     return *reinterpret_cast<const uint64_t*>(s + offset);
 }
 
-// var addresses decoded as block + OP_addr
-uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* data, size_t bytes_available, param_loc *pl) 
+// ripped from functions display_offset_entry_loclists & display_loclists_list in dwarf.c
+bool ElfFile::get_loclistx(uint64_t off, std::list<LocListXItem> &out_list)
 {
-  ptrdiff_t doff = data - debug_info_;
+  if ( off > debug_loclists_size_ )
+  {
+    fprintf(stderr, "loclistx off %lx is not inside loclists section size %lx\n", off, debug_loclists_size_);
+    return false;
+  }
+  uint64_t addr, base_addr = 0;
+  uint64_t begin = 0, end = 0;
+  const unsigned char *start = debug_loclists_ + off;
+  const unsigned char *lend = debug_loclists_ + debug_loclists_size_;
+  size_t avail = debug_loclists_size_ - off;
+  while( start < lend )
+  {
+//  fprintf(stderr, "get_loclistx: off %lx start %lx %d ", off, start - debug_loclists_, address_size_);
+    unsigned char llet = *start;
+    start++;
+    avail--;
+//  fprintf(stderr, "%d\n", llet);  
+    if ( llet == Dwarf32::dwarf_location_list_entry_type::DW_LLE_end_of_list )
+      break;
+    switch(llet)
+    {
+      case Dwarf32::dwarf_location_list_entry_type::DW_LLE_base_address:
+        if ( address_size_ == 8 )
+        {
+          base_addr = *(uint64_t *)start;
+          start += 8;
+          avail -= 8;
+        } else {
+          base_addr = *(uint32_t *)start;
+          start += 4;
+          avail -= 4;
+        }
+        break;
+      case Dwarf32::dwarf_location_list_entry_type::DW_LLE_base_addressx:
+         addr = ElfFile::ULEB128(start, avail);
+         base_addr = get_indexed_addr(addr, address_size_);
+        break;
+      case Dwarf32::dwarf_location_list_entry_type::DW_LLE_startx_endx:
+         addr = ElfFile::ULEB128(start, avail);
+         begin = get_indexed_addr(addr, address_size_);
+         addr = ElfFile::ULEB128(start, avail);
+         end = get_indexed_addr(addr, address_size_);
+        break;
+      case Dwarf32::dwarf_location_list_entry_type::DW_LLE_start_end:
+         if ( address_size_ == 8 )
+         {
+          begin = *(uint64_t *)start;
+          start += 8;
+          avail -= 8;
+          end = *(uint64_t *)start;
+          start += 8;
+          avail -= 8;
+         } else {
+          begin = *(uint32_t *)start;
+          start += 4;
+          avail -= 4;
+          end = *(uint32_t *)start;
+          start += 4;
+          avail -= 4;
+         }
+        break; 
+      case Dwarf32::dwarf_location_list_entry_type::DW_LLE_offset_pair:
+         begin = ElfFile::ULEB128(start, avail);
+         begin += base_addr;
+         end = ElfFile::ULEB128(start, avail);
+         end += base_addr;
+        break;
+      case Dwarf32::dwarf_location_list_entry_type::DW_LLE_start_length:
+        if ( address_size_ == 8 )
+        {
+          begin = *(uint64_t *)start;
+          start += 8;
+          avail -= 8;
+        } else {
+          begin = *(uint32_t *)start;
+          start += 4;
+          avail -= 4;
+        }
+        addr = ElfFile::ULEB128(start, avail);
+        end = addr + begin;
+        break;
+      case Dwarf32::dwarf_location_list_entry_type::DW_LLE_startx_length:
+         addr = ElfFile::ULEB128(start, avail);
+         begin = get_indexed_addr(addr, address_size_);
+         addr = ElfFile::ULEB128(start, avail);
+         end = begin + addr;
+        break;
+      case Dwarf32::dwarf_location_list_entry_type::DW_LLE_default_location:
+         begin = end = 0;
+        break;
+      default:
+        fprintf(stderr, "unknown LLE tag %d at %lx\n", llet, start - debug_loclists_);
+        return false;
+    }
+    if ( llet == Dwarf32::dwarf_location_list_entry_type::DW_LLE_base_address ||
+         llet == Dwarf32::dwarf_location_list_entry_type::DW_LLE_base_addressx
+       )
+      continue;
+    out_list.push_back( { begin, end } );
+    auto &top = out_list.back();
+    // length will be readed inside DecodeAddrLocation
+    size_t tmp_avail = avail;
+    auto tmp_start = start;
+    uint64_t len = ElfFile::ULEB128(tmp_start, tmp_avail);
+    if ( len > avail )
+    {
+      fprintf(stderr, "bad LLE len %ld at %lx\n", len, start - debug_loclists_);
+      break;
+    }
+//  fprintf(stderr, "len %lX at %lx %lX - %lX\n", len, start - debug_loclists_, begin, end);
+    DecodeAddrLocation(Dwarf32::Form::DW_FORM_block, start, avail, &top.loc, debug_loclists_);
+    start = tmp_start + len;
+    avail = tmp_avail - len;
+  }
+  return !out_list.empty();
+}
+
+// var addresses decoded as block + OP_addr
+uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* data, size_t bytes_available, param_loc *pl, const unsigned char *sect) 
+{
+  ptrdiff_t doff = data - sect; // debug_info_;
   // fprintf(stderr, "DecodeAddrLocation form %d off %lX\n", form, doff);
   if ( form == Dwarf32::Form::DW_FORM_sec_offset )
     return 0;
@@ -923,8 +1043,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
         return 0;
       }
       data = (debug_loclists_ + laddr);
-      // TODO: add processing of locations block with DW_LLE here 
-      // see function display_offset_entry_loclists
+      // store locations block with DW_LLE here - it will be parsed later within get_loclistx virtual method
       tree_builder->SetLocX(laddr);
       return 0;
      break;
@@ -955,6 +1074,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
   const unsigned char *end = data + length;
   int value = 0;
   uint64_t v64 = 0;
+  int64_t s64;
   while( data < end && bytes_available )
   {
     unsigned op = *data;
@@ -992,6 +1112,10 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
         case Dwarf32::dwarf_ops::DW_OP_GNU_reinterpret:
           pl->locs.push_back({ convert, (unsigned int)ElfFile::ULEB128(data, bytes_available), 0 });
           break;
+        case Dwarf32::dwarf_ops::DW_OP_consts:
+           s64 = ElfFile::SLEB128(data, bytes_available);
+           pl->push_svalue(s64);
+          break;  
         case Dwarf32::dwarf_ops::DW_OP_constu:
            value = ElfFile::ULEB128(data, bytes_available);
           break;
@@ -1086,6 +1210,10 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
         case Dwarf32::dwarf_ops::DW_OP_xor:
            if ( pl )
              pl->push_exp(fxor);
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_mul:
+           if ( pl )
+             pl->push_exp(fmul);
           break;
         case Dwarf32::dwarf_ops::DW_OP_piece:
          // TODO: should I mark this location as splitted in several places?
@@ -2015,7 +2143,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         return false;
       else {
         param_loc loc;
-        uint64_t offset = DecodeAddrLocation(form, info, info_bytes, &loc);
+        uint64_t offset = DecodeAddrLocation(form, info, info_bytes, &loc, debug_info_);
         if ( tree_builder->is_formal_param() )
         {
           if ( !loc.empty() )
