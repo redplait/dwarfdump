@@ -54,11 +54,11 @@ class PlainRender: public TreeBuilder
    void dump_complex_type(Element &e);
    int dump_parents(Element &e);
    std::string &render_one_enum(std::string &s, EnumItem &en);
-   std::string &render_field(Element *e, std::string &s, int level);
-   std::string &render_fields(Element *e, std::string &s, int level);
+   std::string &render_field(Element *e, std::string &s, int level, int off = 0);
+   std::string &render_fields(Element *e, std::string &s, int level, int off = 0);
    std::string &render_params(IN Element *e, uint64_t this_arg, OUT std::string &s);
    bool dump_params_locations(std::vector<FormalParam> &, std::string &, int level = 0);
-   bool dump_type(uint64_t, std::string &, named *, int level = 0);
+   bool dump_type(uint64_t, std::string &, named *, int level = 0, int off = 0);
    bool is_constructor(const Element *e, const Element *owner) const;
    bool need_add_var(const Element &e) const;
    bool add_var(Element &e);

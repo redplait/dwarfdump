@@ -121,7 +121,7 @@ void PlainRender::RenderUnit(int last)
   }
 }
 
-bool PlainRender::dump_type(uint64_t key, OUT std::string &res, named *n, int level)
+bool PlainRender::dump_type(uint64_t key, OUT std::string &res, named *n, int level, int off)
 {
   if ( get_replaced_name(key, res) )
     return true;
@@ -168,7 +168,7 @@ bool PlainRender::dump_type(uint64_t key, OUT std::string &res, named *n, int le
     else if ( el->second->m_comp != nullptr )
     {
       res += "{\n";
-      render_fields(el->second, res, level + 1);
+      render_fields(el->second, res, level + 1, off);
       add_margin(res, level);
       res += "}";
     }
@@ -180,7 +180,7 @@ bool PlainRender::dump_type(uint64_t key, OUT std::string &res, named *n, int le
     if ( el->second->m_comp != nullptr )
     {
       res += "{\n";
-      render_fields(el->second, res, level + 1);
+      render_fields(el->second, res, level + 1, off);
       add_margin(res, level);
       res += "}";
     }
@@ -194,7 +194,7 @@ bool PlainRender::dump_type(uint64_t key, OUT std::string &res, named *n, int le
     else if ( el->second->m_comp != nullptr )
     {
       res += "{\n";
-      render_fields(el->second, res, level + 1);
+      render_fields(el->second, res, level + 1, off);
       add_margin(res, level);
       res += "}";
     }
@@ -369,10 +369,10 @@ void PlainRender::dump_enums(Element *e)
   fprintf(g_outf, "%s\n", s.c_str());
 }
 
-std::string &PlainRender::render_field(Element *e, std::string &s, int level)
+std::string &PlainRender::render_field(Element *e, std::string &s, int level, int off)
 {
   named n { e->name_ };
-  dump_type(e->type_id_, s, &n, level);
+  dump_type(e->type_id_, s, &n, level, off);
   auto name = n.name();
   if ( name != nullptr )
   {
@@ -390,7 +390,7 @@ std::string &PlainRender::render_field(Element *e, std::string &s, int level)
   return s;
 }
 
-std::string &PlainRender::render_fields(Element *e, std::string &s, int level)
+std::string &PlainRender::render_fields(Element *e, std::string &s, int level, int off)
 {
   if ( !e->m_comp )
     return s;
@@ -400,10 +400,16 @@ std::string &PlainRender::render_fields(Element *e, std::string &s, int level)
     add_margin(s, level);
     s += "// Offset 0x";
     char buf[40];
-    snprintf(buf, sizeof(buf), "%lX\n", en.offset_);
+    snprintf(buf, sizeof(buf), "%lX", en.offset_);
     s += buf;
+    if ( off )
+    {
+      snprintf(buf, sizeof(buf), " 0x%lX", off + en.offset_);
+      s += buf;
+    }
+    s += "\n";
     add_margin(s, level);
-    render_field(&en, tmp, level + 1);
+    render_field(&en, tmp, level + 1, off + en.offset_);
     s += tmp + ";\n";
   }
   return s;
@@ -417,7 +423,7 @@ void PlainRender::dump_fields(Element *e)
   {
     std::string tmp;
     fprintf(g_outf, "// Offset 0x%lX\n", en.offset_);
-    render_field(&en, tmp, 1);
+    render_field(&en, tmp, 1, en.offset_);
     fprintf(g_outf, "%s;\n", tmp.c_str());
   }
 }
