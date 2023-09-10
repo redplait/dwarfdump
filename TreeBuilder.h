@@ -297,6 +297,7 @@ protected:
     unsigned char pdir = 0; // param direction - 2 in 3 out
     bool ellipsis;
     bool var_ = false; // from DW_AT_variable_parameter - go mostly?
+    bool art_ = false; // seems that dwarf5 mark this arg as articial and don`t have DW_AT_object_pointer
     bool optional_ = false; // DW_AT_is_optional
     param_loc loc;
   };

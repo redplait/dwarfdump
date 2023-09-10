@@ -469,6 +469,8 @@ void PlainRender::dump_methods(Element *e)
     dump_spec(&en);
     if ( en.m_comp && dump_params_locations(en.m_comp->params_, plocs) )
       fprintf(g_outf, "%s", plocs.c_str());
+    // dump local vars
+    dump_lvars(&en);
     fprintf(g_outf, "%s;\n", tmp.c_str());
   }
 }
@@ -590,9 +592,8 @@ bool PlainRender::dump_params_locations(std::vector<FormalParam> &params, std::s
   return res;
 }
 
-void PlainRender::dump_func(Element *e)
+void PlainRender::dump_lvars(Element *e)
 {
-  std::string tmp;
   if ( g_opt_x && e->has_lvars() )
   {
     int latch = 0;
@@ -629,7 +630,13 @@ void PlainRender::dump_func(Element *e)
       }
     }
   }
+}
+
+void PlainRender::dump_func(Element *e)
+{
+  dump_lvars(e);
   dump_spec(e);
+  std::string tmp;
   if ( e->m_comp && dump_params_locations(e->m_comp->params_, tmp) )
   {
     fprintf(g_outf, "%s", tmp.c_str());

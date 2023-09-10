@@ -48,6 +48,7 @@ class PlainRender: public TreeBuilder
    void dump_enums(Element *);
    void dump_fields(Element *);
    void dump_func(Element *);
+   void dump_lvars(Element *e);
    void dump_methods(Element *e);
    void dump_method(Method *e, const Element *owner, std::string &res);
    void dump_spec(Element *e);

@@ -24,7 +24,7 @@ void TreeBuilder::collect_go_types()
 
 // add dumped types to m_dumped_db
 int TreeBuilder::merge_dumped()
-{bool need_reg = true;
+{
   if ( elements_.empty() )
     return 0;
   int res = 0;
@@ -660,6 +660,8 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
            }
            if ( !owner->m_comp )
              owner->m_comp = new Compound();
+           if ( owner->type_ == ElementType::method )
+             fprintf(g_outf, "add var %lX to method %lX\n", tag_id, owner->id_);
            owner->m_comp->lvars_.push_back(last_var_);
          }
        }
@@ -859,7 +861,7 @@ void TreeBuilder::SetElementName(const char* name, uint64_t off)
     }
 
     top->m_comp->params_.back().name = name;
-    return;    
+    return;
   }
   if ( current_element_type_ == ElementType::enumerator )
   {
@@ -1020,7 +1022,36 @@ void TreeBuilder::SetNoReturn()
 
 void TreeBuilder::SetArtiticial()
 {
-  if ( !recent_ || current_element_type_ != ElementType::method )
+  if ( !recent_ )
+    return;
+  if ( current_element_type_ == ElementType::formal_param )
+  {
+    if ( m_stack.empty() ) {
+      fprintf(stderr, "Can't set Artiticial for formal param when stack is empty\n");
+      return;
+    }
+    auto top = m_stack.top();
+    if ( top->type_ == ElementType::subroutine )
+      return;
+    // check that top is subroutine or method
+    if ( top->type_ != ElementType::method )
+    {
+      fprintf(stderr, "Can't set Artiticial for formal param if the top element is not method\n");
+      return;
+    }
+    if ( !top->m_comp || top->m_comp->params_.empty()) {
+      fprintf(stderr, "Can't set Artiticial for formal param to %lX when the params list is empty\n", top->id_);
+      return;
+    }
+    auto &fp = top->m_comp->params_.back();
+    fp.art_ = true;
+    Method *m = static_cast<Method *>(top);
+    if ( !m->this_arg_ )
+      m->this_arg_ = fp.param_id;
+    return;    
+
+  }
+  if ( current_element_type_ != ElementType::method )
     return;
   Method *m = static_cast<Method *>(recent_);
   m->art_ = true;
