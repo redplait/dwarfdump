@@ -578,104 +578,7 @@ bool PlainRender::dump_params_locations(std::vector<FormalParam> &params, std::s
     snprintf(id_buf, sizeof(id_buf), "%lX", p.param_id);
     s += id_buf;
     s += ": ";
-    for ( auto &l: p.loc.locs )
-    {
-      switch(l.type)
-      {
-        case deref: s += "OP_deref";
-         break;
-        case call_frame_cfa: s += "OP_call_frame_cfa";
-         break;
-        case reg: {
-          s += "OP_reg";
-          bool need_reg = true;          
-          if ( m_rnames != nullptr )
-          {
-            auto rn = m_rnames->reg_name(l.idx);
-            if ( rn )
-            {
-              need_reg = false;
-              s += " ";
-              s += rn;
-            }
-          }
-          if ( need_reg )
-            s += std::to_string(l.idx);
-         }
-         break;
-        case breg: {
-          s += "OP_breg";
-          bool need_reg = true;          
-          if ( m_rnames != nullptr )
-          {
-            auto rn = m_rnames->reg_name(l.idx);
-            if ( rn )
-            {
-              need_reg = false;
-              s += " ";
-              s += rn;
-            }
-          }
-          if ( need_reg )
-            s += std::to_string(l.idx);
-          s += " ";
-          s += std::to_string(l.offset);
-         }
-         break;
-        case fvalue:
-          s += " ";
-          s += std::to_string(l.idx);
-        case convert:
-          s += "convert_to ";
-          s += std::to_string(l.idx);
-        case deref_size:
-          s += "OP_deref_size ";
-          s += std::to_string(l.idx);
-        case fbreg:
-          s += "OP_fbreg ";
-          s += std::to_string(l.offset);
-         break;
-        case plus_uconst:
-          s += "OP_plus_uconst ";
-          s += std::to_string(l.offset);
-         break; 
-        case tls_index:
-          s += "TlsIndex ";
-          s += std::to_string(l.offset);
-         break;
-        case fneg:
-          s += "neg";
-         break;
-        case fnot:
-          s += "not";
-         break;
-        case fand:
-          s += "and";
-         break;
-        case fminus:
-          s += "minus";
-         break;
-        case f_or:
-          s += "or";
-         break;
-        case fplus:
-          s += "plus";
-         break;
-        case fshl:
-          s += "shl";
-         break;
-        case fshr:
-          s += "shr";
-         break;
-        case fshra:
-          s += "shra";
-         break;
-        case fxor:
-          s += "xor";
-         break;
-      }
-      s += " ";
-    }
+    dump_location(s, p.loc);
     s += "\n";
   }
   return res;
@@ -699,9 +602,25 @@ void PlainRender::dump_func(Element *e)
       }
       fprintf(g_outf, "//  LVar%d\n", idx);
       ++idx;
-      if ( lv->locx_ )
-        fprintf(g_outf, "//   locx %lx\n", lv->locx_);
       dump_one_var(lv, 1);
+      if ( lv->locx_ )
+      {
+        fprintf(g_outf, "//   locx %lx\n", lv->locx_);
+        if ( m_locX ) 
+        {
+          std::list<LocListXItem> locs;
+          if ( !m_locX->get_loclistx(lv->locx_, locs) )
+            fprintf(g_outf, "//   cannot read locx at %lx\n", lv->locx_);
+          else {
+            for ( auto &l: locs )
+            {
+              std::string ls;
+              dump_location(ls, l.loc);
+              fprintf(g_outf, "//    %lX - %lX: %s\n", l.start, l.end, ls.c_str());
+            }
+          }
+        }
+      }
     }
   }
   dump_spec(e);

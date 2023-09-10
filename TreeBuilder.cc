@@ -24,7 +24,7 @@ void TreeBuilder::collect_go_types()
 
 // add dumped types to m_dumped_db
 int TreeBuilder::merge_dumped()
-{
+{bool need_reg = true;
   if ( elements_.empty() )
     return 0;
   int res = 0;
@@ -66,6 +66,139 @@ int TreeBuilder::merge_dumped()
   }
   return res;
 }
+
+void TreeBuilder::dump_location(std::string &s, param_loc &pl)
+{
+    for ( auto &l: pl.locs )
+    {
+      switch(l.type)
+      {
+        case deref: s += "OP_deref";
+         break;
+        case call_frame_cfa: s += "OP_call_frame_cfa";
+         break;
+        case reg: {
+          s += "OP_reg";
+          bool need_reg = true;
+          if ( m_rnames != nullptr )
+          {
+            auto rn = m_rnames->reg_name(l.idx);
+            if ( rn )
+            {
+              need_reg = false;
+              s += " ";
+              s += rn;
+            }
+          }
+          if ( need_reg )
+            s += std::to_string(l.idx);
+         }
+         break;
+        case breg: {
+          s += "OP_breg";
+          bool need_reg = true;
+          if ( m_rnames != nullptr )
+          {
+            auto rn = m_rnames->reg_name(l.idx);
+            if ( rn )
+            {
+              need_reg = false;
+              s += " ";
+              s += rn;
+            }
+          }
+          if ( need_reg )
+            s += std::to_string(l.idx);
+          s += "+";
+          s += std::to_string(l.offset);
+         }
+         break;
+        case fpiece:
+           s += "piece ";
+           s += std::to_string(l.idx);
+          break;
+        case imp_value:
+           s += "implicit_value ";
+           s += std::to_string(l.idx);
+          break;
+        case svalue:
+          s += " ";
+          s += std::to_string(l.sv);
+          break;
+        case fvalue:
+          s += " ";
+          s += std::to_string(l.idx);
+          break;
+        case convert:
+          s += "convert_to ";
+          s += std::to_string(l.idx);
+          break;
+        case deref_size:
+          s += "OP_deref_size ";
+          s += std::to_string(l.idx);
+          break;
+        case fbreg:
+          s += "OP_fbreg ";
+          s += std::to_string(l.offset);
+         break;
+        case plus_uconst:
+          s += "OP_plus_uconst ";
+          s += std::to_string(l.offset);
+         break; 
+        case tls_index:
+          s += "TlsIndex ";
+          s += std::to_string(l.offset);
+         break;
+        case fneg:
+          s += "neg";
+         break;
+        case fnot:
+          s += "not";
+         break;
+        case fabs:
+          s += "abs";
+         break;
+        case fand:
+          s += "and";
+         break;
+        case fminus:
+          s += "minus";
+         break;
+        case f_or:
+          s += "or";
+         break;
+        case fplus:
+          s += "plus";
+         break;
+        case fshl:
+          s += "shl";
+         break;
+        case fshr:
+          s += "shr";
+         break;
+        case fshra:
+          s += "shra";
+         break;
+        case fxor:
+          s += "xor";
+         break;
+        case fmul:
+          s += "mul";
+         break;
+        case fdiv:
+          s += "div";
+         break;
+        case fmod:
+          s += "mod";
+         break;
+        case fstack:
+          s += "stack_value";
+         break;
+      }
+      s += " ";
+    }
+}
+
 
 bool TreeBuilder::get_replaced_name(uint64_t key, std::string &res)
 {

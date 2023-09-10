@@ -1118,6 +1118,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
           break;  
         case Dwarf32::dwarf_ops::DW_OP_constu:
            value = ElfFile::ULEB128(data, bytes_available);
+           pl->push_value(value);
           break;
         case Dwarf32::dwarf_ops::DW_OP_plus_uconst:
            pl->locs.push_back({ plus_uconst, 0, (int)ElfFile::ULEB128(data, bytes_available)});
@@ -1130,46 +1131,55 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
           break;
         case Dwarf32::dwarf_ops::DW_OP_const1u:
            value = (int)*reinterpret_cast<const uint8_t*>(data);
+           pl->push_value(value);
            bytes_available -= 1;
            data += 1;
           break;
         case Dwarf32::dwarf_ops::DW_OP_const1s:
            value = (int)*reinterpret_cast<const int8_t*>(data);
+           pl->push_svalue(value);
            bytes_available -= 1;
            data += 1;
           break;
         case Dwarf32::dwarf_ops::DW_OP_const2u:
            value = (int)*reinterpret_cast<const uint16_t*>(data);
+           pl->push_value(value);
            bytes_available -= 2;
            data += 2;
           break;
         case Dwarf32::dwarf_ops::DW_OP_const2s:
            value = (int)*reinterpret_cast<const int16_t*>(data);
+           pl->push_svalue(value);
            bytes_available -= 2;
            data += 2;
           break;
         case Dwarf32::dwarf_ops::DW_OP_const4u:
            value = (int)*reinterpret_cast<const uint32_t*>(data);
+           pl->push_value(value);
            bytes_available -= 4;
            data += 4;
           break;
         case Dwarf32::dwarf_ops::DW_OP_const4s:
            value = (int)*reinterpret_cast<const int32_t*>(data);
+           pl->push_svalue(value);
            bytes_available -= 4;
            data += 4;
           break;
         case Dwarf32::dwarf_ops::DW_OP_const8u:
            value = (int)*reinterpret_cast<const uint64_t*>(data);
+           pl->push_value(value);
            bytes_available -= 8;
            data += 8;
           break;
         case Dwarf32::dwarf_ops::DW_OP_const8s:
-           value = (int)*reinterpret_cast<const int64_t*>(data);
+           s64 = (int)*reinterpret_cast<const int64_t*>(data);
+           pl->push_svalue(s64);
            bytes_available -= 8;
            data += 8;
           break;
         case Dwarf32::dwarf_ops::DW_OP_GNU_push_tls_address:
-           pl->locs.push_back({ tls_index, 0, value});
+           if ( !pl->push_tls() )
+             pl->locs.push_back({ tls_index, 0, value});
           break;
         case Dwarf32::dwarf_ops::DW_OP_neg:
            if ( pl )
@@ -1178,6 +1188,10 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
         case Dwarf32::dwarf_ops::DW_OP_not:
            if ( pl )
              pl->push_exp(fnot);
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_abs:
+           if ( pl )
+             pl->push_exp(fabs);
           break;
         case Dwarf32::dwarf_ops::DW_OP_and:
            if ( pl )
@@ -1215,9 +1229,17 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
            if ( pl )
              pl->push_exp(fmul);
           break;
+        case Dwarf32::dwarf_ops::DW_OP_div:
+           if ( pl )
+             pl->push_exp(fdiv);
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_mod:
+           if ( pl )
+             pl->push_exp(fmod);
+          break;
         case Dwarf32::dwarf_ops::DW_OP_piece:
-         // TODO: should I mark this location as splitted in several places?
-         ElfFile::ULEB128(data, bytes_available);
+          v64 = ElfFile::ULEB128(data, bytes_available);
+          pl->locs.push_back({ fpiece, (unsigned int)v64, 0 } );
          break;
         case Dwarf32::dwarf_ops::DW_OP_reg0:
         case Dwarf32::dwarf_ops::DW_OP_reg1:
@@ -1300,7 +1322,32 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
            pl->locs.push_back({ fbreg, 0, (int)ElfFile::SLEB128(data, bytes_available)});
          break;
         case Dwarf32::dwarf_ops::DW_OP_stack_value:
-         break;
+           if ( pl )
+             pl->push_exp(fstack);
+          break;
+        case Dwarf32::dwarf_ops::DW_OP_implicit_value:
+           // uleb encoded length
+           v64 = ElfFile::ULEB128(data, bytes_available);
+           switch(v64)
+           {
+             case 1:
+                pl->locs.push_back({ imp_value, *reinterpret_cast<const uint8_t*>(data), 0});
+               break;
+             case 2:
+                pl->locs.push_back({ imp_value, *reinterpret_cast<const uint16_t*>(data), 0});
+               break;
+             case 4:
+                pl->locs.push_back({ imp_value, *reinterpret_cast<const uint32_t*>(data), 0});
+               break;
+             case 8:
+                pl->locs.push_back({ imp_value, (unsigned int)*reinterpret_cast<const uint64_t*>(data), 0});
+               break;
+             default:
+               fprintf(stderr, "DecodeAddrLocation: unknown implicit_value size %lX at %lX\n", v64, doff); 
+           }
+           bytes_available -= v64;
+           data += v64; 
+          break;
       default:
         fprintf(stderr, "DecodeAddrLocation: unknown op %X at %lX\n", op, doff);
         return 0;

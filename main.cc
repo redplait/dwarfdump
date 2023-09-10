@@ -105,6 +105,9 @@ int main(int argc, char* argv[])
   if ( !iname.empty() )
     file.SaveSections(iname);
 
+  if ( g_opt_x )
+    render->m_locX = (IGetLoclistX *)&file;
+
   // setup g_outf
   g_outf = (fp == NULL) ? stdout : fp;
 

@@ -18,14 +18,17 @@ enum param_op_type
   deref,
   call_frame_cfa,
   plus_uconst,
-  tls_index,
+  tls_index, // tls index in offset
   deref_size, // size in idx
   convert,    // type id in idx
   fvalue, // litXX, value in idx
-  svalue, // value in sv;
+  svalue, // value in sv
+  fpiece, // DW_OP_piece, value in idx
+  imp_value, // DW_OP_implicit_value, value in idx
   fneg,   // DW_OP_neg
   fnot,   // DW_OP_not
   fand,   // DW_OP_and
+  fabs,   // DW_OP_abs
   fminus, // DW_OP_minus
   f_or,   // DW_OP_or
   fplus,  // DW_OP_plus
@@ -34,6 +37,9 @@ enum param_op_type
   fshra,  // DW_OP_shra
   fxor,   // DW_OP_xor
   fmul,   // DW_OP_mul
+  fdiv,   // DW_OP_div
+  fmod,   // DW_OP_mod
+  fstack, // DW_OP_stack_value
 };
 
 struct one_param_loc
@@ -57,6 +63,27 @@ struct param_loc
   inline bool is_tls() const
   {
     return 1 == locs.size() && locs.front().type == tls_index;
+  }
+  inline bool push_tls()
+  {
+    if ( locs.empty() )
+      return false;
+    auto &last = locs.back();
+    if ( last.type == fvalue )
+    {
+      last.type = tls_index;
+      last.offset = (int)last.idx;
+      last.idx = 0;
+      return true;
+    }
+    if ( last.type == svalue )
+    {
+      last.type = tls_index;
+      last.offset = (int)last.sv;
+      last.sv = 0;
+      return true;
+    }
+    return false;
   }
   void push_exp(enum param_op_type type)
   {
@@ -239,6 +266,7 @@ protected:
   void put_file_hdr(struct cu *);
   int merge_dumped();
   int can_have_methods(int level);
+  void dump_location(std::string &s, param_loc &pl);
 
   ElementType current_element_type_;
   int ns_count = 0;
