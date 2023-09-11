@@ -649,13 +649,13 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
          elements_.push_back(Element(element_type, tag_id, level, get_owner()));
          last_var_ = &elements_.back();
          recent_ = nullptr;
-         if ( level > 1 ) // this is local var
+         if ( level > 1 && !m_stack.empty() ) // this is local var
          {
            auto owner = get_top_func();
            if ( !owner )
            {
-             fprintf(stderr, "Can't add a local var when there is no top function\n");
-             current_element_type_ = none;
+           //  fprintf(stderr, "Can't add a local var tag %lX when there is no top function\n", tag_id);
+             current_element_type_ = ElementType::var_type;
              return;
            }
            if ( !owner->m_comp )
@@ -1034,9 +1034,9 @@ void TreeBuilder::SetArtiticial()
     if ( top->type_ == ElementType::subroutine )
       return;
     // check that top is subroutine or method
-    if ( top->type_ != ElementType::method )
+    if ( top->type_ != ElementType::method && top->type_ != ElementType::subroutine_type )
     {
-      fprintf(stderr, "Can't set Artiticial for formal param if the top element is not method\n");
+      fprintf(stderr, "Can't set Artiticial for formal param if the top element tag %lX is not method (%s)\n", top->id_,  top->TypeName());
       return;
     }
     if ( !top->m_comp || top->m_comp->params_.empty()) {
@@ -1045,11 +1045,13 @@ void TreeBuilder::SetArtiticial()
     }
     auto &fp = top->m_comp->params_.back();
     fp.art_ = true;
-    Method *m = static_cast<Method *>(top);
-    if ( !m->this_arg_ )
-      m->this_arg_ = fp.param_id;
-    return;    
-
+    if ( top->type_ == ElementType::method )
+    {
+      Method *m = static_cast<Method *>(top);
+      if ( !m->this_arg_ )
+        m->this_arg_ = fp.param_id;
+    }
+    return;
   }
   if ( current_element_type_ != ElementType::method )
     return;

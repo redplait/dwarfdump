@@ -1883,6 +1883,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         tree_builder->SetParentAccess(a);
         return true;
       }
+      return false;
     // param direction - see http://redplait.blogspot.com/2023/04/custom-attributes-in-gcc-and-dwarf.html
     case 0x28ff:
       if ( m_regged )
