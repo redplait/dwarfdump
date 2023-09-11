@@ -562,5 +562,34 @@ enum dwarf_location_list_entry_type
        <http://people.redhat.com/aoliva/papers/sfn/dwarf6-sfn-lvu.txt>.  */
     DW_LLE_GNU_view_pair = 0x09,
 #define DW_LLE_view_pair DW_LLE_GNU_view_pair
-};
+ };
+
+#define DW_ATE(name, value)  name = value,
+  /* ripped from dwarf2.def */
+  enum dwarf_ate {
+DW_ATE (DW_ATE_address, 0x1)
+DW_ATE (DW_ATE_boolean, 0x2)
+DW_ATE (DW_ATE_complex_float, 0x3)
+DW_ATE (DW_ATE_float, 0x4)
+DW_ATE (DW_ATE_signed, 0x5)
+DW_ATE (DW_ATE_signed_char, 0x6)
+DW_ATE (DW_ATE_unsigned, 0x7)
+DW_ATE (DW_ATE_unsigned_char, 0x8)
+/* DWARF 3.  */
+DW_ATE (DW_ATE_imaginary_float, 0x9)
+DW_ATE (DW_ATE_packed_decimal, 0xa)
+DW_ATE (DW_ATE_numeric_string, 0xb)
+DW_ATE (DW_ATE_edited, 0xc)
+DW_ATE (DW_ATE_signed_fixed, 0xd)
+DW_ATE (DW_ATE_unsigned_fixed, 0xe)
+DW_ATE (DW_ATE_decimal_float, 0xf)
+/* DWARF 4.  */
+DW_ATE (DW_ATE_UTF, 0x10)
+/* DWARF 5.  */
+DW_ATE (DW_ATE_UCS, 0x11)
+DW_ATE (DW_ATE_ASCII, 0x12)
+
+DW_ATE (DW_ATE_lo_user, 0x80)
+DW_ATE (DW_ATE_hi_user, 0xff)
+ };
 };
