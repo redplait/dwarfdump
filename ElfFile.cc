@@ -2206,7 +2206,9 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
             tree_builder->SetLocation(&loc);
         } else if ( loc.is_tls() )
           tree_builder->SetTlsIndex(&loc);
-        else if ( offset  )
+        else if ( g_opt_x && tree_builder->is_local_var() && !loc.empty() )
+          tree_builder->SetLocVarLocation(&loc);
+        else if ( offset )
           tree_builder->SetAddr(offset);
         return false;
       }

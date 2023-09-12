@@ -455,6 +455,7 @@ void PlainRender::dump_spec(Element *en)
     if ( e->link_name_ )
       fprintf(g_outf, " %s", e->link_name_);
     fprintf(g_outf, "\n");
+    dump_lvars(e);
   }
 }
 
@@ -631,6 +632,14 @@ void PlainRender::dump_lvars(Element *e)
               fprintf(g_outf, "//    %lX - %lX: %s\n", l.start, l.end, ls.c_str());
             }
           }
+        }
+      } else {
+        auto liter = e->m_comp->lvar_locs_.find(lv);
+        if ( liter != e->m_comp->lvar_locs_.end() )
+        {
+          std::string ls;
+          dump_location(ls, liter->second);
+          fprintf(g_outf, "//   location %s\n", ls.c_str());
         }
       }
     }

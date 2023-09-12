@@ -192,6 +192,7 @@ public:
   {
     return current_element_type_ == formal_param;
   }
+  bool is_local_var() const;
   void ProcessUnit(int last = 0);
   int add2stack();
   void pop_stack(uint64_t);
@@ -233,6 +234,7 @@ public:
   void SetAte(unsigned char);
   void SetLocation(param_loc *);
   void SetTlsIndex(param_loc *);
+  void SetLocVarLocation(param_loc *);
   // go extended attributes - stored in m_go_attrs
   void SetGoKind(uint64_t, int);
   void SetGoKey(uint64_t, uint64_t);
@@ -508,10 +510,11 @@ protected:
     std::vector<FormalParam> params_;
     std::list<Method> methods_;
     std::list<Element *> lvars_; // local vars with -x option
+    std::map<Element *, param_loc> lvar_locs_; // from DecodeAddrLocation when -x option was used
   };
 
   Element *get_owner();
-  Element *get_top_func();
+  Element *get_top_func() const;
   int should_keep(Element *);
   // per compilation unit data
   bool m_hdr_dumped;

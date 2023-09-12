@@ -1392,6 +1392,29 @@ void TreeBuilder::SetElementCount(uint64_t count) {
     elements_.back().count_ = count;
 }
 
+void TreeBuilder::SetLocVarLocation(param_loc *pl)
+{
+  if ( current_element_type_ != var_type )
+    return;
+  if ( !last_var_ )
+  {
+    fprintf(stderr, "Can't set local var location when there is no last_var\n");
+    return;
+  }
+  auto t = get_top_func();
+  if ( !t )
+  {
+    fprintf(stderr, "Can't set local var location when there is no top_func\n");
+    return;
+  }
+  if ( !t->m_comp )
+  {
+    fprintf(stderr, "Can't set local var location when there is no comp in top_func\n");
+    return;
+  }
+  t->m_comp->lvar_locs_[last_var_] = *pl;
+}
+
 TreeBuilder::Element *TreeBuilder::get_owner()
 {
   if ( m_stack.empty() )
@@ -1399,7 +1422,7 @@ TreeBuilder::Element *TreeBuilder::get_owner()
   return m_stack.top();
 }
 
-TreeBuilder::Element *TreeBuilder::get_top_func()
+TreeBuilder::Element *TreeBuilder::get_top_func() const
 {
   if ( m_stack.empty() )
     return nullptr;
@@ -1411,6 +1434,13 @@ TreeBuilder::Element *TreeBuilder::get_top_func()
     t = t->owner_;
   } while(t);
   return nullptr;
+}
+
+bool TreeBuilder::is_local_var() const
+{
+  if ( current_element_type_ != var_type )
+    return false;
+  return nullptr != get_top_func();
 }
 
 int TreeBuilder::is_signed_ate(unsigned char ate) const
