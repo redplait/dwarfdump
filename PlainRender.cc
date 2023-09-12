@@ -13,7 +13,7 @@ std::string &add_margin(std::string &s, int level)
   return s;
 }
 
-std::string &PlainRender::render_one_enum(std::string &s, EnumItem &en)
+std::string &PlainRender::render_one_enum(std::string &s, EnumItem &en, bool has_sign)
 {
   s = en.name;
   s += " = "; 
@@ -21,7 +21,10 @@ std::string &PlainRender::render_one_enum(std::string &s, EnumItem &en)
     s += std::to_string((int)en.value);
   else {
     char buf[40];
-    snprintf(buf, sizeof(buf), "0x%lX", en.value);
+    if ( has_sign && (int64_t)en.value < 0 )
+      snprintf(buf, sizeof(buf), "%ld", (int64_t)en.value);
+    else
+      snprintf(buf, sizeof(buf), "0x%lX", en.value);
     s += buf; 
   }
   return s;
@@ -209,6 +212,7 @@ bool PlainRender::dump_type(uint64_t key, OUT std::string &res, named *n, int le
     {
       res += "{\n";
       int n = 0;
+      bool signed_enum = is_signed_ate(el->second->ate_);
       for ( auto &en: el->second->m_comp->enums_ )
       {
         std::string one;
@@ -216,7 +220,7 @@ bool PlainRender::dump_type(uint64_t key, OUT std::string &res, named *n, int le
           res += ",\n";
         add_margin(res, level);
         n++;
-        res += render_one_enum(one, en);
+        res += render_one_enum(one, en, signed_enum);
       }
       res += "\n}";
     }
@@ -357,6 +361,7 @@ void PlainRender::dump_enums(Element *e)
     return;
   int n = 0;
   std::string s;
+  bool signed_enum = is_signed_ate(e->ate_);
   for ( auto &en: e->m_comp->enums_ )
   {
     std::string one;
@@ -364,7 +369,7 @@ void PlainRender::dump_enums(Element *e)
       s += ",\n";
     add_margin(s, 1);
     n++;
-    s += render_one_enum(one, en);
+    s += render_one_enum(one, en, signed_enum);
   }
   fprintf(g_outf, "%s\n", s.c_str());
 }

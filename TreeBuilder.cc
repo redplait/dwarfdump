@@ -1413,6 +1413,20 @@ TreeBuilder::Element *TreeBuilder::get_top_func()
   return nullptr;
 }
 
+int TreeBuilder::is_signed_ate(unsigned char ate) const
+{
+  switch(ate)
+  {
+    case Dwarf32::dwarf_ate::DW_ATE_address:
+    case Dwarf32::dwarf_ate::DW_ATE_boolean:
+    case Dwarf32::dwarf_ate::DW_ATE_unsigned:
+    case Dwarf32::dwarf_ate::DW_ATE_unsigned_char:
+    case Dwarf32::dwarf_ate::DW_ATE_unsigned_fixed:
+      return false;
+  }
+  return true;
+}
+
 const char* TreeBuilder::Element::TypeName() {
   switch (type_) {
     case ElementType::none: return "none";
