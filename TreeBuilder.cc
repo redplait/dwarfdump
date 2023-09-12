@@ -1005,6 +1005,21 @@ void TreeBuilder::SetVirtuality(int v)
   m->virt_ = v;
 }
 
+void TreeBuilder::SetAte(unsigned char v)
+{
+   if (current_element_type_ == ElementType::none) {
+    return;
+  }
+  if (!elements_.size()) {
+    fprintf(stderr, "Can't set Ate if the element list is empty\n");
+    return;
+  }
+  if ( recent_ )
+    recent_->ate_ = v;
+  else
+    elements_.back().ate_ = v;
+}
+
 void TreeBuilder::SetNoReturn()
 {
    if (current_element_type_ == ElementType::none) {
@@ -1017,7 +1032,7 @@ void TreeBuilder::SetNoReturn()
   if ( recent_ )
     recent_->noret_ = true;
   else
-    elements_.back().noret_ = true;  
+    elements_.back().noret_ = true;
 }
 
 void TreeBuilder::SetArtiticial()

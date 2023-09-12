@@ -230,6 +230,7 @@ public:
   void SetInlined(int);
   void SetVarParam(bool);
   void SetOptionalParam();
+  void SetAte(unsigned char);
   void SetLocation(param_loc *);
   void SetTlsIndex(param_loc *);
   // go extended attributes - stored in m_go_attrs
@@ -333,6 +334,7 @@ protected:
       addr_class_ = e.addr_class_;
       m_comp = e.m_comp;
       e.m_comp = nullptr;
+      ate_ = e.ate_;
       noret_ = e.noret_;
       decl_ = e.decl_;
       dumped_ = e.dumped_;
@@ -379,6 +381,7 @@ protected:
       bit_offset_(0),
       addr_class_(0),
       m_comp(nullptr),
+      ate_(0),
       noret_(false),
       decl_(false),
       dumped_(false)
@@ -408,6 +411,7 @@ protected:
     int bit_offset_;
     int addr_class_; // from DW_AT_address_class
     Compound *m_comp;
+    unsigned char ate_; // DW_AT_encoding
     bool noret_;
     bool decl_;
     bool dumped_;

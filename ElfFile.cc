@@ -1977,6 +1977,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         }
         return true;
      }
+     break;
     case Dwarf32::Attribute::DW_AT_addr_base:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
       {
@@ -2128,7 +2129,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       return true;
     }
     // address
-    case Dwarf32::Attribute::DW_AT_low_pc: {
+    case Dwarf32::Attribute::DW_AT_low_pc:
       // printf("low_pc form %X\n", form);
       if ( m_regged )
       {
@@ -2138,7 +2139,6 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         return true;
       }
       return false;
-    }
     // Size
     case Dwarf32::Attribute::DW_AT_bit_size: {
       uint64_t byte_size = FormDataValue(form, info, info_bytes);
@@ -2174,6 +2174,14 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       return true;
     }
 
+    case Dwarf32::Attribute::DW_AT_encoding:
+     if ( m_regged )
+     {
+       unsigned char ate = (unsigned char)FormDataValue(form, info, info_bytes);
+       tree_builder->SetAte(ate);
+       return true;
+     }
+     return false;
     case Dwarf32::Attribute::DW_AT_address_class: {
       int ac = (int)FormDataValue(form, info, info_bytes);
       tree_builder->SetAddressClass(ac);
