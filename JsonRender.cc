@@ -150,7 +150,9 @@ std::string JsonRender::GenerateJson(Element &e) {
   put(result, "type", e.TypeName());
   if ( e.dumped_ )
     put(result, "dumped", e.dumped_);
-  RenderGoAttrs(result, e.type_id_);  
+  RenderGoAttrs(result, e.type_id_);
+  if ( e.ate_ )
+    put(result, "ate", e.ate_);
   if ( !e.fullname_.empty() )
     put(result, "file", e.fullname_.c_str());
   if ( e.type_ == ElementType::ptr2member && e.cont_type_ )
