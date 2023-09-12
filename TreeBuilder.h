@@ -224,6 +224,7 @@ public:
   void SetVtblIndex(uint64_t);
   void SetDefaulted();
   void SetExplicit();
+  void SetConstExpr();
   void SetSpec(uint64_t);
   void SetAbs(uint64_t);
   void SetLocX(uint64_t);
@@ -340,6 +341,7 @@ protected:
       ate_ = e.ate_;
       noret_ = e.noret_;
       decl_ = e.decl_;
+      const_expr_ = e.const_expr_;
       dumped_ = e.dumped_;
     }
     Element(Element &&e)
@@ -387,6 +389,7 @@ protected:
       ate_(0),
       noret_(false),
       decl_(false),
+      const_expr_(false),
       dumped_(false)
     {}
     const char* TypeName();
@@ -417,6 +420,7 @@ protected:
     unsigned char ate_; // DW_AT_encoding
     bool noret_;
     bool decl_;
+    bool const_expr_;
     bool dumped_;
 
     inline bool is_abs() const

@@ -1074,6 +1074,18 @@ void TreeBuilder::SetArtiticial()
   m->art_ = true;
 }
 
+void TreeBuilder::SetConstExpr()
+{
+  if ( current_element_type_ != ElementType::var_type )
+    return;
+  if ( !last_var_ )
+  {
+    fprintf(stderr, "Can't set an const_expr attribute whene there is no last_var\n");
+    return;
+  }
+  last_var_->const_expr_ = true;
+}
+
 void TreeBuilder::SetExplicit()
 {
   if ( !recent_ || current_element_type_ != ElementType::method )
