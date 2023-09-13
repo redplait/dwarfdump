@@ -2139,8 +2139,13 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       {
         if ( form == Dwarf32::Form::DW_FORM_addrx )
         {
-          tree_builder->cu.cu_base_addr_idx = ElfFile::ULEB128(info, info_bytes);
-          tree_builder->cu.need_base_addr_idx = true;
+          if ( addr_base )
+          {
+            tree_builder->cu.cu_base_addr = FormDataValue(form, info, info_bytes);
+          } else {
+            tree_builder->cu.cu_base_addr_idx = ElfFile::ULEB128(info, info_bytes);
+            tree_builder->cu.need_base_addr_idx = true;
+          }
         }
         else
           tree_builder->cu.cu_base_addr = FormDataValue(form, info, info_bytes);
