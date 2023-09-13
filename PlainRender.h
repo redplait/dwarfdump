@@ -63,4 +63,6 @@ class PlainRender: public TreeBuilder
    bool is_constructor(const Element *e, const Element *owner) const;
    bool need_add_var(const Element &e) const;
    bool add_var(Element &e);
+   uint64_t m_locsx = 0;
+   uint64_t m_adj_locsx = 0;
 };

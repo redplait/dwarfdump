@@ -122,6 +122,8 @@ void PlainRender::RenderUnit(int last)
       cmn_vars();
     }
   }
+  if ( last && m_locsx )
+    fprintf(g_outf, "// locx count %ld, adjacent %ld", m_locsx, m_adj_locsx);
 }
 
 bool PlainRender::dump_type(uint64_t key, OUT std::string &res, named *n, int level, int off)
@@ -622,14 +624,32 @@ void PlainRender::dump_lvars(Element *e)
         if ( m_locX ) 
         {
           std::list<LocListXItem> locs;
-          if ( !m_locX->get_loclistx(lv->locx_, locs) )
+          if ( !m_locX->get_loclistx(lv->locx_, locs, cu.cu_base_addr) )
             fprintf(g_outf, "//   cannot read locx at %lx\n", lv->locx_);
           else {
+            uint64_t old_end = 0;
+            param_loc *old_loc = nullptr;
             for ( auto &l: locs )
             {
+              m_locsx++;
+              bool adj = false;
+              if ( old_loc != nullptr && old_end == l.start )
+              {
+                if ( *old_loc == l.loc )
+                {
+                  m_adj_locsx++;
+                  adj = true;
+                }
+              }
+              old_end = l.end;
+              old_loc = &l.loc;
               std::string ls;
               dump_location(ls, l.loc);
-              fprintf(g_outf, "//    %lX - %lX: %s\n", l.start, l.end, ls.c_str());
+              fprintf(g_outf, "//    %lX - %lX: %s", l.start, l.end, ls.c_str());
+              if ( adj )
+                fprintf(g_outf, " -- ADJ\n");
+              else
+                fputc('\n', g_outf);
             }
           }
         }

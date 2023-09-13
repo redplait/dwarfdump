@@ -895,14 +895,14 @@ uint64_t ElfFile::fetch_indexed_value(uint64_t idx, const unsigned char *s, uint
 }
 
 // ripped from functions display_offset_entry_loclists & display_loclists_list in dwarf.c
-bool ElfFile::get_loclistx(uint64_t off, std::list<LocListXItem> &out_list)
+bool ElfFile::get_loclistx(uint64_t off, std::list<LocListXItem> &out_list, uint64_t func_base)
 {
   if ( off > debug_loclists_size_ )
   {
     fprintf(stderr, "loclistx off %lx is not inside loclists section size %lx\n", off, debug_loclists_size_);
     return false;
   }
-  uint64_t addr, base_addr = 0;
+  uint64_t addr, base_addr = func_base;
   uint64_t begin = 0, end = 0;
   const unsigned char *start = debug_loclists_ + off;
   const unsigned char *lend = debug_loclists_ + debug_loclists_size_;
@@ -1987,7 +1987,9 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         {
           fprintf(stderr, "bad DW_AT_addr_base %lx, size of .debug_addr %lx\n", addr_base, debug_addr_size_);
           addr_base = 0;
-        }
+        } else
+          if ( tree_builder->cu.need_base_addr_idx )
+            tree_builder->cu.cu_base_addr = get_indexed_addr(tree_builder->cu.cu_base_addr_idx, address_size_);
         return true;
       }
       return false;
@@ -2133,6 +2135,18 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     // address
     case Dwarf32::Attribute::DW_AT_low_pc:
       // printf("low_pc form %X\n", form);
+      if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
+      {
+        if ( form == Dwarf32::Form::DW_FORM_addrx )
+        {
+          tree_builder->cu.cu_base_addr_idx = ElfFile::ULEB128(info, info_bytes);
+          tree_builder->cu.need_base_addr_idx = true;
+        }
+        else
+          tree_builder->cu.cu_base_addr = FormDataValue(form, info, info_bytes);
+      // fprintf(stderr, "low_pc %lX on compile_unit form %X\n", tree_builder->cu.cu_base_addr, form);
+        return true;
+      }
       if ( m_regged )
       {
         uint64_t addr = FormDataValue(form, info, info_bytes);

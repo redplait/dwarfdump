@@ -51,11 +51,25 @@ struct one_param_loc
     int64_t sv;
   };
   int offset;
+  bool operator==(const one_param_loc &c) const
+  {
+    if ( type != c.type )
+      return false;
+    if ( offset != c.offset )
+      return false;
+    if ( type == svalue )
+      return sv == c.sv;
+    return idx == c.idx;
+  }
 };
 
 struct param_loc
 {
   std::list<one_param_loc> locs;
+  bool operator==(const param_loc &c) const
+  {
+    return locs == c.locs;
+  }
   inline bool empty() const
   {
     return locs.empty();
@@ -126,6 +140,9 @@ struct cu
   const char *cu_producer;
   const char *cu_package;
   int cu_lang;
+  uint64_t cu_base_addr;
+  uint64_t cu_base_addr_idx;
+  bool need_base_addr_idx;
 };
 
 class TreeBuilder {

@@ -43,7 +43,7 @@ public:
   // ISectionNames
   virtual const char *find_sname(uint64_t);
   // IGetLoclistX
-  virtual bool get_loclistx(uint64_t off, std::list<LocListXItem> &);
+  virtual bool get_loclistx(uint64_t off, std::list<LocListXItem> &, uint64_t);
 private:
   bool unzip_section(ELFIO::section *, const unsigned char * &data, size_t &);
   bool check_compressed_section(ELFIO::section *, const unsigned char * &data, size_t &);

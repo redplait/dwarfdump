@@ -6,7 +6,7 @@ struct LocListXItem;
 
 struct IGetLoclistX
 {
-  virtual bool get_loclistx(uint64_t off, std::list<LocListXItem> &) = 0;
+  virtual bool get_loclistx(uint64_t off, std::list<LocListXItem> &, uint64_t) = 0;
 };
 
 struct ISectionNames

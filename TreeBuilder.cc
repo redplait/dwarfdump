@@ -400,6 +400,8 @@ void TreeBuilder::put_file_hdr(struct cu *c)
     fprintf(g_outf, "// Package: %s\n", c->cu_package);
   if ( c->cu_producer )
     fprintf(g_outf, "// Producer: %s\n", c->cu_producer);
+  if ( c->cu_base_addr )
+    fprintf(g_outf, "// base_addr: %lX\n", c->cu_base_addr);
   m_hdr_dumped = true;
 }
 
@@ -433,6 +435,8 @@ void TreeBuilder::ProcessUnit(int last)
   m_replaced.clear();
   cu.cu_name = cu.cu_comp_dir = cu.cu_producer = cu.cu_package = NULL;
   cu.cu_lang = 0;
+  cu.cu_base_addr = cu.cu_base_addr_idx = 0;
+  cu.need_base_addr_idx = false;
   ns_count = 0;
   recent_ = nullptr;
 }
