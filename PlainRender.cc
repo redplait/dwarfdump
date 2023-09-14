@@ -123,7 +123,9 @@ void PlainRender::RenderUnit(int last)
     }
   }
   if ( last && m_locsx )
-    fprintf(g_outf, "// locx count %ld, adjacent %ld", m_locsx, m_adj_locsx);
+    fprintf(g_outf, "// locx count %ld, adjacent %ld\n", m_locsx, m_adj_locsx);
+  if ( last && m_locx_els )
+    fprintf(g_outf, "// locx elements %ld, redudant %ld\n", m_locx_els, m_locx_red_els);
 }
 
 bool PlainRender::dump_type(uint64_t key, OUT std::string &res, named *n, int level, int off)
@@ -632,6 +634,8 @@ void PlainRender::dump_lvars(Element *e)
             for ( auto &l: locs )
             {
               m_locsx++;
+              m_locx_els += l.loc.locs.size();
+              m_locx_red_els += calc_redudant_locs(l.loc);
               bool adj = false;
               if ( old_loc != nullptr && old_end == l.start )
               {

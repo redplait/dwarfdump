@@ -67,6 +67,50 @@ int TreeBuilder::merge_dumped()
   return res;
 }
 
+inline bool is_2op(param_op_type op)
+{
+  switch(op)
+  {
+    case fand:
+    case fdiv:
+    case fminus:
+    case fplus:
+    case f_or:
+    case fxor:
+    case fmul:
+    case fmod:
+    case fshl:
+    case fshr:
+     return true;
+    default:
+     return false;
+  }
+  return false;
+}
+
+uint64_t TreeBuilder::calc_redudant_locs(const param_loc &pl)
+{
+  // simple cellurar automata with 3 state
+  // 0 - initial state
+  // 1 - 1 const
+  // 2 - 2 const
+  int state = 0;
+  uint64_t res = 0;
+  for ( auto &l: pl.locs )
+  {
+    if ( l.type == svalue || l.type == fvalue )
+    {
+      if ( state < 3 )
+        state++;
+      continue;
+    }
+    if ( 2 == state && is_2op(l.type) )
+      res += 3;
+    state = 0;
+  }
+  return res;
+}
+
 void TreeBuilder::dump_location(std::string &s, param_loc &pl)
 {
     for ( auto &l: pl.locs )

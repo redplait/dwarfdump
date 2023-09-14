@@ -289,6 +289,7 @@ protected:
   int can_have_methods(int level);
   int is_signed_ate(unsigned char ate) const;
   void dump_location(std::string &s, param_loc &pl);
+  uint64_t calc_redudant_locs(const param_loc &pl);
 
   ElementType current_element_type_;
   int ns_count = 0;
