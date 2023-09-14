@@ -100,7 +100,7 @@ uint64_t TreeBuilder::calc_redudant_locs(const param_loc &pl)
   {
     if ( l.type == svalue || l.type == fvalue )
     {
-      if ( state < 3 )
+      if ( state < 2 )
         state++;
       continue;
     }
