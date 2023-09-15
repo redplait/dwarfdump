@@ -634,8 +634,6 @@ void PlainRender::dump_lvars(Element *e)
             for ( auto &l: locs )
             {
               m_locsx++;
-              m_locx_els += l.loc.locs.size();
-              m_locx_red_els += calc_redudant_locs(l.loc);
               bool adj = false;
               if ( old_loc != nullptr && old_end == l.start )
               {
@@ -647,6 +645,11 @@ void PlainRender::dump_lvars(Element *e)
               }
               old_end = l.end;
               old_loc = &l.loc;
+              if ( !adj )
+              {
+                m_locx_els += l.loc.locs.size();
+                m_locx_red_els += calc_redudant_locs(l.loc);
+              }
               std::string ls;
               dump_location(ls, l.loc);
               fprintf(g_outf, "//    %lX - %lX: %s", l.start, l.end, ls.c_str());

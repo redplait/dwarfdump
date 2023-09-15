@@ -119,8 +119,13 @@ uint64_t TreeBuilder::calc_redudant_locs(const param_loc &pl)
 
 void TreeBuilder::dump_location(std::string &s, param_loc &pl)
 {
+  int idx = 0;
+  char buf[40];
     for ( auto &l: pl.locs )
     {
+      if ( idx )
+        s += " ; ";
+      ++idx;
       switch(l.type)
       {
         case deref: s += "OP_deref";
@@ -172,16 +177,15 @@ void TreeBuilder::dump_location(std::string &s, param_loc &pl)
            s += std::to_string(l.idx);
           break;
         case svalue:
-          s += " ";
           s += std::to_string(l.sv);
           break;
         case fvalue:
-          s += " ";
           s += std::to_string(l.idx);
           break;
         case convert:
           s += "convert_to ";
-          s += std::to_string(l.idx);
+          snprintf(buf, sizeof(buf), "%X", l.idx);
+          s += buf;
           break;
         case deref_size:
           s += "OP_deref_size ";
@@ -245,7 +249,6 @@ void TreeBuilder::dump_location(std::string &s, param_loc &pl)
           s += "stack_value";
          break;
       }
-      s += " ";
     }
 }
 
