@@ -38,6 +38,7 @@ class PlainRender: public TreeBuilder
    std::list<std::pair<struct cu, std::list<Element> > > m_all;
 
    virtual void RenderUnit(int last);
+   virtual bool conv2str(uint64_t key, std::string &);
    void prepare(std::list<Element> &els);
    std::list<Element *> *get_specs(uint64_t);
    void dump_types(std::list<Element> &els, struct cu *);

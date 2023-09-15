@@ -184,8 +184,18 @@ void TreeBuilder::dump_location(std::string &s, param_loc &pl)
           break;
         case convert:
           s += "convert_to ";
-          snprintf(buf, sizeof(buf), "%X", l.idx);
+          snprintf(buf, sizeof(buf), "%lX", l.conv);
           s += buf;
+          if ( l.conv )
+          {
+            std::string ts;
+            if ( conv2str(l.conv, ts) )
+            {
+              s += " (";
+              s += ts;
+              s += ")";
+            }
+          }
           break;
         case deref_size:
           s += "OP_deref_size ";

@@ -1112,7 +1112,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
         case Dwarf32::dwarf_ops::DW_OP_GNU_reinterpret:
           // op for convert is relative from cu base
           v64 = ElfFile::ULEB128(data, bytes_available);
-          pl->locs.push_back({ convert, (unsigned int)(v64 + cu_base), 0 });
+          pl->push_conv(v64 + cu_base);
           break;
         case Dwarf32::dwarf_ops::DW_OP_consts:
            s64 = ElfFile::SLEB128(data, bytes_available);

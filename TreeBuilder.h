@@ -20,7 +20,7 @@ enum param_op_type
   plus_uconst,
   tls_index, // tls index in offset
   deref_size, // size in idx
-  convert,    // type id in idx
+  convert,    // type id in conv
   fvalue, // litXX, value in idx
   svalue, // value in sv
   fpiece, // DW_OP_piece, value in idx
@@ -48,6 +48,7 @@ struct one_param_loc
   union
   {
     unsigned int idx;
+    uint64_t conv;
     int64_t sv;
   };
   int offset;
@@ -59,6 +60,8 @@ struct one_param_loc
       return false;
     if ( type == svalue )
       return sv == c.sv;
+    else if ( type == convert )
+      return conv == c.conv;
     return idx == c.idx;
   }
 };
@@ -112,6 +115,14 @@ struct param_loc
     one_param_loc tmp;
     tmp.type = svalue;
     tmp.sv = s;
+    tmp.offset = 0;
+    locs.push_back(tmp);
+  }
+  void push_conv(uint64_t v)
+  {
+    one_param_loc tmp;
+    tmp.type = convert;
+    tmp.conv = v;
     tmp.offset = 0;
     locs.push_back(tmp);
   }
@@ -281,6 +292,8 @@ public:
     return (s >= (const char *)debug_str_) && (s < (const char *)debug_str_ + debug_str_size_);
   }
 protected:
+  virtual bool conv2str(uint64_t key, std::string &)
+  { return false; }
   virtual void RenderUnit(int last)
   {}
   void put_file_hdr();

@@ -128,6 +128,28 @@ void PlainRender::RenderUnit(int last)
     fprintf(g_outf, "// locx elements %ld, redudant %ld\n", m_locx_els, m_locx_red_els);
 }
 
+bool PlainRender::conv2str(uint64_t key, std::string &ts)
+{
+  if ( get_replaced_name(key, ts) )
+    return true;
+  auto el = m_els.find(key);
+  if ( el == m_els.end() )
+    return false;
+  if ( el->second->type_ == ElementType::typedef2 ||
+       el->second->type_ == ElementType::base_type ||
+       el->second->type_ == ElementType::class_type ||
+       el->second->type_ == ElementType::interface_type )
+  {
+    if ( el->second->name_ )
+    {
+      ts = el->second->name_;
+      return true;
+    } else
+      return false;
+  }
+  return false;
+}
+
 bool PlainRender::dump_type(uint64_t key, OUT std::string &res, named *n, int level, int off)
 {
   if ( get_replaced_name(key, res) )
