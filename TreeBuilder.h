@@ -22,7 +22,8 @@ enum param_op_type
   deref_size, // size in idx
   convert,    // type id in conv
   fvalue, // litXX, value in idx
-  svalue, // value in sv
+  svalue, // signed value in sv
+  uvalue, // unsigned value in conv
   fpiece, // DW_OP_piece, value in idx
   imp_value, // DW_OP_implicit_value, value in idx
   fneg,   // DW_OP_neg
@@ -60,7 +61,7 @@ struct one_param_loc
       return false;
     if ( type == svalue )
       return sv == c.sv;
-    else if ( type == convert )
+    else if ( type == convert || type == uvalue )
       return conv == c.conv;
     return idx == c.idx;
   }
@@ -115,6 +116,14 @@ struct param_loc
     one_param_loc tmp;
     tmp.type = svalue;
     tmp.sv = s;
+    tmp.offset = 0;
+    locs.push_back(tmp);
+  }
+  void push_uvalue(uint64_t s)
+  {
+    one_param_loc tmp;
+    tmp.type = uvalue;
+    tmp.conv = s;
     tmp.offset = 0;
     locs.push_back(tmp);
   }

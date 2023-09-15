@@ -1115,12 +1115,10 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
           pl->push_conv(v64 + cu_base);
           break;
         case Dwarf32::dwarf_ops::DW_OP_consts:
-           s64 = ElfFile::SLEB128(data, bytes_available);
-           pl->push_svalue(s64);
+           pl->push_svalue(ElfFile::SLEB128(data, bytes_available));
           break;  
         case Dwarf32::dwarf_ops::DW_OP_constu:
-           value = ElfFile::ULEB128(data, bytes_available);
-           pl->push_value(value);
+           pl->push_uvalue(ElfFile::ULEB128(data, bytes_available));
           break;
         case Dwarf32::dwarf_ops::DW_OP_plus_uconst:
            pl->locs.push_back({ plus_uconst, 0, (int)ElfFile::ULEB128(data, bytes_available)});

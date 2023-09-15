@@ -95,7 +95,7 @@ uint64_t TreeBuilder::calc_redudant_locs(const param_loc &pl)
   uint64_t res = 0;
   for ( auto &l: pl.locs )
   {
-    if ( l.type == svalue || l.type == fvalue )
+    if ( l.type == svalue || l.type == fvalue || l.type == uvalue )
     {
       state++;
       continue;
@@ -181,6 +181,10 @@ void TreeBuilder::dump_location(std::string &s, param_loc &pl)
           break;
         case fvalue:
           s += std::to_string(l.idx);
+          break;
+        case uvalue:
+          snprintf(buf, sizeof(buf), "0x%lX", l.conv);
+          s += buf;
           break;
         case convert:
           s += "convert_to ";
