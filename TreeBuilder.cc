@@ -90,22 +90,28 @@ inline bool is_2op(param_op_type op)
 
 uint64_t TreeBuilder::calc_redudant_locs(const param_loc &pl)
 {
-  // simple cellurar automata with 3 state
-  // 0 - initial state
-  // 1 - 1 const
-  // 2 - 2 const
+  // state is amount of sequential imm values
   int state = 0;
   uint64_t res = 0;
   for ( auto &l: pl.locs )
   {
     if ( l.type == svalue || l.type == fvalue )
     {
-      if ( state < 2 )
-        state++;
+      state++;
       continue;
     }
-    if ( 2 == state && is_2op(l.type) )
+    if ( state && l.type == fneg )
+    {
+      res += 2;
+      continue;
+    }
+    if ( state > 1 && is_2op(l.type) )
+    {
       res += 3;
+      // after simplification we have in stack some const value instead of 2
+      state--;
+      continue;
+    }
     state = 0;
   }
   return res;
