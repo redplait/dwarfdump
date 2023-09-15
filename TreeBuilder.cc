@@ -132,6 +132,35 @@ void TreeBuilder::dump_location(std::string &s, param_loc &pl)
          break;
         case call_frame_cfa: s += "OP_call_frame_cfa";
          break;
+        case regval_type: {
+          s += "regval_type";
+          bool need_reg = true;
+          if ( m_rnames != nullptr )
+          {
+            auto rn = m_rnames->reg_name(l.offset);
+            if ( rn )
+            {
+              need_reg = false;
+              s += " ";
+              s += rn;
+            }
+          }
+          if ( need_reg )
+            s += std::to_string(l.offset);
+         }
+         snprintf(buf, sizeof(buf), " %lX", l.conv);
+         s += buf;
+         if ( l.conv )
+         {
+           std::string ts;
+           if ( conv2str(l.conv, ts) )
+           {
+             s += " (";
+             s += ts;
+             s += ")";
+           }
+         }
+         break;
         case reg: {
           s += "OP_reg";
           bool need_reg = true;
@@ -189,7 +218,7 @@ void TreeBuilder::dump_location(std::string &s, param_loc &pl)
         case deref_type:
           s += "deref_type size ";
           s += std::to_string(l.offset);
-          snprintf(buf, sizeof(buf), "%lX", l.conv);
+          snprintf(buf, sizeof(buf), " %lX", l.conv);
           s += buf;
           if ( l.conv )
           {
@@ -200,7 +229,7 @@ void TreeBuilder::dump_location(std::string &s, param_loc &pl)
               s += ts;
               s += ")";
             }
-          }    
+          }
           break;
         case convert:
           s += "convert_to ";
