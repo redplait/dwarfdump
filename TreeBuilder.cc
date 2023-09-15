@@ -100,7 +100,7 @@ uint64_t TreeBuilder::calc_redudant_locs(const param_loc &pl)
       state++;
       continue;
     }
-    if ( state && l.type == fneg )
+    if ( state && (l.type == fneg || l.type == fabs || l.type == fnot) )
     {
       res += 2;
       continue;
@@ -185,6 +185,22 @@ void TreeBuilder::dump_location(std::string &s, param_loc &pl)
         case uvalue:
           snprintf(buf, sizeof(buf), "0x%lX", l.conv);
           s += buf;
+          break;
+        case deref_type:
+          s += "deref_type size ";
+          s += std::to_string(l.offset);
+          snprintf(buf, sizeof(buf), "%lX", l.conv);
+          s += buf;
+          if ( l.conv )
+          {
+            std::string ts;
+            if ( conv2str(l.conv, ts) )
+            {
+              s += " (";
+              s += ts;
+              s += ")";
+            }
+          }    
           break;
         case convert:
           s += "convert_to ";

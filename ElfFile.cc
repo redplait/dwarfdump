@@ -1123,6 +1123,15 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
         case Dwarf32::dwarf_ops::DW_OP_plus_uconst:
            pl->locs.push_back({ plus_uconst, 0, (int)ElfFile::ULEB128(data, bytes_available)});
           break;
+        case Dwarf32::dwarf_ops::DW_OP_deref_type:
+        case Dwarf32::dwarf_ops::DW_OP_GNU_deref_type:
+           value = (int)*reinterpret_cast<const uint8_t*>(data);
+           bytes_available -= 1;
+           data += 1;
+           // op for convert is relative from cu base
+           v64 = ElfFile::ULEB128(data, bytes_available);
+           pl->push_deref_type(v64 + cu_base, value);
+          break;
         case Dwarf32::dwarf_ops::DW_OP_deref_size:
            value = (int)*reinterpret_cast<const uint8_t*>(data);
            bytes_available -= 1;
@@ -1166,13 +1175,12 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
            data += 4;
           break;
         case Dwarf32::dwarf_ops::DW_OP_const8u:
-           value = (int)*reinterpret_cast<const uint64_t*>(data);
-           pl->push_value(value);
+           pl->push_uvalue(*reinterpret_cast<const uint64_t*>(data));
            bytes_available -= 8;
            data += 8;
           break;
         case Dwarf32::dwarf_ops::DW_OP_const8s:
-           s64 = (int)*reinterpret_cast<const int64_t*>(data);
+           s64 = *reinterpret_cast<const int64_t*>(data);
            pl->push_svalue(s64);
            bytes_available -= 8;
            data += 8;

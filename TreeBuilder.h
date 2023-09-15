@@ -20,6 +20,7 @@ enum param_op_type
   plus_uconst,
   tls_index, // tls index in offset
   deref_size, // size in idx
+  deref_type, // type id in conv, size in offset
   convert,    // type id in conv
   fvalue, // litXX, value in idx
   svalue, // signed value in sv
@@ -61,7 +62,7 @@ struct one_param_loc
       return false;
     if ( type == svalue )
       return sv == c.sv;
-    else if ( type == convert || type == uvalue )
+    else if ( type == convert || type == uvalue || type == deref_type )
       return conv == c.conv;
     return idx == c.idx;
   }
@@ -133,6 +134,14 @@ struct param_loc
     tmp.type = convert;
     tmp.conv = v;
     tmp.offset = 0;
+    locs.push_back(tmp);
+  }
+  void push_deref_type(uint64_t v, int size)
+  {
+    one_param_loc tmp;
+    tmp.type = deref_type;
+    tmp.conv = v;
+    tmp.offset = size;
     locs.push_back(tmp);
   }
 };
