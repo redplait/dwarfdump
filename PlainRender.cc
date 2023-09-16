@@ -878,7 +878,7 @@ void PlainRender::dump_const_expr(Element *e)
     while( name.empty() )
     {
 // fprintf(stderr, "dump_const_expr %lX type %s\n", et->type_id_, et->TypeName());
-      switch(e->type_)
+      switch(et->type_)
       {
         case ElementType::var_type:
         case ElementType::const_type:
