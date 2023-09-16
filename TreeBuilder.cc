@@ -540,6 +540,7 @@ void TreeBuilder::ProcessUnit(int last)
   {
     merge_dumped();
     m_go_attrs.clear();
+    m_lvalues.clear();
   }
   if ( is_go() && !g_opt_g )
     collect_go_types();
@@ -1488,6 +1489,19 @@ void TreeBuilder::SetAddr(uint64_t count)
     recent_->addr_ = count;
   else
     elements_.back().addr_ = count;
+}
+
+void TreeBuilder::SetVarConstValue(uint64_t v)
+{
+  if (current_element_type_ != ElementType::var_type) {
+    return;
+  }
+  if ( !last_var_ )
+  {
+    fprintf(stderr, "Can't set var ConstValue when there is no last_var\n");
+    return;
+  }
+  m_lvalues[last_var_] = v;
 }
 
 void TreeBuilder::SetConstValue(uint64_t count) {

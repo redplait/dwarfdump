@@ -263,6 +263,7 @@ public:
   void SetElementType(uint64_t type_id);
   void SetElementCount(uint64_t count);
   void SetConstValue(uint64_t count);
+  void SetVarConstValue(uint64_t count);
   void SetAlignment(uint64_t);
   void SetAddr(uint64_t);
   void SetParamDirection(unsigned char);
@@ -585,6 +586,8 @@ protected:
   std::stack<Element *> m_stack;
   std::list<Element> elements_;
   std::map<uint64_t, dumped_type> m_replaced;
+  // values for const_expr - cleared for each compilation unit if option -g not used
+  std::map<Element *, uint64_t> m_lvalues;
 
   // already dumped types
   std::map<UniqName, std::pair<uint64_t, size_t> > m_dumped_db;

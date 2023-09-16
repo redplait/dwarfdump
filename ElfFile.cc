@@ -2278,13 +2278,22 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       return true;
     }
     // const value - for enums
-    case Dwarf32::Attribute::DW_AT_const_value: {
-      if ( !m_regged || !tree_builder->is_enum() )
+    case Dwarf32::Attribute::DW_AT_const_value:
+      if ( !m_regged )
         return false;
-      uint64_t count = FormDataValue(form, info, info_bytes);
-      tree_builder->SetConstValue(count);
-      return true;
-    }
+      if ( tree_builder->is_enum() )
+      {
+        uint64_t val = FormDataValue(form, info, info_bytes);
+        tree_builder->SetConstValue(val);
+        return true;
+      }
+      if ( m_section->type == Dwarf32::Tag::DW_TAG_variable )
+      {
+        uint64_t val = FormDataValue(form, info, info_bytes);
+        tree_builder->SetVarConstValue(val);
+        return true;
+      }
+      return false;
     break;
     // vtable elem location
     case Dwarf32::Attribute::DW_AT_vtable_elem_location:
