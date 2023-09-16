@@ -311,6 +311,37 @@ void TreeBuilder::dump_location(std::string &s, param_loc &pl)
     }
 }
 
+bool TreeBuilder::get_replaced_name(uint64_t key, std::string &res, unsigned char *ate)
+{
+  const auto ci = m_replaced.find(key);
+  if ( ci == m_replaced.end() )
+    return false;
+  *ate = ci->second.ate_;
+  switch(ci->second.type_)
+  {
+    case ElementType::typedef2:
+    case ElementType::class_type:
+    case ElementType::interface_type:
+    case ElementType::base_type:
+    case ElementType::unspec_type:
+      res = ci->second.name_;
+      return true;
+    case ElementType::enumerator_type:
+      res = "enum ";
+      res += ci->second.name_;
+      return true;
+    case ElementType::structure_type:
+      res = "struct ";
+      res += ci->second.name_;
+      return true;
+    case ElementType::union_type:
+      res = "union ";
+      res += ci->second.name_;
+      return true;
+    default:
+      return false;
+  }
+}
 
 bool TreeBuilder::get_replaced_name(uint64_t key, std::string &res)
 {
@@ -390,7 +421,7 @@ int TreeBuilder::check_dumped_type(const char *name)
   }
   if ( g_opt_k )
   {
-    // we can`t use get_ramk here bcs we know only type and name
+    // we can`t use get_rank here bcs we know only type and name
     // so we can safely replace only basic types
     if ( current_element_type_ != typedef2 && 
          current_element_type_ != base_type &&
@@ -405,7 +436,7 @@ int TreeBuilder::check_dumped_type(const char *name)
   // don`t replace functions
   if ( current_element_type_ != subroutine )
   {
-    dumped_type dt { current_element_type_, name, rep_id };
+    dumped_type dt { current_element_type_, name, elements_.back().ate_, rep_id };
     m_replaced[elements_.back().id_] = dt;
   }
   // remove current element

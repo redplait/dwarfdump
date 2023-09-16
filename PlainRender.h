@@ -45,6 +45,7 @@ class PlainRender: public TreeBuilder
    void dump_vars();
    void dump_one_var(Element *, int local);
    void cmn_vars();
+   void dump_const_expr(Element *);
    void dump_var(Element *, int local);
    void dump_enums(Element *);
    void dump_fields(Element *);

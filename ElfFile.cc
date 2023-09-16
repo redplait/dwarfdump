@@ -2289,6 +2289,12 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       }
       if ( m_section->type == Dwarf32::Tag::DW_TAG_variable )
       {
+        if ( form == Dwarf32::Form::DW_FORM_block ||
+             form == Dwarf32::Form::DW_FORM_block1 ||
+             form == Dwarf32::Form::DW_FORM_block2 ||
+             form == Dwarf32::Form::DW_FORM_block4
+           )
+          return false;
         uint64_t val = FormDataValue(form, info, info_bytes);
         tree_builder->SetVarConstValue(val);
         return true;

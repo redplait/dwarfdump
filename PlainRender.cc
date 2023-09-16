@@ -861,6 +861,76 @@ bool PlainRender::add_var(Element &e)
   return false;
 }
 
+void PlainRender::dump_const_expr(Element *e)
+{
+  if ( !e->name_ )
+    return;
+  auto vi = m_lvalues.find(e);
+  if ( vi == m_lvalues.end() )
+    return;
+  // we need type and ATE
+  std::string name;
+  unsigned char ate = 0;
+  if ( !get_replaced_name(e->type_id_, name, &ate) )
+  {
+    auto et = e;
+    std::map<uint64_t, Element *>::iterator el = m_els.end();
+    while( name.empty() )
+    {
+// fprintf(stderr, "dump_const_expr %lX type %s\n", et->type_id_, et->TypeName());
+      switch(e->type_)
+      {
+        case ElementType::var_type:
+        case ElementType::const_type:
+        case ElementType::typedef2:
+          el = m_els.find(et->type_id_);
+          break;
+        default:
+          fprintf(stderr, "unknown type %s for const_expr id %lX\n", et->TypeName(), et->id_);
+          return;
+      }
+      if ( el == m_els.end() )
+      {
+        if ( !get_replaced_name(et->type_id_, name, &ate) )
+        {
+          fprintf(stderr, "cannot find type_id %lX for const_expr id %lX\n", et->type_id_, e->id_);
+          return;
+        } else
+         break;
+      }
+      et = el->second;
+      ate = et->ate_;
+      if ( et->name_ )
+        name = et->name_;
+    }
+  // fprintf(stderr, "ate %d", ate);
+    if ( !ate )
+    {
+      while(el != m_els.end())
+      {
+        ate = el->second->ate_;
+        if ( ate )
+          break;
+        if ( el->second->type_ == ElementType::typedef2 || el->second->type_ == ElementType::const_type )
+          el = m_els.find(el->second->type_id_);
+        else
+          break;
+      }
+    }
+  }
+  if ( name.empty() )
+    return;
+
+  fprintf(g_outf, "const_expr %s %s = ", name.c_str(), e->name_);
+  if ( ate == Dwarf32::dwarf_ate::DW_ATE_boolean )
+    fprintf(g_outf, "%s", vi->second ? "true" : "false");
+  else if ( is_signed_ate(ate) )
+    fprintf(g_outf,"%ld", (int64_t)vi->second);
+  else
+    fprintf(g_outf,"0x%lX", vi->second);
+  fprintf(g_outf, ";\n");
+}
+
 void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
 {
   for ( auto &e: els )
@@ -869,7 +939,8 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
       continue;
     if ( ElementType::var_type == e.type_ )
     {
-      add_var(e);
+      if ( !add_var(e) && e.const_expr_ )
+        dump_const_expr(&e);
       continue;
     }
     if ( ElementType::ns_end == e.type_ )

@@ -304,6 +304,7 @@ public:
   void collect_go_types();
   // renderer methods
   bool get_replaced_name(uint64_t, std::string &);
+  bool get_replaced_name(uint64_t, std::string &, unsigned char *ate);
   // compilation unit data
   struct cu cu;
   bool is_go() const;
@@ -340,6 +341,7 @@ protected:
   struct dumped_type {
     ElementType type_;
     const char *name_;
+    unsigned char ate_;
     uint64_t id;
   };
 
