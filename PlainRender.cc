@@ -878,6 +878,14 @@ void PlainRender::dump_const_expr(Element *e)
     while( name.empty() )
     {
 // fprintf(stderr, "dump_const_expr %lX type %s\n", et->type_id_, et->TypeName());
+      if ( et->type_ == ElementType::base_type )
+      {
+        ate = et->ate_;
+        if ( et->name_ )
+          name = et->name_;
+        el = m_els.end();
+        break;
+      }
       switch(et->type_)
       {
         case ElementType::var_type:
