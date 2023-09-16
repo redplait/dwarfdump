@@ -894,7 +894,7 @@ void PlainRender::dump_const_expr(Element *e)
           el = m_els.find(et->type_id_);
           break;
         default:
-          fprintf(stderr, "unknown type %s for const_expr id %lX\n", et->TypeName(), et->id_);
+          fprintf(stderr, "unknown type %s for const_expr id %lX\n", et->TypeName(), e->id_);
           return;
       }
       if ( el == m_els.end() )
@@ -928,7 +928,8 @@ void PlainRender::dump_const_expr(Element *e)
   }
   if ( name.empty() )
     return;
-
+  if ( g_opt_v )
+    fprintf(g_outf, "// TypeId %lX\n", e->id_);
   fprintf(g_outf, "const_expr %s %s = ", name.c_str(), e->name_);
   if ( ate == Dwarf32::dwarf_ate::DW_ATE_boolean )
     fprintf(g_outf, "%s", vi->second ? "true" : "false");
