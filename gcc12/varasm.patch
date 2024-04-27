@@ -1,0 +1,16 @@
+--- a/gcc/varasm.cc
++++ b/gcc/varasm.cc
+@@ -357,6 +357,13 @@ get_section (const char *name, unsigned int flags, tree decl,
+              && DECL_P (sect->named.decl)
+              && decl != sect->named.decl)
+            {
++             bool decl_string = false;
++             auto v = DECL_INITIAL(decl);
++             if ( v && v != error_mark_node ) decl_string = (TREE_CODE(v) == STRING_CST);
++             if ( decl_string )
++             {
++               return sect;
++             }
+              if (decl != NULL && DECL_P (decl))
+                error ("%+qD causes a section type conflict with %qD",
+                       decl, sect->named.decl);
