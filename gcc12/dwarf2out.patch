@@ -1,5 +1,3 @@
-diff --git a/gcc/dwarf2out.cc b/gcc/dwarf2out.cc
-index c333c595026..9092b5350f4 100644
 --- a/gcc/dwarf2out.cc
 +++ b/gcc/dwarf2out.cc
 @@ -9589,14 +9589,14 @@ size_of_die (dw_die_ref die)

@@ -1,5 +1,3 @@
-diff --git a/gcc/c-family/c-attribs.cc b/gcc/c-family/c-attribs.cc
-index 111a33f405a..d695197cf3c 100644
 --- a/gcc/c-family/c-attribs.cc
 +++ b/gcc/c-family/c-attribs.cc
 @@ -48,6 +48,8 @@ along with GCC; see the file COPYING3.  If not see

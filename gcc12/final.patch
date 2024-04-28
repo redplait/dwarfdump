@@ -1,0 +1,17 @@
+--- a/gcc/final.cc
++++ b/gcc/final.cc
+@@ -1820,6 +1820,14 @@ profile_after_prologue (FILE *file ATTRIBUTE_UNUSED)
+ static void
+ profile_function (FILE *file ATTRIBUTE_UNUSED)
+ {
++ const char *secname = nullptr;
++ auto sect = current_function_section ();
++ if ( sect->common.flags & SECTION_NAMED )
++   secname = sect->named.name;
++ else
++   secname = DECL_SECTION_NAME( current_function_decl );
++ // skip profiling for functions inside section .init.text
++ if ( secname && !strcmp(secname, ".init.text" ) ) return;
+ #ifndef NO_PROFILE_COUNTERS
+ # define NO_PROFILE_COUNTERS	0
+ #endif
