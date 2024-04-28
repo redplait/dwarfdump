@@ -138,6 +138,9 @@ extern char *print_generic_expr_to_str (tree);
 extern tree get_identifier (const char *);
 extern tree gimple_get_virt_method_for_vtable (HOST_WIDE_INT, tree, unsigned HOST_WIDE_INT, bool *can_refer = NULL);
 extern bool vtable_pointer_value_to_vtable (const_tree, tree *, unsigned HOST_WIDE_INT *);
+extern tree get_identifier_with_length(const char *, size_t);
+
+#include "attribs.h"
 
 // ripped from print-rtl-function.cc
 static void
@@ -315,6 +318,7 @@ int my_PLUGIN::dump_0_operand(const_rtx in_rtx, int idx, int level)
           fprintf(m_outfp, "byref ");
         if ( DECL_HAS_VALUE_EXPR_P(decl) )
           fprintf(m_outfp, "has_value ");
+        dump_section(decl);
         auto v = DECL_INITIAL(decl);
         if ( v && v != error_mark_node )
         {
@@ -1657,6 +1661,14 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
         fprintf(m_outfp, " off %s", name);
     }
   }
+}
+
+void my_PLUGIN::dump_section(const_tree expr)
+{
+  tree sec = lookup_attribute("section", DECL_ATTRIBUTES(expr));
+  if ( !sec ) return;
+  auto *sname = TREE_STRING_POINTER(TREE_VALUE(TREE_VALUE(sec)));
+  if ( sname ) fprintf(m_outfp, "(Section %s) ", sname);
 }
 
 void my_PLUGIN::dump_addr_expr(const_tree expr, aux_type_clutch &clutch)

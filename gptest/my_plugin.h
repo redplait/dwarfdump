@@ -108,6 +108,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   const_tree try_class_rec(const_tree binfo, const_tree igo, const_tree exp, tree *base, tree *found);
   const_tree dump_class_rec(const_tree, const_tree igo, int level);
   const char *is_cliteral(const_rtx, int &len);
+  void dump_section(const_tree expr);
   int dump_0_operand(const_rtx in_rtx, int idx, int level);
   int dump_e_operand(const_rtx in_rtx, int idx, int level);
   int dump_u_operand(const_rtx in_rtx, int idx, int level);
