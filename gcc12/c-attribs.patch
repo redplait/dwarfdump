@@ -1,0 +1,83 @@
+diff --git a/gcc/c-family/c-attribs.cc b/gcc/c-family/c-attribs.cc
+index 111a33f405a..d695197cf3c 100644
+--- a/gcc/c-family/c-attribs.cc
++++ b/gcc/c-family/c-attribs.cc
+@@ -48,6 +48,8 @@ along with GCC; see the file COPYING3.  If not see
+ #include "tree-pretty-print.h"
+ #include "gcc-rich-location.h"
+ 
++static tree handle_param_out_attribute (tree *, tree, tree, int, bool *);
++static tree handle_param_in_attribute (tree *, tree, tree, int, bool *);
+ static tree handle_packed_attribute (tree *, tree, tree, int, bool *);
+ static tree handle_nocommon_attribute (tree *, tree, tree, int, bool *);
+ static tree handle_common_attribute (tree *, tree, tree, int, bool *);
+@@ -338,6 +340,10 @@ const struct attribute_spec c_common_attribute_table[] =
+ 			      handle_used_attribute, NULL },
+   { "unused",                 0, 0, false, false, false, false,
+ 			      handle_unused_attribute, NULL },
++  { "param_in",               0, 0, true, false, false, false,
++			      handle_param_in_attribute, NULL },
++  { "param_out",               0, 0, true, false, false, false,
++			      handle_param_out_attribute, NULL },
+   { "uninitialized",	      0, 0, true, false, false, false,
+ 			      handle_uninitialized_attribute, NULL },
+   { "retain",                 0, 0, true,  false, false, false,
+@@ -1610,6 +1616,58 @@ handle_unused_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+   return NULL_TREE;
+ }
+ 
++tree handle_param_out_attribute (tree *node, tree name, tree ARG_UNUSED (args),
++			 int ARG_UNUSED(flags), bool *no_add_attrs)
++{
++  if ( !DECL_P (*node) )
++  {
++    warning (OPT_Wattributes, "%qE attribute can apply to params declarations only", name);
++    *no_add_attrs = true;
++    return NULL_TREE;
++  }
++  tree decl = *node;
++  if (TREE_CODE (decl) != PARM_DECL)
++  {
++    warning (OPT_Wattributes, "%qE attribute can apply to params only", name);
++    *no_add_attrs = true;
++  } else {
++    // check presense of param_in
++    if ( lookup_attribute ("param_in", DECL_ATTRIBUTES (decl)) )
++    {
++      warning (OPT_Wattributes, "%qE attribute useless when param_in was used", name);
++      *no_add_attrs = true;
++      DECL_ATTRIBUTES (decl) = remove_attribute("param_in", DECL_ATTRIBUTES (decl));
++    }
++  }
++  return NULL_TREE;
++}
++
++tree handle_param_in_attribute (tree *node, tree name, tree ARG_UNUSED (args),
++			 int ARG_UNUSED(flags), bool *no_add_attrs)
++{
++  if ( !DECL_P (*node) )
++  {
++    warning (OPT_Wattributes, "%qE attribute can apply to params declarations only", name);
++    *no_add_attrs = true;
++    return NULL_TREE;
++  }
++  tree decl = *node;
++  if (TREE_CODE (decl) != PARM_DECL)
++  {
++    warning (OPT_Wattributes, "%qE attribute can apply to params only", name);
++    *no_add_attrs = true;
++  } else {
++    // check presense of param_out
++    if ( lookup_attribute ("param_out", DECL_ATTRIBUTES (decl)) )
++    {
++      warning (OPT_Wattributes, "%qE attribute useless when param_out was used", name);
++      *no_add_attrs = true;
++      DECL_ATTRIBUTES (decl) = remove_attribute("param_out", DECL_ATTRIBUTES (decl));
++    }
++  }
++  return NULL_TREE;
++}
++
+ /* Handle a "retain" attribute; arguments as in
+    struct attribute_spec.handler.  */
+ 
