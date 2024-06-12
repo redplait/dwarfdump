@@ -94,28 +94,30 @@ int main(int argc, char* argv[])
     render = new PlainRender();
   bool success;
   std::string binary_path = std::string(argv[optind]);
-  ElfFile file(binary_path, success, render);
-  if (!success) {
-    fprintf(stderr, "cannot load %s\n", argv[optind]);
-    delete render;
-    return 2;
+  {
+    ElfFile file(binary_path, success, render);
+    if (!success) {
+      fprintf(stderr, "cannot load %s\n", argv[optind]);
+      delete render;
+      return 2;
+    }
+
+    // save sections for original stripped elf file
+    if ( !iname.empty() )
+      file.SaveSections(iname);
+
+    if ( g_opt_x )
+      render->m_locX = (IGetLoclistX *)&file;
+
+    // setup g_outf
+    g_outf = (fp == NULL) ? stdout : fp;
+
+    if ( use_json )
+      fprintf(g_outf, "{");
+    file.GetAllClasses();
+    if ( use_json )
+      fprintf(g_outf, "}\n");
   }
-
-  // save sections for original stripped elf file
-  if ( !iname.empty() )
-    file.SaveSections(iname);
-
-  if ( g_opt_x )
-    render->m_locX = (IGetLoclistX *)&file;
-
-  // setup g_outf
-  g_outf = (fp == NULL) ? stdout : fp;
-
-  if ( use_json )
-    fprintf(g_outf, "{");
-  file.GetAllClasses();
-  if ( use_json )
-    fprintf(g_outf, "}\n");
 
   if ( fp != NULL )
     fclose(fp);
