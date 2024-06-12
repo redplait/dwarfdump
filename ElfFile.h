@@ -74,6 +74,7 @@ private:
   uint64_t fetch_indexed_value(uint64_t, const unsigned char *, uint64_t s_size, uint64_t base);
 
   elfio reader;
+  endianess_convertor endc;
   TreeBuilder *tree_builder;
 
   const unsigned char* debug_info_;
@@ -162,7 +163,7 @@ private:
   int64_t loclist_base; // dwarf5 from DW_AT_loclists_base
   // file and dir names from .debug_line
   DWARF2_Internal_LineInfo m_li;
-  const unsigned char *m_curr_lines;  
+  const unsigned char *m_curr_lines;
   std::map<uint, const char *> m_dl_dirs;
   std::map<uint, std::pair<uint, const char *> > m_dl_files;
   inline void reset_lines()

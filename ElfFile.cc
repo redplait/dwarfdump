@@ -156,6 +156,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
     success = false;
     return;
   }
+  endc.setup(reader.get_encoding());
   success = true;
 
   // compressed sections
@@ -305,7 +306,7 @@ bool ElfFile::read_debug_lines()
   reset_lines();
   if ( ba < 4 )
     return false;
-  m_li.li_length = *(const uint32_t *)(ptr);
+  m_li.li_length = endc(*(const uint32_t *)(ptr));
   ptr += 4;
   ba -= 4;
   addr_size = 4;
@@ -313,66 +314,66 @@ bool ElfFile::read_debug_lines()
   {
     if ( ba < 8 )
       return false;
-    m_li.li_length = *(const uint64_t *)(ptr);
+    m_li.li_length = endc(*(const uint64_t *)(ptr));
     ptr += 8;
     ba -= 8;
     addr_size += 8;
-    m_li.li_offset_size = 8;    
+    m_li.li_offset_size = 8;
   } else
     m_li.li_offset_size = 4;
   // version
   if ( ba < 2 )
     return false;
-  m_li.li_version = *(const uint16_t *)(ptr);
+  m_li.li_version = endc(*(const uint16_t *)(ptr));
   ptr += 2;
   ba -= 2;
   if ( m_li.li_version >= 5 )
   {
     if ( ba < 2 )
       return false;
-    m_li.li_address_size = *static_cast<const uint8_t *>(ptr);
+    m_li.li_address_size = endc(*static_cast<const uint8_t *>(ptr));
     ptr++;
-    m_li.li_segment_size = *static_cast<const uint8_t *>(ptr);
+    m_li.li_segment_size = endc(*static_cast<const uint8_t *>(ptr));
     ptr++;
-    ba -= 2;    
+    ba -= 2;
   }
   // prolog_length
   if ( ba < m_li.li_offset_size )
     return false;
   if ( 4 == m_li.li_offset_size )
   {
-    m_li.li_prologue_length = *(const uint32_t *)(ptr);
+    m_li.li_prologue_length = endc(*(const uint32_t *)(ptr));
   } else {
-    m_li.li_prologue_length = *(const uint64_t *)(ptr);
+    m_li.li_prologue_length = endc(*(const uint64_t *)(ptr));
   }
   ptr += m_li.li_offset_size;
   ba -= m_li.li_offset_size;
   // min_insn_length
   if ( !ba )
     return false;
-  m_li.li_min_insn_length = *static_cast<const uint8_t *>(ptr);
+  m_li.li_min_insn_length = endc(*static_cast<const uint8_t *>(ptr));
   ptr++;
   ba--;
   if ( m_li.li_version >= 4 )
   {
     if ( !ba )
       return false;
-    m_li.li_max_ops_per_insn = *static_cast<const uint8_t *>(ptr);
+    m_li.li_max_ops_per_insn = endc(*static_cast<const uint8_t *>(ptr));
     ptr++;
     ba--;
     if ( !m_li.li_max_ops_per_insn )
-      return false; 
+      return false;
   } else 
     m_li.li_max_ops_per_insn = 1;
   if ( ba < 4 )
     return false;
-  m_li.li_default_is_stmt = *static_cast<const uint8_t *>(ptr);
+  m_li.li_default_is_stmt = endc(*static_cast<const uint8_t *>(ptr));
   ptr++;
-  m_li.li_line_base = *(const int8_t *)(ptr);
+  m_li.li_line_base = endc(*(const int8_t *)(ptr));
   ptr++;
-  m_li.li_line_range = *static_cast<const uint8_t *>(ptr);
+  m_li.li_line_range = endc(*static_cast<const uint8_t *>(ptr));
   ptr++;
-  m_li.li_opcode_base = *static_cast<const uint8_t *>(ptr);
+  m_li.li_opcode_base = endc(*static_cast<const uint8_t *>(ptr));
   ptr++;
   DBG_PRINTF("Length: %lX\n", m_li.li_length);
   DBG_PRINTF("version: %d\n", m_li.li_version);
@@ -409,9 +410,9 @@ bool ElfFile::read_debug_lines()
         ba -= 1 + len;
       }
       /* Skip the NULL at the end of the table.  */
-	    if ( ptr < m_curr_lines )
+      if ( ptr < m_curr_lines )
       {
-		    ptr++;
+       ptr++;
         ba--;
       }
     }
@@ -434,9 +435,9 @@ bool ElfFile::read_debug_lines()
         m_dl_files[last_file_entry] = { (unsigned int)dir, name };
         if ( g_opt_d )
           fprintf(g_outf, "file %d dir %ld size %ld time %ld %s\n", last_file_entry, dir, size, time, name);
-      }     
+      }
       /* Skip the NULL at the end of the table.  */
-	    if ( ptr < m_curr_lines )
+      if ( ptr < m_curr_lines )
       {
         ptr++;
         ba--;
@@ -510,13 +511,13 @@ const unsigned char *ElfFile::read_formatted_table(bool is_dir)
         switch(columns[formati].second)
         {
           case Dwarf32::Form::DW_FORM_strx4:
-            str_pos = *reinterpret_cast<const uint32_t*>(ptr);
+            str_pos = endc(*reinterpret_cast<const uint32_t*>(ptr));
             ptr += 4;
             bytes_available -= 4;
             name = check_strx4(str_pos);
            break;
           case Dwarf32::Form::DW_FORM_strx2:
-            str_pos = *reinterpret_cast<const uint16_t*>(ptr);
+            str_pos = endc(*reinterpret_cast<const uint16_t*>(ptr));
             ptr += 2;
             bytes_available -= 2;
             name = check_strx2(str_pos);
@@ -532,8 +533,8 @@ const unsigned char *ElfFile::read_formatted_table(bool is_dir)
             name = check_strx1(str_pos);
            break;
           case Dwarf32::Form::DW_FORM_line_strp:
-            str_pos = *reinterpret_cast<const uint32_t*>(ptr);
-          // fprintf(stderr, "srtp value %X\n", str_pos);  
+            str_pos = endc(*reinterpret_cast<const uint32_t*>(ptr));
+          // fprintf(stderr, "srtp value %X\n", str_pos);
             ptr += 4;
             bytes_available -= 4;
             name = check_strp(str_pos);
@@ -574,7 +575,7 @@ const unsigned char *ElfFile::read_formatted_table(bool is_dir)
           bytes_available--;
         } else if ( columns[formati].second == Dwarf32::Form::DW_FORM_data2 )
         {
-          idx = *reinterpret_cast<const uint8_t*>(ptr);
+          idx = endc(*reinterpret_cast<const uint8_t*>(ptr));
           ptr += 2;
           bytes_available -= 2;
         } else {
@@ -644,7 +645,7 @@ const char *ElfFile::find_sname(uint64_t addr)
          )
         return s.name.c_str();
     }
-    return nullptr;    
+    return nullptr;
   }
   Elf_Half n = reader.sections.size();
   for ( Elf_Half i = 0; i < n; i++) 
@@ -737,12 +738,12 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& b
       bytes_available -= sizeof(uint8_t) + length;
       break;
     case Dwarf32::Form::DW_FORM_block2:
-      length = *reinterpret_cast<const uint16_t*>(data);
+      length = endc(*reinterpret_cast<const uint16_t*>(data));
       data += sizeof(uint16_t) + length;
       bytes_available -= sizeof(uint16_t) + length;
       break;
     case Dwarf32::Form::DW_FORM_block4:
-      length = *reinterpret_cast<const uint32_t*>(data);
+      length = endc(*reinterpret_cast<const uint32_t*>(data));
       data += sizeof(uint32_t) + length;
       bytes_available -= sizeof(uint32_t) + length;
       break;
@@ -754,7 +755,7 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& b
       data++;
       bytes_available--;
       break;
-    case Dwarf32::Form::DW_FORM_addrx2:  
+    case Dwarf32::Form::DW_FORM_addrx2:
     case Dwarf32::Form::DW_FORM_data2:
     case Dwarf32::Form::DW_FORM_strx2:
       data += 2;
@@ -765,8 +766,8 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& b
       data += 3;
       bytes_available -= 3;
       break;
-    case Dwarf32::Form::DW_FORM_addrx4:  
-    case Dwarf32::Form::DW_FORM_strx4:  
+    case Dwarf32::Form::DW_FORM_addrx4:
+    case Dwarf32::Form::DW_FORM_strx4:
     case Dwarf32::Form::DW_FORM_data4:
       data += 4;
       bytes_available -= 4;
@@ -889,9 +890,9 @@ uint64_t ElfFile::fetch_indexed_value(uint64_t idx, const unsigned char *s, uint
     return -1;
   }
   if ( 4 == pointer_size )
-    return *reinterpret_cast<const uint32_t*>(s + offset);
+    return endc(*reinterpret_cast<const uint32_t*>(s + offset));
   else
-    return *reinterpret_cast<const uint64_t*>(s + offset);
+    return endc(*reinterpret_cast<const uint64_t*>(s + offset));
 }
 
 // ripped from functions display_offset_entry_loclists & display_loclists_list in dwarf.c
@@ -913,7 +914,7 @@ bool ElfFile::get_loclistx(uint64_t off, std::list<LocListXItem> &out_list, uint
     unsigned char llet = *start;
     start++;
     avail--;
-//  fprintf(stderr, "%d\n", llet);  
+//  fprintf(stderr, "%d\n", llet);
     if ( llet == Dwarf32::dwarf_location_list_entry_type::DW_LLE_end_of_list )
       break;
     switch(llet)
@@ -921,11 +922,11 @@ bool ElfFile::get_loclistx(uint64_t off, std::list<LocListXItem> &out_list, uint
       case Dwarf32::dwarf_location_list_entry_type::DW_LLE_base_address:
         if ( address_size_ == 8 )
         {
-          base_addr = *(uint64_t *)start;
+          base_addr = endc(*(uint64_t *)start);
           start += 8;
           avail -= 8;
         } else {
-          base_addr = *(uint32_t *)start;
+          base_addr = endc(*(uint32_t *)start);
           start += 4;
           avail -= 4;
         }
@@ -943,17 +944,17 @@ bool ElfFile::get_loclistx(uint64_t off, std::list<LocListXItem> &out_list, uint
       case Dwarf32::dwarf_location_list_entry_type::DW_LLE_start_end:
          if ( address_size_ == 8 )
          {
-          begin = *(uint64_t *)start;
+          begin = endc(*(uint64_t *)start);
           start += 8;
           avail -= 8;
-          end = *(uint64_t *)start;
+          end = endc(*(uint64_t *)start);
           start += 8;
           avail -= 8;
          } else {
-          begin = *(uint32_t *)start;
+          begin = endc(*(uint32_t *)start);
           start += 4;
           avail -= 4;
-          end = *(uint32_t *)start;
+          end = endc(*(uint32_t *)start);
           start += 4;
           avail -= 4;
          }
@@ -967,11 +968,11 @@ bool ElfFile::get_loclistx(uint64_t off, std::list<LocListXItem> &out_list, uint
       case Dwarf32::dwarf_location_list_entry_type::DW_LLE_start_length:
         if ( address_size_ == 8 )
         {
-          begin = *(uint64_t *)start;
+          begin = endc(*(uint64_t *)start);
           start += 8;
           avail -= 8;
         } else {
-          begin = *(uint32_t *)start;
+          begin = endc(*(uint32_t *)start);
           start += 4;
           avail -= 4;
         }
@@ -1058,12 +1059,12 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
       bytes_available -= sizeof(uint8_t);
       break;
     case Dwarf32::Form::DW_FORM_block2:
-      length = *reinterpret_cast<const uint16_t*>(data);
+      length = endc(*reinterpret_cast<const uint16_t*>(data));
       data += sizeof(uint16_t);
       bytes_available -= sizeof(uint16_t);
       break;
     case Dwarf32::Form::DW_FORM_block4:
-      length = *reinterpret_cast<const uint32_t*>(data);
+      length = endc(*reinterpret_cast<const uint32_t*>(data));
       data += sizeof(uint32_t);
       bytes_available -= sizeof(uint32_t);
       break;
@@ -1095,9 +1096,9 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
         break;
       case Dwarf32::dwarf_ops::DW_OP_addr:
         if ( address_size_ == 8 )
-          return *reinterpret_cast<const uint64_t*>(data);
+          return endc(*reinterpret_cast<const uint64_t*>(data));
         else
-          return *reinterpret_cast<const uint32_t*>(data);
+          return endc(*reinterpret_cast<const uint32_t*>(data));
        break;
       // from function decode_locdesc in read.c
         case Dwarf32::dwarf_ops::DW_OP_call_frame_cfa:
@@ -1116,7 +1117,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
           break;
         case Dwarf32::dwarf_ops::DW_OP_consts:
            pl->push_svalue(ElfFile::SLEB128(data, bytes_available));
-          break;  
+          break;
         case Dwarf32::dwarf_ops::DW_OP_constu:
            pl->push_uvalue(ElfFile::ULEB128(data, bytes_available));
           break;
@@ -1158,36 +1159,36 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
            data += 1;
           break;
         case Dwarf32::dwarf_ops::DW_OP_const2u:
-           value = (int)*reinterpret_cast<const uint16_t*>(data);
+           value = (int)endc(*reinterpret_cast<const uint16_t*>(data));
            pl->push_value(value);
            bytes_available -= 2;
            data += 2;
           break;
         case Dwarf32::dwarf_ops::DW_OP_const2s:
-           value = (int)*reinterpret_cast<const int16_t*>(data);
+           value = endc((int)*reinterpret_cast<const int16_t*>(data));
            pl->push_svalue(value);
            bytes_available -= 2;
            data += 2;
           break;
         case Dwarf32::dwarf_ops::DW_OP_const4u:
-           value = (int)*reinterpret_cast<const uint32_t*>(data);
+           value = endc((int)*reinterpret_cast<const uint32_t*>(data));
            pl->push_value(value);
            bytes_available -= 4;
            data += 4;
           break;
         case Dwarf32::dwarf_ops::DW_OP_const4s:
-           value = (int)*reinterpret_cast<const int32_t*>(data);
+           value = endc((int)*reinterpret_cast<const int32_t*>(data));
            pl->push_svalue(value);
            bytes_available -= 4;
            data += 4;
           break;
         case Dwarf32::dwarf_ops::DW_OP_const8u:
-           pl->push_uvalue(*reinterpret_cast<const uint64_t*>(data));
+           pl->push_uvalue(endc(*reinterpret_cast<const uint64_t*>(data)));
            bytes_available -= 8;
            data += 8;
           break;
         case Dwarf32::dwarf_ops::DW_OP_const8s:
-           s64 = *reinterpret_cast<const int64_t*>(data);
+           s64 = endc(*reinterpret_cast<const int64_t*>(data));
            pl->push_svalue(s64);
            bytes_available -= 8;
            data += 8;
@@ -1349,19 +1350,19 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
                 pl->locs.push_back({ imp_value, *reinterpret_cast<const uint8_t*>(data), 0});
                break;
              case 2:
-                pl->locs.push_back({ imp_value, *reinterpret_cast<const uint16_t*>(data), 0});
+                pl->locs.push_back({ imp_value, endc(*reinterpret_cast<const uint16_t*>(data)), 0});
                break;
              case 4:
-                pl->locs.push_back({ imp_value, *reinterpret_cast<const uint32_t*>(data), 0});
+                pl->locs.push_back({ imp_value, endc(*reinterpret_cast<const uint32_t*>(data)), 0});
                break;
              case 8:
-                pl->locs.push_back({ imp_value, (unsigned int)*reinterpret_cast<const uint64_t*>(data), 0});
+                pl->locs.push_back({ imp_value, endc((unsigned int)*reinterpret_cast<const uint64_t*>(data)), 0});
                break;
              default:
-               fprintf(stderr, "DecodeAddrLocation: unknown implicit_value size %lX at %lX\n", v64, doff); 
+               fprintf(stderr, "DecodeAddrLocation: unknown implicit_value size %lX at %lX\n", v64, doff);
            }
            bytes_available -= v64;
-           data += v64; 
+           data += v64;
           break;
       default:
         fprintf(stderr, "DecodeAddrLocation: unknown op %X at %lX\n", op, doff);
@@ -1385,12 +1386,12 @@ uint64_t ElfFile::DecodeLocation(Dwarf32::Form form, const unsigned char* info, 
       bytes_available--;
       break;
     case Dwarf32::Form::DW_FORM_block2:
-      len = *reinterpret_cast<const uint16_t*>(info);
+      len = endc(*reinterpret_cast<const uint16_t*>(info));
       info += 2;
       bytes_available -= 2;
       break;
     case Dwarf32::Form::DW_FORM_block4:
-      len = *reinterpret_cast<const uint32_t*>(info);
+      len = endc(*reinterpret_cast<const uint32_t*>(info));
       info += 4;
       bytes_available -= 4;
       break;
@@ -1419,7 +1420,7 @@ uint64_t ElfFile::DecodeLocation(Dwarf32::Form form, const unsigned char* info, 
         if ( bytes_available >= 1 )
         {
           value = *reinterpret_cast<const uint8_t*>(info);
-          return value; 
+          return value;
         }
         fprintf(stderr, "DecodeLocation: wrong len %lX for op %X\n", bytes_available, op);
         return 0;
@@ -1430,8 +1431,8 @@ uint64_t ElfFile::DecodeLocation(Dwarf32::Form form, const unsigned char* info, 
       {
         if ( bytes_available >= 2 )
         {
-          value = *reinterpret_cast<const uint16_t*>(info);
-          return value; 
+          value = endc(*reinterpret_cast<const uint16_t*>(info));
+          return value;
         }
         fprintf(stderr, "DecodeLocation: wrong len2 %lX for op %X\n", bytes_available, op);
         return 0;
@@ -1442,8 +1443,8 @@ uint64_t ElfFile::DecodeLocation(Dwarf32::Form form, const unsigned char* info, 
       {
         if ( bytes_available >= 4 )
         {
-          value = *reinterpret_cast<const uint32_t*>(info);
-          return value; 
+          value = endc(*reinterpret_cast<const uint32_t*>(info));
+          return value;
         }
         fprintf(stderr, "DecodeLocation: wrong len4 %lX for op %X\n", bytes_available, op);
         return 0;
@@ -1454,8 +1455,8 @@ uint64_t ElfFile::DecodeLocation(Dwarf32::Form form, const unsigned char* info, 
       {
         if ( bytes_available >= 8 )
         {
-          value = *reinterpret_cast<const uint64_t*>(info);
-          return value; 
+          value = endc(*reinterpret_cast<const uint64_t*>(info));
+          return value;
         }
         fprintf(stderr, "DecodeLocation: wrong len8 %lX for op %X\n", bytes_available, op);
         return 0;
@@ -1469,8 +1470,8 @@ uint64_t ElfFile::DecodeLocation(Dwarf32::Form form, const unsigned char* info, 
   return 0;
 }
 
-uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info, 
-                                                      size_t& bytes_available) {
+uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info, size_t& bytes_available)
+{
   uint64_t value = 0;
 
   switch(form) {
@@ -1489,7 +1490,7 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
       break;
     case Dwarf32::Form::DW_FORM_data2:
     case Dwarf32::Form::DW_FORM_ref2:
-      value = *reinterpret_cast<const uint16_t*>(info);
+      value = endc(*reinterpret_cast<const uint16_t*>(info));
       info += 2;
       bytes_available -= 2;
       break;
@@ -1497,22 +1498,22 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
     case Dwarf32::Form::DW_FORM_ref4:
     case Dwarf32::Form::DW_FORM_ref_addr:
     case Dwarf32::Form::DW_FORM_sec_offset:
-      value = *reinterpret_cast<const uint32_t*>(info);
+      value = endc(*reinterpret_cast<const uint32_t*>(info));
       info += 4;
       bytes_available -= 4;
       break;
     case Dwarf32::Form::DW_FORM_data8:
     case Dwarf32::Form::DW_FORM_ref8:
     case Dwarf32::Form::DW_FORM_ref_sig8:
-      value = *reinterpret_cast<const uint64_t*>(info);
+      value = endc(*reinterpret_cast<const uint64_t*>(info));
       info += 8;
       bytes_available -= 8;
       break;
     case Dwarf32::Form::DW_FORM_addr:
       if ( address_size_ == 8 )
-        value = *reinterpret_cast<const uint64_t*>(info);
+        value = endc(*reinterpret_cast<const uint64_t*>(info));
       else
-        value = *reinterpret_cast<const uint32_t*>(info);
+        value = endc(*reinterpret_cast<const uint32_t*>(info));
       info += address_size_;
       bytes_available -= address_size_;
       break;
@@ -1521,20 +1522,20 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info,
       value = *reinterpret_cast<const uint8_t*>(info);
       info++;
       bytes_available--;
-      return get_indexed_addr(value, address_size_);  
+      return get_indexed_addr(value, address_size_);
     case Dwarf32::Form::DW_FORM_addrx2:
-      value = *reinterpret_cast<const uint16_t*>(info);
+      value = endc(*reinterpret_cast<const uint16_t*>(info));
       info += 2;
       bytes_available -= 2;
       return get_indexed_addr(value, address_size_);
     case Dwarf32::Form::DW_FORM_addrx3:
       value = read_x3(info, bytes_available);
-      return get_indexed_addr(value, address_size_);  
+      return get_indexed_addr(value, address_size_);
     case Dwarf32::Form::DW_FORM_addrx4:
-      value = *reinterpret_cast<const uint32_t*>(info);
+      value = endc(*reinterpret_cast<const uint32_t*>(info));
       info += 4;
       bytes_available -= 4;
-      return get_indexed_addr(value, address_size_);  
+      return get_indexed_addr(value, address_size_);
     case Dwarf32::Form::DW_FORM_addrx:
       value = ElfFile::ULEB128(info, bytes_available);
       return get_indexed_addr(value, address_size_);
@@ -1573,13 +1574,13 @@ uint64_t ElfFile::get_indexed_addr(uint64_t pos, int size)
       return *b;
     }
     case 2: { const uint16_t *b = (const uint16_t *)(debug_addr_ + addr_base + pos);
-      return *b;
+      return endc(*b);
     }
     case 4: { const uint32_t *b = (const uint32_t *)(debug_addr_ + addr_base + pos);
-      return *b;
+      return endc(*b);
     }
     case 8: { const uint64_t *b = (const uint64_t *)(debug_addr_ + addr_base + pos);
-      return *b;
+      return endc(*b);
     }
   }
   return 0;
@@ -1592,7 +1593,7 @@ const char* ElfFile::get_indexed_str(uint32_t str_pos)
   uint64_t index_offset = str_pos * 4;
   if ( index_offset + offsets_base > debug_str_offsets_size_ )
     return nullptr;
-  uint32_t str_offset = *(uint32_t *)(debug_str_offsets_ + index_offset + offsets_base);
+  uint32_t str_offset = endc(*(uint32_t *)(debug_str_offsets_ + index_offset + offsets_base));
   return (const char*)&tree_builder->debug_str_[str_offset];
 }
 
@@ -1661,7 +1662,7 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
 
   switch(form) {
     case Dwarf32::Form::DW_FORM_strx4:
-      str_pos = *reinterpret_cast<const uint32_t*>(info);
+      str_pos = endc(*reinterpret_cast<const uint32_t*>(info));
       info += 4;
       bytes_available -= 4;
       if ( curr_asgn )
@@ -1679,7 +1680,7 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
       }
       return check_strx3(str_pos);
     case Dwarf32::Form::DW_FORM_strx2:
-      str_pos = *reinterpret_cast<const uint16_t*>(info);
+      str_pos = endc(*reinterpret_cast<const uint16_t*>(info));
       info += 2;
       bytes_available -= 2;
       if ( curr_asgn )
@@ -1699,7 +1700,7 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
       }
       return check_strx1(str_pos);
     case Dwarf32::Form::DW_FORM_strp:
-      str_pos = *reinterpret_cast<const uint32_t*>(info);
+      str_pos = endc(*reinterpret_cast<const uint32_t*>(info));
       info += sizeof(str_pos);
       bytes_available -= sizeof(str_pos);
       if ( str_pos > tree_builder->debug_str_size_ )
@@ -1827,7 +1828,7 @@ bool ElfFile::RegisterNewTag(Dwarf32::Tag tag) {
         tree_builder->AddElement(TreeBuilder::ElementType::ns_start, m_tag_id, m_level);
         return true;
       }
-      break;      
+      break;
     case Dwarf32::Tag::DW_TAG_subprogram:
       if ( g_opt_f )
       {
@@ -1864,10 +1865,10 @@ bool ElfFile::ProcessFlags(Dwarf32::Form form, const unsigned char* &info, size_
   return true;
 }
 
-bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute, 
-        Dwarf32::Form form, const unsigned char* &info, 
-        size_t& info_bytes, const void* unit_base) 
-{           
+bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
+        Dwarf32::Form form, const unsigned char* &info,
+        size_t& info_bytes, const void* unit_base)
+{
   switch((unsigned int)attribute) {
     case Dwarf32::Attribute::DW_AT_sibling:
       m_next = FormDataValue(form, info, info_bytes);
@@ -1884,7 +1885,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         tree_builder->SetObjPtr((int)v);
       }
       return true;
-    }   
+    }
     case Dwarf32::Attribute::DW_AT_virtuality: {
       uint64_t v = FormDataValue(form, info, info_bytes);
       if ( m_regged )
@@ -1942,7 +1943,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
           // absolute
           addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
         }
-        tree_builder->SetGoKey(m_tag_id, addr);  
+        tree_builder->SetGoKey(m_tag_id, addr);
         return true;
       }
       return false;
@@ -1956,7 +1957,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
           // absolute
           addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
         }
-        tree_builder->SetGoElem(m_tag_id, addr);  
+        tree_builder->SetGoElem(m_tag_id, addr);
         return true;
       }
       return false;
@@ -1966,7 +1967,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       {
         uint64_t addr = FormDataValue(form, info, info_bytes);
         if ( addr )
-          tree_builder->SetGoRType(m_tag_id, (const void *)addr);  
+          tree_builder->SetGoRType(m_tag_id, (const void *)addr);
         return true;
       }
       return false;
@@ -1976,7 +1977,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       {
         uint64_t addr = FormDataValue(form, info, info_bytes);
         if ( addr )
-          tree_builder->SetGoDictIndex(m_tag_id, addr);  
+          tree_builder->SetGoDictIndex(m_tag_id, addr);
         return true;
       }
       return false;
@@ -2031,7 +2032,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         if ( !offsets_base && debug_str_offsets_ )
           curr_asgn = &ElfFile::asgn_producer;
         asgn_producer(FormStringValue(form, info, info_bytes));
-        return true;  
+        return true;
       }
       break;
     case Dwarf32::Attribute::DW_AT_comp_dir:
@@ -2040,23 +2041,23 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         if ( !offsets_base && debug_str_offsets_ )
           curr_asgn = &ElfFile::asgn_comp_dir;
         asgn_comp_dir(FormStringValue(form, info, info_bytes));
-        return true;  
+        return true;
       }
       break;
     case Dwarf32::Attribute::DW_AT_language:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
       {
         tree_builder->cu.cu_lang = (int)FormDataValue(form, info, info_bytes);
-        return true;  
+        return true;
       }
-      break;  
+      break;
     case Dwarf32::Attribute::DW_AT_name:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
       {
         if ( !offsets_base && debug_str_offsets_ )
           curr_asgn = &ElfFile::asgn_cu_name;
         asgn_cu_name(FormStringValue(form, info, info_bytes));
-        return true;  
+        return true;
       }
     case Dwarf32::Attribute::DW_AT_MIPS_linkage_name:
     case Dwarf32::Attribute::DW_AT_linkage_name: {
@@ -2351,28 +2352,29 @@ bool ElfFile::GetAllClasses()
     const Dwarf32::CompilationUnitHdr* unit_hdr =
         reinterpret_cast<const Dwarf32::CompilationUnitHdr*>(info);
     const unsigned char* info_end;
-    uint32_t abbrev_offset = unit_hdr->debug_abbrev_offset;
-    if ( unit_hdr->version < 5 )
+    uint32_t abbrev_offset = endc(unit_hdr->debug_abbrev_offset);
+    auto dversion = endc(unit_hdr->version);
+    if ( dversion < 5 )
     {
-      address_size_ = unit_hdr->address_size;
+      address_size_ = endc(unit_hdr->address_size);
       DBG_PRINTF("unit_length         = 0x%x\n", unit_hdr->unit_length);
       DBG_PRINTF("version             = %d\n", unit_hdr->version);
       DBG_PRINTF("debug_abbrev_offset = 0x%x\n", unit_hdr->debug_abbrev_offset);
       DBG_PRINTF("address_size        = %d\n", unit_hdr->address_size);
-      info_end = info + unit_hdr->unit_length + sizeof(uint32_t);
+      info_end = info + endc(unit_hdr->unit_length) + sizeof(uint32_t);
       info += sizeof(Dwarf32::CompilationUnitHdr);
       info_bytes -= sizeof(Dwarf32::CompilationUnitHdr);
     } else {
       const Dwarf32::CompilationUnitHdr5* unit_hdr5 =
         reinterpret_cast<const Dwarf32::CompilationUnitHdr5*>(info);
-      address_size_ = unit_hdr5->address_size;
+      address_size_ = endc(unit_hdr5->address_size);
       DBG_PRINTF("unit_length         = 0x%x\n", unit_hdr5->unit_length);
       DBG_PRINTF("version             = %d\n", unit_hdr5->version);
       DBG_PRINTF("unit_type           = %d\n", unit_hdr5->unit_type);
       DBG_PRINTF("address_size        = %d\n", unit_hdr5->address_size);
-      abbrev_offset = unit_hdr5->debug_abbrev_offset;
+      abbrev_offset = endc(unit_hdr5->debug_abbrev_offset);
       DBG_PRINTF("debug_abbrev_offset = 0x%x\n", abbrev_offset);
-      info_end = info + unit_hdr5->unit_length + sizeof(uint32_t);
+      info_end = info + endc(unit_hdr5->unit_length) + sizeof(uint32_t);
       info += sizeof(Dwarf32::CompilationUnitHdr5);
       info_bytes -= sizeof(Dwarf32::CompilationUnitHdr5);
       if ( unit_hdr5->unit_type == Dwarf32::unit_type::DW_UT_type )
