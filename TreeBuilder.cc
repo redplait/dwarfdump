@@ -403,6 +403,11 @@ int TreeBuilder::check_dumped_type(const char *name)
 {
   if ( !name )
     return 0;
+  if ( current_element_type_ == var_type ||
+       current_element_type_ == formal_param ||
+       current_element_type_ == enumerator ||
+       current_element_type_ == member )
+    return 0;
   uint64_t rep_id;
   if ( in_string_pool(name) )
   {
@@ -783,7 +788,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
     case ElementType::enumerator:
       if (current_element_type_ == ElementType::none) {
         return;
-      }  
+      }
       if (elements_.empty()) {
         fprintf(stderr, "Can't add a enumerator if the element list is empty\n");
         return;
@@ -800,7 +805,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       break;
 
     case ElementType::var_type:
-      recent_ = nullptr;
+      last_var_ = recent_ = nullptr;
       if ( level > 1 && !m_stack.empty() ) // this is local var
       {
         if ( sub_filtered ) {
