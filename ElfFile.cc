@@ -859,7 +859,7 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& b
       break;
 
     default:
-      fprintf(stderr, "ERR: Unpexpected form type 0x%x at %lx\n", form,  data - debug_info_);
+      fprintf(stderr, "ERR(PassData): Unpexpected form type 0x%x at %lx\n", form,  data - debug_info_);
       break;
   }
 }
@@ -2293,7 +2293,9 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         if ( form == Dwarf32::Form::DW_FORM_block ||
              form == Dwarf32::Form::DW_FORM_block1 ||
              form == Dwarf32::Form::DW_FORM_block2 ||
-             form == Dwarf32::Form::DW_FORM_block4
+             form == Dwarf32::Form::DW_FORM_block4 ||
+             form == Dwarf32::Form::DW_FORM_string ||
+             form == Dwarf32::Form::DW_FORM_strp
            )
           return false;
         uint64_t val = FormDataValue(form, info, info_bytes);
@@ -2431,6 +2433,9 @@ bool ElfFile::GetAllClasses()
       m_section = &it_section->second;
       const unsigned char* abbrev = m_section->ptr;
       size_t abbrev_bytes = debug_abbrev_size_ - (abbrev - debug_abbrev_);
+//      if ( m_tag_id >= 0x2e6c9a0 ) {
+//  printf("before RegisterNewTag(%X) m_regged %d\n", m_section->type, m_regged);
+//      }
       m_regged = RegisterNewTag(m_section->type);
       m_next = 0;
 
