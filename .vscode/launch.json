@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+ {
+  "name": "C++ Launch",
+  "type": "cppdbg",
+  "request": "launch",
+  "program": "${workspaceFolder}/dumper.d",
+  "args": ["-fFxs", "/home/redp/disc/src/common/vmlinux"],
+  "environment": [{ "name": "LD_LIBRARY_PATH", "value": "/usr/local/lib64" }],
+  "cwd": "${workspaceFolder}"
+ }
+    ]
+}
