@@ -431,7 +431,7 @@ int TreeBuilder::check_dumped_type(const char *name)
       elements_.back().dumped_ = true;
       return 0;
     }
-  }    
+  }
   // put fake type into m_replaced
   // don`t replace functions
   if ( current_element_type_ != subroutine )
@@ -439,9 +439,12 @@ int TreeBuilder::check_dumped_type(const char *name)
     dumped_type dt { current_element_type_, name, elements_.back().ate_, rep_id };
     m_replaced[elements_.back().id_] = dt;
   }
-  // remove current element
+  // remove current function
+  // Warning! in m_stack we now have dangling ptr to remoced top from elements_
+  // to indicate this set sub_filtered
   elements_.pop_back();
   AddNone();
+  sub_filtered = true;
   return 1;
 }
 
@@ -609,6 +612,10 @@ int TreeBuilder::add2stack()
     m_stack.push(recent_);
   else
     m_stack.push( &last );
+#if DEBUG
+printf("add2stack: m_stack size %ld top %p (%s) top->owner_ %p id %lX\n", m_stack.size(), m_stack.top(), m_stack.top()->TypeName(), 
+  m_stack.top()->owner_, m_stack.top()->id_);
+#endif
   return 1;
 }
 
@@ -793,29 +800,43 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       break;
 
     case ElementType::var_type:
-       {
-         elements_.push_back(Element(element_type, tag_id, level, get_owner()));
-         last_var_ = &elements_.back();
-         recent_ = nullptr;
-         if ( level > 1 && !m_stack.empty() ) // this is local var
-         {
-           auto owner = get_top_func();
-           if ( !owner )
-           {
+      recent_ = nullptr;
+      if ( level > 1 && !m_stack.empty() ) // this is local var
+      {
+        if ( sub_filtered ) {
+          current_element_type_ = ElementType::none;
+          return;
+        }
+        auto owner = get_top_func();
+        if ( !owner )
+        {
            //  fprintf(stderr, "Can't add a local var tag %lX when there is no top function\n", tag_id);
-             current_element_type_ = ElementType::var_type;
-             return;
-           }
-           if ( !owner->m_comp )
-             owner->m_comp = new Compound();
-           if ( owner->type_ == ElementType::method )
-             fprintf(g_outf, "add var %lX to method %lX\n", tag_id, owner->id_);
-           owner->m_comp->lvars_.push_back(last_var_);
-         }
-       }
+          current_element_type_ = ElementType::var_type;
+          return;
+        }
+        elements_.push_back(Element(element_type, tag_id, level, owner));
+        last_var_ = &elements_.back();
+        if ( !owner->m_comp )
+          owner->m_comp = new Compound(); // valgring points here as leak 
+        if ( owner->type_ == ElementType::method )
+          fprintf(g_outf, "add var %lX to method %lX\n", tag_id, owner->id_);
+        owner->m_comp->lvars_.push_back(last_var_); // valgring points here as leak
+      } else {
+        // some top-level var
+        auto owner = get_owner();
+        if ( owner && owner->type_ == ElementType::var_type )
+        {
+          fprintf(stderr, "BUG: var id %lX wants to stack on var id %lX\n", tag_id, owner->id_);
+          current_element_type_ = ElementType::none;
+          return;
+        }
+        elements_.push_back(Element(element_type, tag_id, level, owner));
+        last_var_ = &elements_.back();
+      }
       break;
 
     case ElementType::subroutine:
+      sub_filtered = false;
       if ( can_have_methods(level) )
       {
         auto &top = m_stack.top();
@@ -1600,10 +1621,18 @@ TreeBuilder::Element *TreeBuilder::get_top_func() const
   if ( m_stack.empty() )
     return nullptr;
   auto t = m_stack.top();
+#if DEBUG
+printf("top %p size %ld type %s owner %p\n", t, m_stack.size(), t->TypeName(), t->owner_); fflush(stdout);
+#endif
   do
   {
     if ( t->type_ == ElementType::method || t->type_ == ElementType::subroutine )
       return t;
+    if ( t == t->owner_ )
+    {
+      fprintf(stderr, "BUG: t %s id %lx m_stack %ld has ref to itself\n", t->TypeName(), t->id_, m_stack.size());
+      break;
+    }
     t = t->owner_;
   } while(t);
   return nullptr;

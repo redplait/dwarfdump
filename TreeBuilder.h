@@ -210,7 +210,7 @@ public:
     atomic_type, // _Atomic - since C11
     immutable_type,
     // I don`t have samples for DW_TAG_packed_type & DW_TAG_shared_type
-    reference_type, 
+    reference_type,
     rvalue_ref_type,
     subroutine_type,
     formal_param,
@@ -314,8 +314,8 @@ public:
   // for names with direct string - seems that if name lesser pointer size they are directed
   // so renderer should be able to distinguish if some name located in string pool
   // in other case this name should be considered as direct string
-  const unsigned char *debug_str_;
-  size_t debug_str_size_;
+  const unsigned char *debug_str_ = nullptr;
+  size_t debug_str_size_ = 0;
   inline bool in_string_pool(const char *s)
   {
     return (s >= (const char *)debug_str_) && (s < (const char *)debug_str_ + debug_str_size_);
@@ -515,13 +515,7 @@ protected:
   struct Method: public Element
   {
     Method(uint64_t id, int level, Element *o)
-     : Element(method, id, level, o),
-       virt_(0),
-       vtbl_index_(0),
-       this_arg_(0),
-       art_(false),
-       def_(false),
-       expl_(false)
+     : Element(method, id, level, o)
     {}
     void cpy(Method &e)
     {
@@ -542,12 +536,12 @@ protected:
       cpy(e);
       return *this;
     }
-    int virt_;
-    uint64_t vtbl_index_;
-    uint64_t this_arg_;
-    bool art_;  // from DW_AT_artificial - for destructors
-    bool def_;  // DW_AT_defaulted
-    bool expl_; // DW_AT_explicit
+    int virt_ = 0;
+    uint64_t vtbl_index_ = 0;
+    uint64_t this_arg_ = 0;
+    bool art_ = false,  // from DW_AT_artificial - for destructors
+     def_ = false,  // DW_AT_defaulted
+     expl_ = false; // DW_AT_explicit
   };
 
   struct Compound {
@@ -569,7 +563,8 @@ protected:
   Element *get_top_func() const;
   int should_keep(Element *);
   // per compilation unit data
-  bool m_hdr_dumped;
+  bool m_hdr_dumped = false,
+   sub_filtered = false;
   Element *last_var_ = nullptr;
   Element *recent_ = nullptr;
   std::stack<Element *> m_stack;
