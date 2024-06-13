@@ -22,6 +22,17 @@ void TreeBuilder::collect_go_types()
   }
 } 
 
+// return 0 if element should be excluded from dump db/checking
+static inline int exclude_types(TreeBuilder::ElementType et)
+{
+  if ( et == TreeBuilder::ElementType::var_type ||
+       et == TreeBuilder::ElementType::formal_param ||
+       et == TreeBuilder::ElementType::enumerator ||
+       et == TreeBuilder::ElementType::member )
+    return 0;
+  return 1;
+}
+
 // add dumped types to m_dumped_db
 int TreeBuilder::merge_dumped()
 {
@@ -35,6 +46,8 @@ int TreeBuilder::merge_dumped()
     // no namespaces
     if ( e.type_ == ns_start || e.type_ == ns_end || e.type_ == lexical_block )
       continue;
+    // no enum/vars/formal params
+    if ( !exclude_types(e.type_) ) continue;
     // skip pure forward declarations
     if ( e.is_pure_decl() )
       continue;
@@ -403,11 +416,7 @@ int TreeBuilder::check_dumped_type(const char *name)
 {
   if ( !name )
     return 0;
-  if ( current_element_type_ == var_type ||
-       current_element_type_ == formal_param ||
-       current_element_type_ == enumerator ||
-       current_element_type_ == member )
-    return 0;
+  if ( !exclude_types(current_element_type_) ) return 0;
   uint64_t rep_id;
   if ( in_string_pool(name) )
   {
