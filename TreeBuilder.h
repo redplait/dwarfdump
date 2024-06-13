@@ -335,7 +335,7 @@ protected:
 
   ElementType current_element_type_;
   int ns_count = 0;
-  
+
   typedef std::pair<ElementType, const char*> UniqName;
   typedef std::pair<ElementType, std::string> UniqName2;
   struct dumped_type {
@@ -356,15 +356,26 @@ protected:
     uint64_t value;
   };
 
+  struct ConstValie {
+    uint64_t value; // if ptr is not null then this is length
+    const unsigned char *ptr;
+    ConstValie(uint64_t v):
+      value(v)
+    { ptr = nullptr; }
+    ConstValie(uint64_t v, const unsigned char *data):
+      value(v), ptr(data)
+    {}
+  };
+
   struct FormalParam {
-    const char *name;
-    uint64_t param_id;
-    uint64_t id;
+    const char *name = nullptr;
+    uint64_t param_id = 0,
+     id = 0;
     unsigned char pdir = 0; // param direction - 2 in 3 out
-    bool ellipsis;
-    bool var_ = false; // from DW_AT_variable_parameter - go mostly?
-    bool art_ = false; // seems that dwarf5 mark this arg as articial and don`t have DW_AT_object_pointer
-    bool optional_ = false; // DW_AT_is_optional
+    bool ellipsis = false,
+     var_ = false, // from DW_AT_variable_parameter - go mostly?
+     art_ = false, // seems that dwarf5 mark this arg as articial and don`t have DW_AT_object_pointer
+     optional_ = false; // DW_AT_is_optional
     param_loc loc;
   };
 
@@ -427,62 +438,38 @@ protected:
       owner_(o),
       type_(type),
       id_(id),
-      level_(level),
-      fname_(nullptr),
-      name_(nullptr),
-      link_name_(nullptr),
-      size_(0),
-      type_id_(0),
-      offset_(0),
-      count_(0),
-      addr_(0),
-      align_(0),
-      cont_type_(0),
-      spec_(0),
-      abs_(0),
-      locx_(0),
-      inlined_(0),
-      access_(0),
-      bit_size_(0),
-      bit_offset_(0),
-      addr_class_(0),
-      m_comp(nullptr),
-      ate_(0),
-      noret_(false),
-      decl_(false),
-      const_expr_(false),
-      dumped_(false)
+      level_(level)
     {}
     const char* TypeName();
     Element *owner_;
     ElementType type_;
     uint64_t id_;
     int level_;
-    const char *fname_;
+    const char *fname_ = nullptr,
+     *name_ = nullptr,
+     *link_name_ = nullptr;
     std::string fullname_; // when -F option was used
-    const char* name_;
-    const char *link_name_;
-    size_t size_;
-    uint64_t type_id_;
-    uint64_t offset_;
-    uint64_t count_;
-    uint64_t addr_;
-    uint64_t align_;
-    uint64_t cont_type_; // for ptr2member
-    uint64_t spec_;
-    uint64_t abs_; // for DW_AT_abstract_origin
-    uint64_t locx_; // offset to debug_loclists section
-    int inlined_;
-    int access_;
-    int bit_size_;
-    int bit_offset_;
-    int addr_class_; // from DW_AT_address_class
-    Compound *m_comp;
-    unsigned char ate_; // DW_AT_encoding
-    bool noret_;
-    bool decl_;
-    bool const_expr_;
-    bool dumped_;
+    size_t size_ = 0;
+    uint64_t type_id_ = 0,
+      offset_ = 0,
+      count_ = 0,
+      addr_ = 0,
+      align_ = 0,
+      cont_type_ = 0, // for ptr2member
+      spec_ = 0,
+      abs_ = 0, // for DW_AT_abstract_origin
+      locx_ = 0; // offset to debug_loclists section
+    int inlined_ = 0,
+     access_ = 0,
+     bit_size_ = 0,
+     bit_offset_ = 0,
+     addr_class_ = 0; // from DW_AT_address_class
+    Compound *m_comp = nullptr;
+    unsigned char ate_ = 0; // DW_AT_encoding
+    bool noret_ = false,
+     decl_ = false,
+     const_expr_ = false,
+     dumped_ = false;
 
     inline bool is_abs() const
     {
