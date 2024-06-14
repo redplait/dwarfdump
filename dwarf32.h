@@ -208,6 +208,7 @@ namespace Dwarf32 {
     // DWARF 5
     DW_AT_str_offsets_base = 0x72,
     DW_AT_addr_base = 0x73,
+    DW_AT_rnglists_base = 0x74,
     DW_AT_noreturn = 0x87,
     DW_AT_alignment = 0x88,
     DW_AT_export_symbols = 0x89,
