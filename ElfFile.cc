@@ -214,6 +214,12 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       debug_frame_size_ = s->get_size();
       if ( check_compressed_section(s, debug_frame_, debug_frame_size_) )
         free_frame = true;
+    } else if (g_opt_f && !strcmp(name, ".eh_frame")) {
+      is_eh = true;
+      debug_frame_ = reinterpret_cast<const unsigned char*>(s->get_data());
+      debug_frame_size_ = s->get_size();
+      if ( check_compressed_section(s, debug_frame_, debug_frame_size_) )
+        free_frame = true;
     } else if (g_opt_f && !strcmp(name, ".debug_rnglists")) {
       debug_rnglists_ = reinterpret_cast<const unsigned char*>(s->get_data());
       debug_rnglists_size_ = s->get_size();
@@ -294,7 +300,7 @@ void ElfFile::free_section(const unsigned char *&s, bool f)
   s = nullptr;
 }
 
-ElfFile::~ElfFile() 
+ElfFile::~ElfFile()
 {
   free_section(debug_info_, free_info);
   free_section(debug_abbrev_, free_abbrev);
@@ -728,7 +734,10 @@ uint32_t ElfFile::read_x3(const unsigned char* &data, size_t& bytes_available)
     fprintf(stderr, "read_x3 tries to read behind available data at %lx\n", data - debug_info_);
     return 0;
   }
-  memcpy(&res, data, 3);
+  if ( reader.get_encoding() == ELFDATA2LSB )
+   res = data[0] | (data[1] << 8) | (data[2] << 16);
+  else
+   res = data[2] | (data[1] << 8) | (data[0] << 16);
   data += 3;
   bytes_available -= 3;
   return res;
