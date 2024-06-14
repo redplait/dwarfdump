@@ -145,9 +145,8 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   debug_loclists_(nullptr), debug_loclists_size_(0),
   debug_line_(nullptr), debug_line_size_(0),
   debug_line_str_(nullptr), debug_line_str_size_(0),
-  offsets_base(0), addr_base(0), loclist_base(0),
-  free_info(false), free_abbrev(false), free_strings(false), free_str_offsets(false), 
-  free_addr(false), free_loc(false), free_line(false), free_line_str(false), free_loclists(false)
+  debug_rnglists_(nullptr), debug_rnglists_size_(0),
+  debug_frame_(nullptr), debug_frame_size_(0)
 {
   // read elf file
   if ( !reader.load(filepath.c_str()) )
@@ -169,7 +168,9 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
    *zline_str = nullptr,
    *zstr_off = nullptr,
    *zaddr = nullptr,
-   *zloclists = nullptr;
+   *zloclists = nullptr,
+   *zrnglists = nullptr,
+   *zframe = nullptr;
   // Search the .debug_info and .debug_abbrev
   tree_builder->debug_str_ = nullptr;
   tree_builder->debug_str_size_ = 0;
@@ -208,6 +209,16 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       debug_addr_size_ = s->get_size();
       if ( check_compressed_section(s, debug_addr_, debug_addr_size_) )
         free_addr = true;
+    } else if (g_opt_f && !strcmp(name, ".debug_frame")) {
+      debug_frame_ = reinterpret_cast<const unsigned char*>(s->get_data());
+      debug_frame_size_ = s->get_size();
+      if ( check_compressed_section(s, debug_frame_, debug_frame_size_) )
+        free_frame = true;
+    } else if (g_opt_f && !strcmp(name, ".debug_rnglists")) {
+      debug_rnglists_ = reinterpret_cast<const unsigned char*>(s->get_data());
+      debug_rnglists_size_ = s->get_size();
+      if ( check_compressed_section(s, debug_rnglists_, debug_rnglists_size_) )
+        free_rnglists = true;
     } else if (!strcmp(name, ".debug_loc")) {
       debug_loc_ = reinterpret_cast<const unsigned char*>(s->get_data());
       debug_loc_size_ = s->get_size();
@@ -242,6 +253,10 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       zaddr = s;
     else if ( !strcmp(name, ".zdebug_loclists") )
       zloclists = s;
+    else if ( g_opt_f && !strcmp(name, ".zdebug_rnglists") )
+      zrnglists = s;
+    else if ( g_opt_f && !strcmp(name, ".zdebug_frame") )
+      zframe = s;
   }
   // check if we need to decompress some sections
 #define UNPACK_ZSECTION(zsec, zs_, zs_size, free_zs) \
@@ -264,6 +279,8 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   UNPACK_ZSECTION(zstr_off, debug_str_offsets_, debug_str_offsets_size_, free_str_offsets)
   UNPACK_ZSECTION(zaddr, debug_addr_, debug_addr_size_ , free_addr)
   UNPACK_ZSECTION(zloclists, debug_loclists_, debug_loclists_size_, free_loclists)
+  UNPACK_ZSECTION(zrnglists, debug_rnglists_, debug_rnglists_size_, free_rnglists)
+  UNPACK_ZSECTION(zframe, debug_frame_, debug_frame_size_, free_frame)
 
   tree_builder->m_rnames = get_regnames(reader.get_machine());
   tree_builder->m_snames = this;
@@ -289,6 +306,8 @@ ElfFile::~ElfFile()
   free_section(debug_str_offsets_, free_str_offsets);
   free_section(debug_addr_, free_addr);
   free_section(debug_loclists_, free_loclists);
+  free_section(debug_rnglists_, free_rnglists);
+  free_section(debug_frame_, free_frame);
 }
 
 bool ElfFile::read_debug_lines()
@@ -1981,6 +2000,19 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         return true;
       }
       return false;
+    case Dwarf32::Attribute::DW_AT_rnglists_base:
+     if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
+     {
+       rnglists_base = FormDataValue(form, info, info_bytes);
+        // check that it located somewhere inside .debug_rnglists section
+        if ( (size_t)rnglists_base > debug_rnglists_size_ )
+        {
+          fprintf(stderr, "bad DW_AT_rnglists_base %lx, size of .debug_rnglists %lx\n", rnglists_base, debug_rnglists_size_);
+          rnglists_base = 0;
+        }
+        return true;
+     }
+      break;
     case Dwarf32::Attribute::DW_AT_loclists_base:
      if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
      {
@@ -2433,7 +2465,7 @@ bool ElfFile::GetAllClasses()
       m_section = &it_section->second;
       const unsigned char* abbrev = m_section->ptr;
       size_t abbrev_bytes = debug_abbrev_size_ - (abbrev - debug_abbrev_);
-//      if ( m_tag_id >= 0x2e6c9a0 ) {
+//      if ( m_tag_id > 0x32B933 ) {
 //  printf("before RegisterNewTag(%X) m_regged %d\n", m_section->type, m_regged);
 //      }
       m_regged = RegisterNewTag(m_section->type);

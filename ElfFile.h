@@ -95,6 +95,12 @@ private:
   // for file names in dwarf5 we also need .debug_line_str
   const unsigned char *debug_line_str_;
   size_t debug_line_str_size_;
+  // section with addresses ranges - when opt_f
+  const unsigned char *debug_rnglists_;
+  size_t debug_rnglists_size_;
+  // section with frame info - when opt_f
+  const unsigned char *debug_frame_;
+  size_t debug_frame_size_;
 
   struct TagSection {
       unsigned int number;
@@ -158,9 +164,10 @@ private:
   const char *check_strp(uint32_t);
   uint32_t read_x3(const unsigned char* &data, size_t& bytes_available);
   // base offsets
-  int64_t offsets_base; // dwarf5 from DW_AT_str_offsets_base
-  int64_t addr_base;    // dwarf5 from DW_AT_addr_base
-  int64_t loclist_base; // dwarf5 from DW_AT_loclists_base
+  int64_t offsets_base = 0, // dwarf5 from DW_AT_str_offsets_base
+   addr_base = 0,     // dwarf5 from DW_AT_addr_base
+   loclist_base = 0,  // dwarf5 from DW_AT_loclists_base
+   rnglists_base = 0; // dwarf5 from DW_AT_rnglists_base
   // file and dir names from .debug_line
   DWARF2_Internal_LineInfo m_li;
   const unsigned char *m_curr_lines;
@@ -177,13 +184,16 @@ private:
   std::vector<saved_section> m_orig_sects;
   bool m_regged;
   // free sections flags
-  bool free_info;
-  bool free_abbrev;
-  bool free_strings;
-  bool free_str_offsets;
-  bool free_addr;
-  bool free_loc;
-  bool free_line;
-  bool free_line_str;
-  bool free_loclists;
+  bool free_info = false,
+   free_abbrev = false,
+   free_strings = false,
+   free_str_offsets = false,
+   free_addr = false,
+   free_loc = false,
+   free_line = false,
+   free_line_str = false,
+   free_loclists = false,
+   free_rnglists = false,
+   free_frame = false,
+   is_eh = false;
 };
