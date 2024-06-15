@@ -49,7 +49,7 @@ private:
   bool check_compressed_section(ELFIO::section *, const unsigned char * &data, size_t &);
   template <typename T>
   bool uncompressed_section(ELFIO::section *, const unsigned char * &data, size_t &);
-  static uint32_t ULEB128(const unsigned char* &data, size_t& bytes_available);
+  static uint64_t ULEB128(const unsigned char* &data, size_t& bytes_available);
   static int64_t SLEB128(const unsigned char* &data, size_t& bytes_available);
   void PassData(Dwarf32::Form form, const unsigned char* &data, size_t& bytes_available);
   uint64_t DecodeAddrLocation(Dwarf32::Form form, const unsigned char* info, size_t bytes_available, param_loc *, const unsigned char *);
@@ -71,6 +71,7 @@ private:
   unsigned const char *read_formatted_table(bool);
   const char *get_indexed_str(uint32_t);
   uint64_t get_indexed_addr(uint64_t, int size);
+  uint64_t fetch_indexed_addr(uint64_t, int size);
   uint64_t fetch_indexed_value(uint64_t, const unsigned char *, uint64_t s_size, uint64_t base);
 
   elfio reader;
@@ -204,4 +205,5 @@ private:
   };
   std::vector<rnglist_ctx> m_rnglists;
   bool parse_rnglists();
+  virtual bool get_rnglistx(int64_t off, std::list<std::pair<uint64_t, uint64_t> > &);
 };

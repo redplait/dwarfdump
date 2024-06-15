@@ -296,9 +296,10 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
 
 void ElfFile::free_section(const unsigned char *&s, bool f)
 {
-  if ( f && s != nullptr )
+  if ( f && s != nullptr ) {
     free((void *)s);
-  s = nullptr;
+    s = nullptr;
+  }
 }
 
 ElfFile::~ElfFile()
@@ -315,6 +316,137 @@ ElfFile::~ElfFile()
   free_section(debug_loclists_, free_loclists);
   free_section(debug_rnglists_, free_rnglists);
   free_section(debug_frame_, free_frame);
+}
+
+// static
+uint64_t ElfFile::ULEB128(const unsigned char* &data, size_t& bytes_available) {
+  uint64_t result = 0;
+
+  unsigned int shift = 0;
+  while (bytes_available > 0) {
+    unsigned char byte = *data;
+    data++;
+    bytes_available--;
+
+    if (byte < 0x80) {
+      result |= byte << shift;
+      return result;
+    } else {
+      byte &= 0x7f;
+      result |= byte << shift;
+    }
+
+    shift+=7;
+  }
+
+  return result;
+}
+
+int64_t ElfFile::SLEB128(const unsigned char* &data, size_t& bytes_available) {
+  uint64_t result = 0;
+  unsigned char byte = 0;
+  unsigned int shift = 0;
+  while (bytes_available > 0) {
+    byte = *data;
+    data++;
+    bytes_available--;
+    result |= (byte & 0x7f) << shift;
+    shift+=7;
+    if ( !(byte & 0x80) )
+      break;
+  }
+  if ( shift < 8 * sizeof(result) && (byte & 0x40) )
+    result |= -(((uint64_t) 1) << shift);
+  return (int64_t)result;
+}
+
+// ripped from dwarf.c function display_debug_ranges_list
+bool ElfFile::get_rnglistx(int64_t off, std::list<std::pair<uint64_t, uint64_t> > &res)
+{
+  if ( !debug_rnglists_ || !debug_rnglists_size_ ) return false;
+  if ( off < 0 || (size_t)off >= debug_rnglists_size_ ) return false;
+  // find rnglist_ctx for this off
+  rnglist_ctx *ctx = nullptr;
+  for ( auto &r: m_rnglists )
+    if ( off >= r.start && off < r.end ) {
+      ctx = &r;
+      break;
+    }
+  if ( !ctx ) return false;
+  unsigned int debug_addr_section_hdr_len = ctx->offset_size == 4 ? 8 : 16;
+  const unsigned char *next = debug_rnglists_ + off;
+  auto finish = debug_rnglists_ + ctx->end;
+  size_t ba = next - finish;
+  uint64_t base_address = 0;
+  while( next < finish )
+  {
+    auto tag = *next;
+    uint64_t begin = -1, length, end = -1;
+    next++; ba--;
+    switch(tag)
+    {
+      case Dwarf32::range_list_entry::DW_RLE_end_of_list:
+       return !res.empty();
+      case Dwarf32::range_list_entry::DW_RLE_base_addressx:
+        base_address = ULEB128(next, ba);
+        base_address = get_indexed_addr(base_address * ctx->addr_size + debug_addr_section_hdr_len, ctx->addr_size);
+       break;
+      case Dwarf32::range_list_entry::DW_RLE_startx_endx:
+        begin = ULEB128(next, ba);
+        end = ULEB128(next, ba);
+        begin = get_indexed_addr(begin * ctx->addr_size + debug_addr_section_hdr_len, ctx->addr_size);
+        end = get_indexed_addr(end * ctx->addr_size + debug_addr_section_hdr_len, ctx->addr_size);
+        res.push_back( { begin, end} );
+       break;
+      case Dwarf32::range_list_entry::DW_RLE_startx_length:
+        begin = ULEB128(next, ba);
+        begin = get_indexed_addr(begin * ctx->addr_size + debug_addr_section_hdr_len, ctx->addr_size);
+        length = ULEB128(next, ba);
+        res.push_back( { begin, begin + length} );
+       break;
+      case Dwarf32::range_list_entry::DW_RLE_offset_pair:
+        begin = ULEB128(next, ba);
+        end = ULEB128(next, ba);
+        res.push_back( { base_address + begin, base_address + end} );
+       break;
+      case Dwarf32::range_list_entry::DW_RLE_base_address:
+        if ( ctx->addr_size == 4 )
+          base_address = endc(*(uint32_t *)next);
+        else
+          base_address = endc(*(uint64_t *)next);
+        next += ctx->addr_size;
+        ba -= ctx->addr_size;
+       break;
+      case Dwarf32::range_list_entry::DW_RLE_start_end:
+       if ( ctx->addr_size == 4 )
+          begin = endc(*(uint32_t *)next);
+        else
+          begin = endc(*(uint64_t *)next);
+        next += ctx->addr_size;
+        ba -= ctx->addr_size;
+        if ( ba < ctx->addr_size ) return false;
+       if ( ctx->addr_size == 4 )
+          end = endc(*(uint32_t *)next);
+        else
+          end = endc(*(uint64_t *)next);
+        next += ctx->addr_size;
+        ba -= ctx->addr_size;
+        res.push_back( { begin, end} );
+       break;
+      case Dwarf32::range_list_entry::DW_RLE_start_length:
+       if ( ctx->addr_size == 4 )
+          begin = endc(*(uint32_t *)next);
+        else
+          begin = endc(*(uint64_t *)next);
+        next += ctx->addr_size;
+        ba -= ctx->addr_size;
+        length = ULEB128(next, ba);
+        res.push_back( { begin, begin + length} );
+        break;
+      default: return false;
+    }
+  }
+  return false;
 }
 
 // ripped from dwarf.c function display_debug_rnglists
@@ -730,48 +862,6 @@ const char *ElfFile::find_sname(uint64_t addr)
       return s->get_name().c_str();
   }
   return nullptr;
-}
-
-// static
-uint32_t ElfFile::ULEB128(const unsigned char* &data, size_t& bytes_available) {
-  uint64_t result = 0;
-
-  unsigned int shift = 0;
-  while (bytes_available > 0) {
-    unsigned char byte = *data;
-    data++;
-    bytes_available--;
-
-    if (byte < 0x80) {
-      result |= byte << shift;
-      return result;
-    } else {
-      byte &= 0x7f;
-      result |= byte << shift;
-    }
-
-    shift+=7;
-  }
-
-  return result;
-}
-
-int64_t ElfFile::SLEB128(const unsigned char* &data, size_t& bytes_available) {
-  uint64_t result = 0;
-  unsigned char byte = 0;
-  unsigned int shift = 0;
-  while (bytes_available > 0) {
-    byte = *data;
-    data++;
-    bytes_available--;
-    result |= (byte & 0x7f) << shift;
-    shift+=7;
-    if ( !(byte & 0x80) )
-      break;
-  }
-  if ( shift < 8 * sizeof(result) && (byte & 0x40) )
-    result |= -(((uint64_t) 1) << shift);
-  return (int64_t)result;
 }
 
 uint32_t ElfFile::read_x3(const unsigned char* &data, size_t& bytes_available)
