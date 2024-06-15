@@ -290,6 +290,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
 
   tree_builder->m_rnames = get_regnames(reader.get_machine());
   tree_builder->m_snames = this;
+  parse_rnglists();
   success = (debug_info_ && debug_abbrev_);
 }
 
@@ -314,6 +315,53 @@ ElfFile::~ElfFile()
   free_section(debug_loclists_, free_loclists);
   free_section(debug_rnglists_, free_rnglists);
   free_section(debug_frame_, free_frame);
+}
+
+// ripped from dwarf.c function display_debug_rnglists
+bool ElfFile::parse_rnglists()
+{
+  if ( !debug_rnglists_ || !debug_rnglists_size_ ) return false;
+  m_rnglists.clear();
+  const unsigned char *start = debug_rnglists_,
+   *finish = start + debug_rnglists_size_;
+  size_t ba = debug_rnglists_size_;
+  while(start < finish)
+  {
+    rnglist_ctx ctx;
+    uint64_t init_len = endc(*(const uint32_t *)(start));
+    start += 4;
+    ba -= 4;
+    ctx.offset_size = 4;
+    if ( 0xffffffff == init_len )
+    {
+      if ( ba < 8 ) return false;
+      init_len = endc(*(const uint64_t *)(start));
+      start += 8;
+      ba -= 8;
+      ctx.offset_size += 8;
+    }
+    if ( init_len > uint64_t(finish - start) ) return false;
+    ctx.end = start + init_len - debug_rnglists_;
+    // read version, addr_size, segment_size & count
+    ctx.version = endc(*(short *)start);
+    start += 2; ba -= 2;
+    ctx.addr_size = *start;
+    start++; ba--;
+    auto seg_size = *start;
+    start++; ba--;
+    if ( seg_size ) return false;
+    start += 4;
+    ba -= 4;
+    ctx.start = start - debug_rnglists_;
+#if DEBUG
+    printf("rng_ctx: start %lX end %lX addr_size %d offset_size %d\n", 
+      ctx.start, ctx.end, ctx.addr_size, ctx.offset_size);
+#endif
+    m_rnglists.push_back(ctx);
+    start = debug_rnglists_ + ctx.end;
+    ba = finish - start;
+  }
+  return !m_rnglists.empty();
 }
 
 bool ElfFile::read_debug_lines()

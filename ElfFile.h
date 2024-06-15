@@ -196,4 +196,12 @@ private:
    free_rnglists = false,
    free_frame = false,
    is_eh = false;
+  // data for rnglists
+  struct rnglist_ctx {
+    short version;
+    unsigned char addr_size, offset_size;
+    int64_t start, end;
+  };
+  std::vector<rnglist_ctx> m_rnglists;
+  bool parse_rnglists();
 };
