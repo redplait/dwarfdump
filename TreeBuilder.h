@@ -252,6 +252,7 @@ public:
   int add2stack();
   void pop_stack(uint64_t);
   void AddNone();
+  void set_range(uint64_t, unsigned char addr_size);
   void AddElement(ElementType element_type, uint64_t tag_id, int level);
   bool AddVariant();
   bool AddFormalParam(uint64_t tag_id, int level, bool);

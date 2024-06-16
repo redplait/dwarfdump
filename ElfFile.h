@@ -208,6 +208,7 @@ private:
   };
   std::vector<rnglist_ctx> m_rnglists;
   bool parse_rnglists();
+  void read_range(Dwarf32::Form form, const unsigned char* &info, size_t& bytes_available, uint64_t &value);
   bool get_rnglistx_(int64_t off, std::list<std::pair<uint64_t, uint64_t> > &);
   bool get_old_range(int64_t off, uint64_t base_addr, unsigned char addr_size, std::list<std::pair<uint64_t, uint64_t> > &);
   virtual bool get_rnglistx(int64_t off, uint64_t base_addr, unsigned char addr_size, std::list<std::pair<uint64_t, uint64_t> > &);

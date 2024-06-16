@@ -603,6 +603,21 @@ void TreeBuilder::ProcessUnit(int last)
   recent_ = nullptr;
 }
 
+void TreeBuilder::set_range(uint64_t off, unsigned char addr_size)
+{
+  if ( current_element_type_ != ElementType::subroutine )
+    return;
+  if ( elements_.empty() ) {
+    fprintf(stderr, "Can't set range when element list is empty\n");
+    return;
+  }
+  auto &f = elements_.back();
+  if ( has_rngx )
+    m_rng2[ f.id_ ] = off;
+  else
+    m_rng[ f.id_ ] = { off, cu.cu_base_addr, addr_size};
+}
+
 bool TreeBuilder::lookup_range(uint64_t tag, std::list<std::pair<uint64_t, uint64_t> > &res)
 {
   if ( has_rngx )

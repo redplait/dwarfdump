@@ -935,6 +935,45 @@ uint32_t ElfFile::read_x3(const unsigned char* &data, size_t& bytes_available)
   return res;
 }
 
+void ElfFile::read_range(Dwarf32::Form form, const unsigned char* &info, size_t& bytes_available, uint64_t &value)
+{
+  switch(form)
+  {
+    case Dwarf32::Form::DW_FORM_data4:
+      value = endc(*reinterpret_cast<const uint32_t*>(info));
+      info += 4;
+      bytes_available -= 4;
+     break;
+    case Dwarf32::Form::DW_FORM_data8:
+      value = endc(*reinterpret_cast<const uint64_t*>(info));
+      info += 8;
+      bytes_available -= 8;
+     break;
+    case Dwarf32::Form::DW_FORM_sec_offset:
+      value = endc(*reinterpret_cast<const uint32_t*>(info));
+      info += 4;
+      bytes_available -= 4;
+     break;
+    case Dwarf32::Form::DW_FORM_rnglistx:
+      value = ElfFile::ULEB128(info, bytes_available);
+      value = fetch_indexed_value(value, debug_rnglists_, debug_rnglists_size_, rnglists_base);
+      if ( (uint64_t)-1 == value ) {
+        return;
+      }
+      value += rnglists_base;
+      if ( value > debug_rnglists_size_ )
+      {
+        fprintf(stderr, "laddr %lx is not inside rnglists section size %lx\n", value, debug_rnglists_size_);
+        value = (uint64_t)-1;
+        return;
+      }
+     break;
+    default:
+     fprintf(stderr, "ERR(read_range): Unpexpected form type 0x%x at %lx\n", form,  info - debug_info_);
+     exit(1);
+  }
+}
+
 void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& bytes_available) 
 {
   uint32_t length = 0;
@@ -2437,7 +2476,14 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case Dwarf32::Attribute::DW_AT_ranges:
       if ( !m_regged || m_section->type != Dwarf32::Tag::DW_TAG_subprogram )
         return false;
-      printf("form %d\n", form);
+      else if ( debug_ranges_ || debug_rnglists_) {
+        printf("range form %d at %lX\n", form, info - debug_info_);
+        uint64_t off;
+        read_range(form, info, info_bytes, off);
+        if ( off != (u_int64_t)-1 )
+          tree_builder->set_range(off, address_size_);
+        return true;
+      }
       return false;
      break;
     // Size
