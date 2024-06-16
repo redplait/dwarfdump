@@ -146,6 +146,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   debug_line_(nullptr), debug_line_size_(0),
   debug_line_str_(nullptr), debug_line_str_size_(0),
   debug_rnglists_(nullptr), debug_rnglists_size_(0),
+  debug_ranges_(nullptr), debug_ranges_size_(0),
   debug_frame_(nullptr), debug_frame_size_(0)
 {
   // read elf file
@@ -170,6 +171,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
    *zaddr = nullptr,
    *zloclists = nullptr,
    *zrnglists = nullptr,
+   *zranges = nullptr,
    *zframe = nullptr;
   // Search the .debug_info and .debug_abbrev
   tree_builder->debug_str_ = nullptr;
@@ -220,6 +222,11 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       debug_frame_size_ = s->get_size();
       if ( check_compressed_section(s, debug_frame_, debug_frame_size_) )
         free_frame = true;
+    } else if (g_opt_f && !strcmp(name, ".debug_ranges")) {
+      debug_ranges_ = reinterpret_cast<const unsigned char*>(s->get_data());
+      debug_ranges_size_ = s->get_size();
+      if ( check_compressed_section(s, debug_ranges_, debug_ranges_size_) )
+        free_ranges = true;
     } else if (g_opt_f && !strcmp(name, ".debug_rnglists")) {
       debug_rnglists_ = reinterpret_cast<const unsigned char*>(s->get_data());
       debug_rnglists_size_ = s->get_size();
@@ -261,6 +268,8 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       zloclists = s;
     else if ( g_opt_f && !strcmp(name, ".zdebug_rnglists") )
       zrnglists = s;
+    else if ( g_opt_f && !strcmp(name, ".zdebug_ranges") )
+      zranges = s;
     else if ( g_opt_f && !strcmp(name, ".zdebug_frame") )
       zframe = s;
   }
@@ -286,6 +295,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   UNPACK_ZSECTION(zaddr, debug_addr_, debug_addr_size_ , free_addr)
   UNPACK_ZSECTION(zloclists, debug_loclists_, debug_loclists_size_, free_loclists)
   UNPACK_ZSECTION(zrnglists, debug_rnglists_, debug_rnglists_size_, free_rnglists)
+  UNPACK_ZSECTION(zranges, debug_ranges_, debug_ranges_size_, free_ranges)
   UNPACK_ZSECTION(zframe, debug_frame_, debug_frame_size_, free_frame)
 
   tree_builder->m_rnames = get_regnames(reader.get_machine());
@@ -315,6 +325,7 @@ ElfFile::~ElfFile()
   free_section(debug_addr_, free_addr);
   free_section(debug_loclists_, free_loclists);
   free_section(debug_rnglists_, free_rnglists);
+  free_section(debug_ranges_, free_ranges);
   free_section(debug_frame_, free_frame);
 }
 
@@ -389,18 +400,18 @@ bool ElfFile::get_rnglistx(int64_t off, std::list<std::pair<uint64_t, uint64_t> 
        return !res.empty();
       case Dwarf32::range_list_entry::DW_RLE_base_addressx:
         base_address = ULEB128(next, ba);
-        base_address = get_indexed_addr(base_address * ctx->addr_size + debug_addr_section_hdr_len, ctx->addr_size);
+        base_address = fetch_indexed_addr(base_address * ctx->addr_size + debug_addr_section_hdr_len, ctx->addr_size);
        break;
       case Dwarf32::range_list_entry::DW_RLE_startx_endx:
         begin = ULEB128(next, ba);
         end = ULEB128(next, ba);
-        begin = get_indexed_addr(begin * ctx->addr_size + debug_addr_section_hdr_len, ctx->addr_size);
-        end = get_indexed_addr(end * ctx->addr_size + debug_addr_section_hdr_len, ctx->addr_size);
+        begin = fetch_indexed_addr(begin * ctx->addr_size + debug_addr_section_hdr_len, ctx->addr_size);
+        end = fetch_indexed_addr(end * ctx->addr_size + debug_addr_section_hdr_len, ctx->addr_size);
         res.push_back( { begin, end} );
        break;
       case Dwarf32::range_list_entry::DW_RLE_startx_length:
         begin = ULEB128(next, ba);
-        begin = get_indexed_addr(begin * ctx->addr_size + debug_addr_section_hdr_len, ctx->addr_size);
+        begin = fetch_indexed_addr(begin * ctx->addr_size + debug_addr_section_hdr_len, ctx->addr_size);
         length = ULEB128(next, ba);
         res.push_back( { begin, begin + length} );
        break;
@@ -1752,6 +1763,30 @@ uint64_t ElfFile::get_indexed_addr(uint64_t pos, int size)
   return 0;
 }
 
+uint64_t ElfFile::fetch_indexed_addr(uint64_t pos, int size)
+{
+  if ( !debug_addr_size_  )
+    return 0;
+  if ( pos + size > debug_addr_size_ )
+    return 0;
+  switch(size)
+  {
+    case 1: { const uint8_t *b = (const uint8_t *)(debug_addr_  + pos);
+      return *b;
+    }
+    case 2: { const uint16_t *b = (const uint16_t *)(debug_addr_  + pos);
+      return endc(*b);
+    }
+    case 4: { const uint32_t *b = (const uint32_t *)(debug_addr_  + pos);
+      return endc(*b);
+    }
+    case 8: { const uint64_t *b = (const uint64_t *)(debug_addr_  + pos);
+      return endc(*b);
+    }
+  }
+  return 0;
+}
+
 const char* ElfFile::get_indexed_str(uint32_t str_pos)
 {
   if ( !debug_str_offsets_size_ || !offsets_base )
@@ -2355,6 +2390,13 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         return true;
       }
       return false;
+    // address can be DW_AT_ranges for functions
+    case Dwarf32::Attribute::DW_AT_ranges:
+      if ( !m_regged || m_section->type != Dwarf32::Tag::DW_TAG_subprogram )
+        return false;
+      printf("form %d\n", form);
+      return false;
+     break;
     // Size
     case Dwarf32::Attribute::DW_AT_bit_size: {
       uint64_t byte_size = FormDataValue(form, info, info_bytes);

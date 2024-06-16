@@ -99,6 +99,8 @@ private:
   // section with addresses ranges - when opt_f
   const unsigned char *debug_rnglists_;
   size_t debug_rnglists_size_;
+  const unsigned char *debug_ranges_;
+  size_t debug_ranges_size_;
   // section with frame info - when opt_f
   const unsigned char *debug_frame_;
   size_t debug_frame_size_;
@@ -195,6 +197,7 @@ private:
    free_line_str = false,
    free_loclists = false,
    free_rnglists = false,
+   free_ranges = false,
    free_frame = false,
    is_eh = false;
   // data for rnglists
