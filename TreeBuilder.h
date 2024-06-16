@@ -316,6 +316,7 @@ public:
   // in other case this name should be considered as direct string
   const unsigned char *debug_str_ = nullptr;
   size_t debug_str_size_ = 0;
+  bool has_rngx = false; // ranges in .debug_rnglists (so use m_rng2 for lookup) or in old .debug_ranges - then m_rng
   inline bool in_string_pool(const char *s)
   {
     return (s >= (const char *)debug_str_) && (s < (const char *)debug_str_ + debug_str_size_);
@@ -356,13 +357,13 @@ protected:
     uint64_t value;
   };
 
-  struct ConstValie {
+  struct ConstValue {
     uint64_t value; // if ptr is not null then this is length
     const unsigned char *ptr;
-    ConstValie(uint64_t v):
+    ConstValue(uint64_t v):
       value(v)
     { ptr = nullptr; }
-    ConstValie(uint64_t v, const unsigned char *data):
+    ConstValue(uint64_t v, const unsigned char *data):
       value(v), ptr(data)
     {}
   };
@@ -572,6 +573,19 @@ protected:
   std::map<uint64_t, dumped_type> m_replaced;
   // values for const_expr - cleared for each compilation unit if option -g not used
   std::map<Element *, uint64_t> m_lvalues;
+
+  // ranges. 2 maps need bcs there may be 2 sections:
+  // debug_rnglists - self-contained and parsed in parse_rnglists
+  // debug_ranges - need address_size (from CU) + base (also CU specific)
+  struct buggy_rng {
+    unsigned long off;
+    unsigned long base;
+    unsigned char addr_size;
+  };
+  // in both keys are tag_id
+  std::map<uint64_t, unsigned long> m_rng2;
+  std::map<uint64_t, buggy_rng> m_rng;
+  bool lookup_range(uint64_t, std::list<std::pair<uint64_t, uint64_t> > &);
 
   // already dumped types
   std::map<UniqName, std::pair<uint64_t, size_t> > m_dumped_db;

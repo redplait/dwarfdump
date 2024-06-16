@@ -300,6 +300,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
 
   tree_builder->m_rnames = get_regnames(reader.get_machine());
   tree_builder->m_snames = this;
+  tree_builder->has_rngx = (debug_rnglists_ != nullptr);
   parse_rnglists();
   success = (debug_info_ && debug_abbrev_);
 }
@@ -371,8 +372,50 @@ int64_t ElfFile::SLEB128(const unsigned char* &data, size_t& bytes_available) {
   return (int64_t)result;
 }
 
+bool ElfFile::get_rnglistx(int64_t off, uint64_t base_addr, unsigned char addr_size,
+ std::list<std::pair<uint64_t, uint64_t> > &res)
+{
+  if ( debug_rnglists_ ) return get_rnglistx_(off, res);
+  if ( debug_ranges_ ) return get_old_range(off, base_addr, addr_size, res);
+  return false;
+}
+
 // ripped from dwarf.c function display_debug_ranges_list
-bool ElfFile::get_rnglistx(int64_t off, std::list<std::pair<uint64_t, uint64_t> > &res)
+bool ElfFile::get_old_range(int64_t off, uint64_t base, unsigned char addr_size,
+ std::list<std::pair<uint64_t, uint64_t> > &res)
+{
+  if ( !debug_ranges_ || !debug_ranges_size_ ) return false;
+  if ( off < 0 || (size_t)off >= debug_ranges_size_ ) return false;
+  auto start = debug_ranges_ + off;
+  auto finish = debug_ranges_ + debug_ranges_size_;
+  size_t ba = finish - start;
+  while ( start < finish )
+  {
+    uint64_t b,e;
+    if ( ba < addr_size * 2 ) return false;
+    if ( addr_size == 4 )
+    {
+      b = endc( *(uint32_t *)start );
+      start += addr_size;
+      e = endc( *(uint32_t *)start );
+      start += addr_size;
+    } else if ( addr_size == 8 )
+    {
+      b = endc( *(uint64_t *)start );
+      start += addr_size;
+      e = endc( *(uint64_t *)start );
+      start += addr_size;
+    } else return false;
+    ba -= 2 * addr_size;
+    if ( b == e ) continue; // wtf?
+    if ( !b && !e ) break;
+    res.push_back( { b + base, e + base} );
+  }
+  return !res.empty();
+}
+
+// ripped from dwarf.c function display_debug_ranglists_list
+bool ElfFile::get_rnglistx_(int64_t off, std::list<std::pair<uint64_t, uint64_t> > &res)
 {
   if ( !debug_rnglists_ || !debug_rnglists_size_ ) return false;
   if ( off < 0 || (size_t)off >= debug_rnglists_size_ ) return false;
@@ -387,7 +430,7 @@ bool ElfFile::get_rnglistx(int64_t off, std::list<std::pair<uint64_t, uint64_t> 
   unsigned int debug_addr_section_hdr_len = ctx->offset_size == 4 ? 8 : 16;
   const unsigned char *next = debug_rnglists_ + off;
   auto finish = debug_rnglists_ + ctx->end;
-  size_t ba = next - finish;
+  size_t ba = finish - next;
   uint64_t base_address = 0;
   while( next < finish )
   {

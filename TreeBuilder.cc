@@ -454,7 +454,7 @@ int TreeBuilder::check_dumped_type(const char *name)
     m_replaced[elements_.back().id_] = dt;
   }
   // remove current function
-  // Warning! in m_stack we now have dangling ptr to remoced top from elements_
+  // Warning! in m_stack we now have dangling ptr to removed top from elements_
   // to indicate this set sub_filtered
   elements_.pop_back();
   AddNone();
@@ -589,6 +589,7 @@ void TreeBuilder::ProcessUnit(int last)
     merge_dumped();
     m_go_attrs.clear();
     m_lvalues.clear();
+    m_rng.clear(); m_rng2.clear();
   }
   if ( is_go() && !g_opt_g )
     collect_go_types();
@@ -600,6 +601,20 @@ void TreeBuilder::ProcessUnit(int last)
   cu.need_base_addr_idx = false;
   ns_count = 0;
   recent_ = nullptr;
+}
+
+bool TreeBuilder::lookup_range(uint64_t tag, std::list<std::pair<uint64_t, uint64_t> > &res)
+{
+  if ( has_rngx )
+  {
+    auto r2 = m_rng2.find(tag);
+    if ( r2 == m_rng2.end() ) return false;
+    return m_locX->get_rnglistx(r2->second, 0, 0, res);
+  } else {
+    auto r = m_rng.find(tag);
+    if ( r == m_rng.end() ) return false;
+    return m_locX->get_rnglistx(r->second.off, r->second.base, r->second.addr_size, res);
+  }
 }
 
 void TreeBuilder::AddNone() {

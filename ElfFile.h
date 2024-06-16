@@ -208,5 +208,7 @@ private:
   };
   std::vector<rnglist_ctx> m_rnglists;
   bool parse_rnglists();
-  virtual bool get_rnglistx(int64_t off, std::list<std::pair<uint64_t, uint64_t> > &);
+  bool get_rnglistx_(int64_t off, std::list<std::pair<uint64_t, uint64_t> > &);
+  bool get_old_range(int64_t off, uint64_t base_addr, unsigned char addr_size, std::list<std::pair<uint64_t, uint64_t> > &);
+  virtual bool get_rnglistx(int64_t off, uint64_t base_addr, unsigned char addr_size, std::list<std::pair<uint64_t, uint64_t> > &);
 };
