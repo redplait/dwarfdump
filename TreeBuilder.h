@@ -416,6 +416,7 @@ protected:
       noret_ = e.noret_;
       decl_ = e.decl_;
       const_expr_ = e.const_expr_;
+      has_range_ = e.has_range_;
       dumped_ = e.dumped_;
     }
     Element(Element &&e)
@@ -471,6 +472,7 @@ protected:
     bool noret_ = false,
      decl_ = false,
      const_expr_ = false,
+     has_range_ = false,
      dumped_ = false;
 
     inline bool is_abs() const

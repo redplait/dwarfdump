@@ -477,7 +477,7 @@ void PlainRender::dump_spec(Element *en)
     if ( s_name == nullptr )
       fprintf(g_outf, "//  Addr %lX type_id %lX", e->addr_, e->id_);
     else
-      fprintf(g_outf, "//  Addr %lX %s type_id %lX", e->addr_, s_name, e->id_);  
+      fprintf(g_outf, "//  Addr %lX %s type_id %lX", e->addr_, s_name, e->id_);
     if ( e->link_name_ )
       fprintf(g_outf, " %s", e->link_name_);
     fprintf(g_outf, "\n");
@@ -639,7 +639,7 @@ void PlainRender::dump_lvars(Element *e)
         fprintf(g_outf, "// LocalVars:\n");
         latch |= 1;
       }
-      fprintf(g_outf, "//  LVar%d\n", idx);
+      fprintf(g_outf, "//  LVar%d, tag %lX\n", idx, lv->id_);
       ++idx;
       dump_one_var(lv, 1);
       if ( lv->locx_ )
@@ -1018,6 +1018,15 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
         fprintf(g_outf, "// Addr 0x%lX\n", e.addr_);
       else
         fprintf(g_outf, "// Addr 0x%lX %s\n", e.addr_, s_name);
+    } else if ( e.type_ == ElementType::subroutine && e.has_range_ )
+    {
+      std::list<std::pair<uint64_t, uint64_t> > ranges;
+      if ( lookup_range(e.id_, ranges) )
+      {
+        fprintf(g_outf, "// Ranges: %ld\n", ranges.size());
+        for ( auto &r: ranges )
+          fprintf(g_outf, "//  %lX - %lX\n", r.first, r.second);
+      }
     }
     if ( e.size_ )
       fprintf(g_outf, "// Size 0x%lX\n", e.size_);

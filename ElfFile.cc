@@ -407,8 +407,8 @@ bool ElfFile::get_old_range(int64_t off, uint64_t base, unsigned char addr_size,
       start += addr_size;
     } else return false;
     ba -= 2 * addr_size;
-    if ( b == e ) continue; // wtf?
     if ( !b && !e ) break;
+    if ( b == e ) continue; // wtf?
     res.push_back( { b + base, e + base} );
   }
   return !res.empty();
@@ -2477,7 +2477,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       if ( !m_regged || m_section->type != Dwarf32::Tag::DW_TAG_subprogram )
         return false;
       else if ( debug_ranges_ || debug_rnglists_) {
-        printf("range form %d at %lX\n", form, info - debug_info_);
+        if ( g_opt_d ) printf("range form %d at %lX\n", form, info - debug_info_);
         uint64_t off;
         read_range(form, info, info_bytes, off);
         if ( off != (u_int64_t)-1 )

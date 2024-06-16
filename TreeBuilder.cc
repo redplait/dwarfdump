@@ -612,6 +612,7 @@ void TreeBuilder::set_range(uint64_t off, unsigned char addr_size)
     return;
   }
   auto &f = elements_.back();
+  f.has_range_ = true;
   if ( has_rngx )
     m_rng2[ f.id_ ] = off;
   else
