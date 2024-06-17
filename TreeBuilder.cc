@@ -858,9 +858,13 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         auto owner = get_top_func();
         if ( !owner )
         {
-           //  fprintf(stderr, "Can't add a local var tag %lX when there is no top function\n", tag_id);
-          current_element_type_ = ElementType::var_type;
-          return;
+          owner = m_stack.top();
+          if ( !owner || owner->type_ != ElementType::structure_type )
+          {
+            fprintf(stderr, "Can't add a local var tag %lX when there is no top function\n", tag_id);
+            current_element_type_ = ElementType::var_type;
+            return;
+          }
         }
         elements_.push_back(Element(element_type, tag_id, level, owner));
         last_var_ = &elements_.back();
@@ -1297,7 +1301,7 @@ void TreeBuilder::SetConstExpr()
     return;
   if ( !last_var_ )
   {
-    fprintf(stderr, "Can't set an const_expr attribute whene there is no last_var\n");
+    fprintf(stderr, "Can't set an const_expr attribute when there is no last_var\n");
     return;
   }
   last_var_->const_expr_ = true;
