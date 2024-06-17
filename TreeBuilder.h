@@ -566,6 +566,7 @@ protected:
   Element *get_owner();
   Element *get_top_func() const;
   int should_keep(Element *);
+  int exclude_types(ElementType et, Element &);
   // per compilation unit data
   bool m_hdr_dumped = false,
    sub_filtered = false;

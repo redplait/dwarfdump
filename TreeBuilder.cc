@@ -23,12 +23,14 @@ void TreeBuilder::collect_go_types()
 } 
 
 // return 0 if element should be excluded from dump db/checking
-static inline int exclude_types(TreeBuilder::ElementType et)
+int TreeBuilder::exclude_types(ElementType et, Element &e)
 {
-  if ( et == TreeBuilder::ElementType::var_type ||
-       et == TreeBuilder::ElementType::formal_param ||
+  if ( et == TreeBuilder::ElementType::formal_param ||
        et == TreeBuilder::ElementType::enumerator ||
        et == TreeBuilder::ElementType::member )
+    return 0;
+  // skip local vars
+  if ( et == TreeBuilder::ElementType::var_type && nullptr != e.owner_ )
     return 0;
   return 1;
 }
@@ -47,7 +49,7 @@ int TreeBuilder::merge_dumped()
     if ( e.type_ == ns_start || e.type_ == ns_end || e.type_ == lexical_block )
       continue;
     // no enum/vars/formal params
-    if ( !exclude_types(e.type_) ) continue;
+    if ( !exclude_types(e.type_, e) ) continue;
     // skip pure forward declarations
     if ( e.is_pure_decl() )
       continue;
@@ -416,7 +418,7 @@ int TreeBuilder::check_dumped_type(const char *name)
 {
   if ( !name )
     return 0;
-  if ( !exclude_types(current_element_type_) ) return 0;
+  if ( !exclude_types(current_element_type_, elements_.back()) ) return 0;
   uint64_t rep_id;
   if ( in_string_pool(name) )
   {
@@ -621,6 +623,7 @@ void TreeBuilder::set_range(uint64_t off, unsigned char addr_size)
 
 bool TreeBuilder::lookup_range(uint64_t tag, std::list<std::pair<uint64_t, uint64_t> > &res)
 {
+  if ( !m_locX ) return false;
   if ( has_rngx )
   {
     auto r2 = m_rng2.find(tag);
