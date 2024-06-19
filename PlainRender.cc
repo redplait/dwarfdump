@@ -636,7 +636,10 @@ void PlainRender::dump_lvars(Element *e)
         continue; // this var will be dumped in dump_vars
       if ( !latch )
       {
-        fprintf(g_outf, "// LocalVars:\n");
+        if ( e->type_ == ElementType::structure_type )
+          fprintf(g_outf, "// StaticVars:\n");
+        else
+          fprintf(g_outf, "// LocalVars:\n");
         latch |= 1;
       }
       fprintf(g_outf, "//  LVar%d, tag %lX\n", idx, lv->id_);
@@ -1018,6 +1021,12 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
         fprintf(g_outf, "// Addr 0x%lX\n", e.addr_);
       else
         fprintf(g_outf, "// Addr 0x%lX %s\n", e.addr_, s_name);
+      if ( e.type_ == ElementType::subroutine && m_locX )
+      {
+        uint64_t fsize = 0;
+        if ( m_locX->find_dfa(e.addr_, fsize) )
+          printf("// Frame Size %lX\n", fsize);
+      }
     } else if ( e.type_ == ElementType::subroutine && e.has_range_ )
     {
       std::list<std::pair<uint64_t, uint64_t> > ranges;
@@ -1025,7 +1034,24 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
       {
         fprintf(g_outf, "// Ranges: %ld\n", ranges.size());
         for ( auto &r: ranges )
-          fprintf(g_outf, "//  %lX - %lX\n", r.first, r.second);
+        {
+          const char *s_name = nullptr;
+          if ( g_opt_s && m_snames != nullptr )
+            s_name = m_snames->find_sname(e.addr_);
+          if ( s_name )
+            fprintf(g_outf, "//  %lX - %lX %s\n", r.first, r.second, s_name);
+          else
+            fprintf(g_outf, "//  %lX - %lX\n", r.first, r.second);
+        }
+        // try get frame size for any range
+        for ( auto &r: ranges )
+        {
+          uint64_t fsize = 0;
+          if ( m_locX->find_dfa(r.first, fsize) ) {
+            printf("// Frame Size %lX\n", fsize);
+            break;
+          }
+        }
       }
     }
     if ( e.size_ )
