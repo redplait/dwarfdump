@@ -156,6 +156,10 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
     success = false;
     return;
   }
+  if ( reader.get_class() == ELFCLASS32 )
+    eh_addr_size = 4;
+  else
+    eh_addr_size = 8;
   endc.setup(reader.get_encoding());
   success = true;
 
@@ -302,6 +306,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   tree_builder->m_snames = this;
   tree_builder->has_rngx = (debug_rnglists_ != nullptr);
   parse_rnglists();
+  if ( g_opt_f ) parse_frames();
   success = (debug_info_ && debug_abbrev_);
 }
 
@@ -372,6 +377,371 @@ int64_t ElfFile::SLEB128(const unsigned char* &data, size_t& bytes_available) {
   return (int64_t)result;
 }
 
+// CFA processing
+bool ElfFile::find_dfa(uint64_t pc, uint64_t &res)
+{
+  auto fi = m_dfa.find(pc);
+  if ( fi == m_dfa.end() ) return false;
+  res = fi->second;
+  return true;
+}
+
+#define DW_CIE_ID         0xffffffff
+#define DW64_CIE_ID       0xffffffffffffffffULL
+#define DW_EH_PE_absptr		0x00
+#define DW_EH_PE_omit		0xff
+#define DW_EH_PE_uleb128	0x01
+#define DW_EH_PE_udata2		0x02
+#define DW_EH_PE_udata4		0x03
+#define DW_EH_PE_udata8		0x04
+#define DW_EH_PE_sleb128	0x09
+#define DW_EH_PE_sdata2		0x0A
+#define DW_EH_PE_sdata4		0x0B
+#define DW_EH_PE_sdata8		0x0C
+#define DW_EH_PE_signed		0x08
+#define DW_EH_PE_pcrel		0x10
+#define DW_EH_PE_textrel	0x20
+#define DW_EH_PE_datarel	0x30
+#define DW_EH_PE_funcrel	0x40
+#define DW_EH_PE_aligned	0x50
+#define DW_EH_PE_indirect	0x80
+
+struct one_cie {
+ unsigned char version, ptr_size, segment_size, fde_encoding = 0;
+ const unsigned char *aug_data;
+ unsigned int code_factor, ra;
+ int data_factor;
+ const unsigned char *augmentation;
+ uint64_t aug_data_len;
+};
+
+uint64_t ElfFile::byte_get(const unsigned char *start, unsigned int size)
+{
+  switch (size) {
+    case 1: return *start;
+    case 2: return endc( *(uint16_t *)start );
+    case 3: if ( reader.get_encoding() == ELFDATA2LSB )
+      return start[0] | start[1] << 8 | start[2] << 16;
+     else
+      return start[1] | start[1] << 8 | start[0] << 16;
+    case 4: return endc( *(uint32_t *)start );
+    case 8: return endc( *(uint64_t *)start );
+    default:
+     fprintf(stderr, "byte_get: unknown size %d\n", size);
+     return 0;
+  }
+}
+
+uint64_t ElfFile::byte_get_signed(const unsigned char *start, unsigned int size)
+{
+  auto x = byte_get(start, size);
+  switch (size) {
+    case 1:
+      return (x ^ 0x80) - 0x80;
+    case 2:
+      return (x ^ 0x8000) - 0x8000;
+    case 3:
+      return (x ^ 0x800000) - 0x800000;
+    case 4:
+      return (x ^ 0x80000000) - 0x80000000;
+  }
+  return 0;
+}
+
+// ripped from read_cie
+const unsigned char *ElfFile::read_cie(const unsigned char *start, const unsigned char *end, one_cie &res)
+{
+  if ( start >= end ) return end;
+  res.version = *start++;
+  res.augmentation = start;
+  // skip augmentation
+  while( start < end)
+  {
+    if ( !*start ) break;
+    start++;
+  }
+  if ( !strcmp((const char*)res.augmentation, "eh") ) start += eh_addr_size;
+  if ( res.version >= 4 )
+  {
+    res.ptr_size = *start;
+    start++;
+    res.segment_size = *start;
+    start++;
+    eh_addr_size = res.ptr_size;
+  } else {
+    res.ptr_size = eh_addr_size;
+    res.segment_size = 0;
+  }
+  if ( start > end ) return end;
+  size_t ba = end - start;
+  res.code_factor = ULEB128(start, ba);
+  res.data_factor = SLEB128(start, ba);
+  if ( 1 == res.version ) {
+    res.ra = *start;
+    start++;
+  } else {
+    res.ra = ULEB128(start, ba);
+  }
+  if ( res.augmentation[0] == 'z' ) {
+    if ( start >= end ) return end;
+    ba = end - start;
+    res.aug_data_len = ULEB128(start, ba);
+    res.aug_data = start;
+    start += res.aug_data_len;
+  } else {
+    res.aug_data = nullptr;
+    res.aug_data_len = 0;
+  }
+  if ( res.aug_data_len ) {
+    const unsigned char *p = res.augmentation + 1;
+    const unsigned char *q = res.aug_data,
+     *qend = q + res.aug_data_len;
+    while( p < end && q < qend ) {
+      if ( *p == 'L' )
+       q++;
+      else if ( *p == 'P' )
+       q += 1 + size_of_encoded_value(*q);
+      else if ( *p == 'R' )
+       res.fde_encoding = *q++;
+      else if ( *p != 'S' && *p != 'B' )
+       break;
+      p++;
+    }
+  }
+  return start;
+}
+
+unsigned int ElfFile::size_of_encoded_value(int encoding)
+{
+  switch(encoding & 7) {
+    default:
+    case 0: return eh_addr_size;
+    case 2: return 2;
+    case 3: return 4;
+    case 4: return 8;
+  }
+}
+
+uint64_t ElfFile::get_encoded_value(const unsigned char **pdata, int encoding, const unsigned char *end)
+{
+  const unsigned char *data = *pdata;
+  unsigned int size = size_of_encoded_value (encoding);
+  uint64_t val;
+  if (data >= end || size > (size_t) (end - data))
+  {
+    *pdata = end;
+    return 0;
+  }
+  if (size > 8 || !size )
+  {
+    *pdata = end;
+    return 0;
+  }
+  if (encoding & DW_EH_PE_signed)
+    val = byte_get_signed (data, size);
+  else
+    val = byte_get (data, size);
+  *pdata = data + size;
+  return val;
+}
+
+// ripped from dwarf.c function display_debug_frames
+bool ElfFile::parse_frames()
+{
+  if ( !debug_frame_ || !debug_frame_size_ ) return false;
+  const unsigned char *start = debug_frame_, 
+   *end = start + debug_frame_size_;
+  one_cie cie;
+  unsigned int save_eh_addr_size = eh_addr_size;
+  while( start < end )
+  {
+    const unsigned char *saved_start = start;
+    uint64_t length, cie_id;
+    unsigned int offset_size = 4,  
+      encoded_ptr_size = save_eh_addr_size;
+    length = endc( *(const uint32_t *)start );
+    start += 4;
+    if ( !length ) {
+      while( start < end && !*start ) start++;
+      continue;
+    }
+    if ( length == 0xffffffff )
+    {
+      if ( end - start < 8 ) return false;
+      length = endc(*(const uint64_t *)(start));
+      start += 8;
+      offset_size = 8;
+    }
+    if ( length > (uint64_t)(end - start) ) return false;
+    auto block_end = start + length;
+    // read cie_id
+    if ( offset_size == 4 )
+      cie_id = endc( *(const uint32_t *)start );
+    else
+      cie_id = endc( *(const uint64_t *)start );
+    start += offset_size;
+    if ( is_eh ? !cie_id :
+     (offset_size == 4 && cie_id == DW_CIE_ID) || (offset_size == 8 && cie_id == DW64_CIE_ID)
+    )
+    {
+      start = read_cie(start, end, cie);
+      if ( start == end ) break;
+      if ( g_opt_d ) {
+        printf("CIE:\n version %d\n", cie.version);
+        printf(" Augmentation: %s\n", cie.augmentation);
+        if ( cie.version > 4 ) {
+          printf(" pointer_size: %u\n", cie.ptr_size);
+          printf(" segment size: %u\n", cie.segment_size);
+        }
+      }
+    } else {
+      uint64_t cie_off = cie_id;
+      if ( is_eh ) {
+        uint64_t sign = (uint64_t) 1 << (offset_size * 8 - 1);
+        cie_off = (cie_off ^ sign) - sign;
+        cie_off = start - 4 - debug_frame_ - cie_off;
+      }
+      // skip for now looking in chunks
+      unsigned int off_size = 4;
+      const unsigned char *cie_scan = debug_frame_ + cie_off;
+      length = endc( *(const uint32_t *)cie_scan );
+      cie_scan += 4;
+      if ( length == 0xffffffff )
+      {
+        if ( end - cie_scan < 8 ) return false;
+        length = endc(*(const uint64_t *)(cie_scan));
+        cie_scan += 8;
+        off_size = 8;
+      }
+      if ( !length ) return false;
+      const unsigned char *cie_end = cie_scan + length;
+      // read c_id
+      uint64_t c_id;
+      if ( off_size == 4 )
+        c_id = endc( *(const uint32_t *)cie_scan );
+      else
+        c_id = endc( *(const uint64_t *)cie_scan );
+      cie_scan += off_size;
+      if ( is_eh ? c_id == 0
+           : ((off_size == 4 && c_id == DW_CIE_ID) || (off_size == 8 && c_id == DW64_CIE_ID))
+         )
+        read_cie(cie_scan, cie_end, cie);
+    }
+    eh_addr_size = cie.ptr_size;
+    if ( cie.fde_encoding )
+     encoded_ptr_size = size_of_encoded_value( cie.fde_encoding );
+    // skip segment
+    if ( cie.segment_size )
+      start += cie.segment_size;
+    // pc_begin
+    auto pc_begin = get_encoded_value(&start, cie.fde_encoding, block_end);
+    auto pc_range = byte_get(start, encoded_ptr_size);
+    start += encoded_ptr_size;
+    if (cie.augmentation[0] == 'z')
+    {
+      size_t ba = block_end - start;
+      auto skip = ULEB128(start, ba);
+      start += skip;
+    }
+    if ( g_opt_d ) {
+      printf("Off %lx ptr_size %d cie_id %lX pc=%lX len %lX\n", saved_start - debug_frame_,
+       cie.ptr_size, cie_id, pc_begin, pc_range);
+    }
+    uint64_t res = 0;
+    if ( parse_dfa(start, block_end, encoded_ptr_size, res) )
+    {
+      m_dfa[pc_begin] = res;
+      if ( g_opt_d )
+        printf(" pc %lX frame %lx\n", pc_begin, res);
+    }
+    start = block_end;
+    eh_addr_size = save_eh_addr_size;
+  }
+  return true;
+}
+
+// parse DFA to find first DW_CFA_def_cfa_offset
+bool ElfFile::parse_dfa(const unsigned char *start, const unsigned char *block_end, unsigned char ptr_size, uint64_t &res)
+{
+  uint64_t uval;
+  size_t ba = block_end - start;
+  while( start < block_end )
+  {
+    auto op = *start;
+    start++;
+    ba--;
+    switch( op & 0xc0 ? op & 0xc0 : op )
+    {
+      case Dwarf32::dwarf_cfa::DW_CFA_restore:
+      case Dwarf32::dwarf_cfa::DW_CFA_advance_loc:
+       break;
+      case Dwarf32::dwarf_cfa::DW_CFA_set_loc:
+        if ( ba < ptr_size ) return false;
+        ba -= ptr_size;
+        start += ptr_size;
+       break;
+      case Dwarf32::dwarf_cfa::DW_CFA_advance_loc1:
+        if ( ba < 1 ) return false;
+        ba -= 1;
+        start++;
+       break;
+      case Dwarf32::dwarf_cfa::DW_CFA_advance_loc2:
+        if ( ba < 2 ) return false;
+        ba -= 2;
+        start += 2;
+       break;
+      case Dwarf32::dwarf_cfa::DW_CFA_advance_loc4:
+        if ( ba < 4 ) return false;
+        ba -= 4;
+        start += 4;
+       break;
+      case Dwarf32::dwarf_cfa::DW_CFA_offset_extended_sf:
+      case Dwarf32::dwarf_cfa::DW_CFA_val_offset_sf:
+      case Dwarf32::dwarf_cfa::DW_CFA_def_cfa: 
+      case Dwarf32::dwarf_cfa::DW_CFA_def_cfa_sf:
+      case Dwarf32::dwarf_cfa::DW_CFA_register:
+      case Dwarf32::dwarf_cfa::DW_CFA_offset_extended:
+      case Dwarf32::dwarf_cfa::DW_CFA_GNU_negative_offset_extended:
+      case Dwarf32::dwarf_cfa::DW_CFA_val_offset:
+        ULEB128(start, ba);
+        ULEB128(start, ba);
+       break;
+      case Dwarf32::dwarf_cfa::DW_CFA_offset:
+      case Dwarf32::dwarf_cfa::DW_CFA_GNU_args_size:
+      case Dwarf32::dwarf_cfa::DW_CFA_def_cfa_offset_sf:
+      case Dwarf32::dwarf_cfa::DW_CFA_def_cfa_register:
+      case Dwarf32::dwarf_cfa::DW_CFA_restore_extended:
+      case Dwarf32::dwarf_cfa::DW_CFA_undefined:
+      case Dwarf32::dwarf_cfa::DW_CFA_same_value:
+        ULEB128(start, ba);
+       break;
+      case Dwarf32::dwarf_cfa::DW_CFA_def_cfa_offset:
+        res = ULEB128(start, ba);
+        return true;
+      case Dwarf32::dwarf_cfa::DW_CFA_def_cfa_expression:
+        uval = ULEB128(start, ba);
+        if ( ba < uval ) return false;
+        ba -= uval;
+        start += uval;
+       break;
+      case Dwarf32::dwarf_cfa::DW_CFA_expression:
+      case Dwarf32::dwarf_cfa::DW_CFA_val_expression:
+        ULEB128(start, ba);
+        uval = ULEB128(start, ba);
+        if ( ba < uval ) return false;
+        ba -= uval;
+        start += uval;
+       break;
+      case Dwarf32::dwarf_cfa::DW_CFA_MIPS_advance_loc8:
+        if ( ba < 8 ) return false;
+        start += 8; ba -= 8;
+       break;
+    }
+  }
+  return false;
+}
+
+// ranges processing
 bool ElfFile::get_rnglistx(int64_t off, uint64_t base_addr, unsigned char addr_size,
  std::list<std::pair<uint64_t, uint64_t> > &res)
 {
@@ -2743,8 +3113,8 @@ bool ElfFile::GetAllClasses()
       m_section = &it_section->second;
       const unsigned char* abbrev = m_section->ptr;
       size_t abbrev_bytes = debug_abbrev_size_ - (abbrev - debug_abbrev_);
-//      if ( m_tag_id > 0x32B933 ) {
-//  printf("before RegisterNewTag(%X) m_regged %d\n", m_section->type, m_regged);
+//      if ( m_tag_id >= 0x353d0a ) {
+//  printf("before RegisterNewTag(%X) m_regged %d taf %lX\n", m_section->type, m_regged, m_tag_id);
 //      }
       m_regged = RegisterNewTag(m_section->type);
       m_next = 0;

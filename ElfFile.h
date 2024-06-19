@@ -8,6 +8,7 @@
 
 using namespace ELFIO;
 
+struct one_cie;
 struct saved_section
 {
   std::string name;
@@ -212,4 +213,15 @@ private:
   bool get_rnglistx_(int64_t off, std::list<std::pair<uint64_t, uint64_t> > &);
   bool get_old_range(int64_t off, uint64_t base_addr, unsigned char addr_size, std::list<std::pair<uint64_t, uint64_t> > &);
   virtual bool get_rnglistx(int64_t off, uint64_t base_addr, unsigned char addr_size, std::list<std::pair<uint64_t, uint64_t> > &);
+  // data for CFA
+  std::map<uint64_t, uint64_t> m_dfa; // key - address, value - DFA_def_cfa_offset
+  int eh_addr_size;
+  unsigned int size_of_encoded_value(int);
+  uint64_t byte_get(const unsigned char *, unsigned int size);
+  uint64_t byte_get_signed(const unsigned char *, unsigned int size);
+  uint64_t get_encoded_value(const unsigned char **pdata, int encoding, const unsigned char *end);
+  virtual bool find_dfa(uint64_t pc, uint64_t &res);
+  bool parse_frames();
+  const unsigned char *read_cie(const unsigned char *, const unsigned char *, one_cie &);
+  bool parse_dfa(const unsigned char *, const unsigned char *, unsigned char ptr_size, uint64_t &);
 };
