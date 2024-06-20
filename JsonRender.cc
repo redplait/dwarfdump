@@ -221,6 +221,8 @@ std::string JsonRender::GenerateJson(Element &e) {
         }
         result += "},";
       }
+      if (result.back() == ',')
+        result.pop_back();
       result += "],";
       // try get frame size for any range
       if ( m_locX) for ( auto &r: ranges ) {
