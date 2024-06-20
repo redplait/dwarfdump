@@ -16,7 +16,8 @@ int g_opt_d = 0,
     g_opt_L = 0,
     g_opt_V = 0,
     g_opt_v = 0,
-    g_opt_x = 0;
+    g_opt_x = 0,
+    g_opt_z = 0;
 FILE *g_outf = NULL;
 
 void dump2file(std::string &name, const void *data, size_t size)
@@ -65,7 +66,7 @@ bool ElfFile::uncompressed_section(ELFIO::section *s, const unsigned char * &dat
     fprintf(stderr, "cannot alooc unompressed size %lX, section size %lX\n", size, s->get_size() - sizeof(T));
     return false;
   }
-  if ( g_opt_d )
+  if ( g_opt_z )
     dump2file(s, ".comp", sdata, s->get_size());
   memset(buf, 0, size);
   int err = uncompress(buf, &size, (Bytef *)(sdata + sizeof(T)), s->get_size() - sizeof(T));
@@ -76,7 +77,7 @@ bool ElfFile::uncompressed_section(ELFIO::section *s, const unsigned char * &dat
     return false;
   }
   data = buf;
-  if ( g_opt_d )
+  if ( g_opt_z )
     dump2file(s, ".ucomp", data, size);
   return true;
 }

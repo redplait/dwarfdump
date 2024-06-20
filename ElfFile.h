@@ -34,6 +34,38 @@ typedef struct
   const unsigned char *m_ptr;
 } DWARF2_Internal_LineInfo;
 
+struct dwarf_section {
+ Elf_Half idx = 0;
+ bool free_ = false;
+ const unsigned char *s_ = nullptr;
+ size_t size_ = 0;
+ uint64_t vma_ = 0;
+ 
+ void clean()
+ {
+   if ( free_ && s_ )
+     free((void *)s_);
+   s_ = nullptr;
+   free_ = false;
+ }
+ ~dwarf_section()
+ {
+   clean();
+ }
+ void asgn(section *s)
+ {
+   clean();
+   idx = s->get_index();
+   vma_ = s->get_address();
+   size_ = s->get_size();
+   s_ = reinterpret_cast<const unsigned char*>(s->get_data());
+ }
+ bool empty() const
+ {
+   return (!s_ || !size_);
+ }
+};
+
 class ElfFile : public ISectionNames, public IGetLoclistX
 {
 public:

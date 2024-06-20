@@ -4,7 +4,7 @@
 #include "PlainRender.h"
 #include "nfilter.h"
 
-extern int g_opt_d, g_opt_f, g_opt_F, g_opt_g, g_opt_l, g_opt_L, g_opt_s, g_opt_v, g_opt_V, g_opt_x;
+extern int g_opt_d, g_opt_f, g_opt_F, g_opt_g, g_opt_l, g_opt_L, g_opt_s, g_opt_v, g_opt_V, g_opt_x, g_opt_z;
 extern FILE *g_outf;
 
 int use_json = 0;
@@ -28,6 +28,7 @@ void usage(const char *prog)
   printf("-v - verbose mode\n");
   printf("-V - dump vars\n");
   printf("-x - dump local vars and locations. Also turns on -L & -V\n");
+  printf("-z - dump uncompressed sections\n");
   exit(6);
 }
 
@@ -66,6 +67,8 @@ int main(int argc, char* argv[])
       case 'V': g_opt_V = 1;
         break;
       case 'x': g_opt_x = g_opt_V = g_opt_L = 1;
+        break;
+      case 'z': g_opt_z = 1;
         break;
       case 'o':
          if ( fp )
