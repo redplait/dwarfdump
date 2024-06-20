@@ -82,14 +82,15 @@ bool ElfFile::uncompressed_section(ELFIO::section *s, const unsigned char * &dat
   return true;
 }
 
-bool ElfFile::check_compressed_section(ELFIO::section *s, const unsigned char * &data, size_t &size)
+bool ElfFile::check_compressed_section(ELFIO::section *s, dwarf_section &dw)
 {
   if ( ! (s->get_flags() & SHF_COMPRESSED) )
     return false;
   if ( reader.get_class() == ELFCLASS64 )
-    return uncompressed_section<Elf64_Chdr>(s, data, size);
+    dw.free_ = uncompressed_section<Elf64_Chdr>(s, dw.s_, dw.size_);
   else
-    return uncompressed_section<Elf32_Chdr>(s, data, size);
+    dw.free_ = uncompressed_section<Elf32_Chdr>(s, dw.s_, dw.size_);
+  return dw.free_;
 }
 
 const size_t czSize = 4 + sizeof(uint64_t);
@@ -137,18 +138,7 @@ bool ElfFile::unzip_section(ELFIO::section *s, const unsigned char * &data, size
 }
 
 ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
-  tree_builder(tb),
-  debug_info_(nullptr), debug_info_size_(0),
-  debug_abbrev_(nullptr), debug_abbrev_size_(0),
-  debug_loc_(nullptr), debug_loc_size_(0),
-  debug_str_offsets_(nullptr), debug_str_offsets_size_(0),
-  debug_addr_(nullptr), debug_addr_size_(0),
-  debug_loclists_(nullptr), debug_loclists_size_(0),
-  debug_line_(nullptr), debug_line_size_(0),
-  debug_line_str_(nullptr), debug_line_str_size_(0),
-  debug_rnglists_(nullptr), debug_rnglists_size_(0),
-  debug_ranges_(nullptr), debug_ranges_size_(0),
-  debug_frame_(nullptr), debug_frame_size_(0)
+  tree_builder(tb)
 {
   // read elf file
   if ( !reader.load(filepath.c_str()) )
@@ -178,81 +168,54 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
    *zrnglists = nullptr,
    *zranges = nullptr,
    *zframe = nullptr;
-  // Search the .debug_info and .debug_abbrev
-  tree_builder->debug_str_ = nullptr;
-  tree_builder->debug_str_size_ = 0;
+  // Search the debug sections, mandatory are .debug_info and .debug_abbrev
   Elf_Half n = reader.sections.size();
   for ( Elf_Half i = 0; i < n; i++) {
     section *s = reader.sections[i];
     const char* name = s->get_name().c_str();
     if (!strcmp(name, ".debug_info")) {
-      debug_info_ = reinterpret_cast<const unsigned char*>(s->get_data());
-      debug_info_size_ = s->get_size();
-      if ( check_compressed_section(s, debug_info_, debug_info_size_) )
-        free_info = true;
+      debug_info_.asgn(s);
+      check_compressed_section(s, debug_info_);
     } else if (!strcmp(name, ".debug_abbrev")) {
-      debug_abbrev_ = reinterpret_cast<const unsigned char*>(s->get_data());
-      debug_abbrev_size_ = s->get_size();
-      if ( check_compressed_section(s, debug_abbrev_, debug_abbrev_size_) )
-        free_abbrev = true;
+      debug_abbrev_.asgn(s);
+      check_compressed_section(s, debug_abbrev_);
     } else if (!strcmp(name, ".debug_str")) {
-      tree_builder->debug_str_ = reinterpret_cast<const unsigned char*>(s->get_data());
-      tree_builder->debug_str_size_ = s->get_size();
-      if ( check_compressed_section(s, tree_builder->debug_str_, tree_builder->debug_str_size_) )
-        free_strings = true;
+      debug_str_.asgn(s);
+      check_compressed_section(s, debug_str_);
+      tree_builder->debug_str_ = debug_str_.s_;
+      tree_builder->debug_str_size_ = debug_str_.size_;
     } else if (!strcmp(s->get_name().c_str(), ".debug_loclists")) {
-      debug_loclists_ = reinterpret_cast<const unsigned char*>(s->get_data());
-      debug_loclists_size_ = s->get_size();
-      if ( check_compressed_section(s, debug_loclists_, debug_loclists_size_) )
-        free_loclists = true;
+      debug_loclists_.asgn(s);
+      check_compressed_section(s, debug_loclists_);
     } else if (!strcmp(s->get_name().c_str(), ".debug_str_offsets")) {
-      debug_str_offsets_ = reinterpret_cast<const unsigned char*>(s->get_data());
-      debug_str_offsets_size_ = s->get_size();
-      if ( check_compressed_section(s, debug_str_offsets_, debug_str_offsets_size_) )
-        free_str_offsets = true;
-      // printf("debug_str_offsets_size %lx\n", debug_str_offsets_size_);
+      debug_str_offsets_.asgn(s);
+      check_compressed_section(s, debug_str_offsets_);
+      // printf("debug_str_offsets_size %lx\n", debug_str_offsets_.size_);
     } else if (!strcmp(s->get_name().c_str(), ".debug_addr")) {
-      debug_addr_ = reinterpret_cast<const unsigned char*>(s->get_data());
-      debug_addr_size_ = s->get_size();
-      if ( check_compressed_section(s, debug_addr_, debug_addr_size_) )
-        free_addr = true;
+      debug_addr_.asgn(s);
+      check_compressed_section(s, debug_addr_);
     } else if (g_opt_f && !strcmp(name, ".debug_frame")) {
-      debug_frame_ = reinterpret_cast<const unsigned char*>(s->get_data());
-      debug_frame_size_ = s->get_size();
-      if ( check_compressed_section(s, debug_frame_, debug_frame_size_) )
-        free_frame = true;
+      debug_frame_.asgn(s);
+      check_compressed_section(s, debug_frame_);
     } else if (g_opt_f && !strcmp(name, ".eh_frame")) {
       is_eh = true;
-      frs_vma = s->get_address();
-      debug_frame_ = reinterpret_cast<const unsigned char*>(s->get_data());
-      debug_frame_size_ = s->get_size();
-      if ( check_compressed_section(s, debug_frame_, debug_frame_size_) )
-        free_frame = true;
+      debug_frame_.asgn(s);
+      check_compressed_section(s, debug_frame_);
     } else if (g_opt_f && !strcmp(name, ".debug_ranges")) {
-      debug_ranges_ = reinterpret_cast<const unsigned char*>(s->get_data());
-      debug_ranges_size_ = s->get_size();
-      if ( check_compressed_section(s, debug_ranges_, debug_ranges_size_) )
-        free_ranges = true;
+      debug_ranges_.asgn(s);
+      check_compressed_section(s, debug_ranges_);
     } else if (g_opt_f && !strcmp(name, ".debug_rnglists")) {
-      debug_rnglists_ = reinterpret_cast<const unsigned char*>(s->get_data());
-      debug_rnglists_size_ = s->get_size();
-      if ( check_compressed_section(s, debug_rnglists_, debug_rnglists_size_) )
-        free_rnglists = true;
+      debug_rnglists_.asgn(s);
+      check_compressed_section(s, debug_rnglists_);
     } else if (!strcmp(name, ".debug_loc")) {
-      debug_loc_ = reinterpret_cast<const unsigned char*>(s->get_data());
-      debug_loc_size_ = s->get_size();
-      if ( check_compressed_section(s, debug_loc_, debug_loc_size_) )
-        free_loc = true;
+      debug_loc_.asgn(s);
+      check_compressed_section(s, debug_loc_);
     } else if (g_opt_F && !strcmp(name, ".debug_line")) {
-      debug_line_ = reinterpret_cast<const unsigned char*>(s->get_data());
-      debug_line_size_ = s->get_size();
-      if ( check_compressed_section(s, debug_line_, debug_line_size_) )
-        free_line = true;
+      debug_line_.asgn(s);
+      check_compressed_section(s, debug_line_);
     } else if (g_opt_F && !strcmp(name, ".debug_line_str")) {
-      debug_line_str_ = reinterpret_cast<const unsigned char*>(s->get_data());
-      debug_line_str_size_ = s->get_size();
-      if ( check_compressed_section(s, debug_line_str_, debug_line_str_size_) )
-        free_line_str = true;
+      debug_line_str_.asgn(s);
+      check_compressed_section(s, debug_line_str_);
     } // check compressed versions
     else if ( !strcmp(name, ".zdebug_info") )
       zinfo = s;
@@ -280,36 +243,40 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
       zframe = s;
   }
   // check if we need to decompress some sections
-#define UNPACK_ZSECTION(zsec, zs_, zs_size, free_zs) \
+#define UNPACK_ZSECTION(zsec, dw_sec) \
   if ( zsec ) \
   { \
-    if ( !unzip_section(zsec, zs_, zs_size) ) \
+    if ( !unzip_section(zsec, dw_sec.s_, dw_sec.size_) ) \
     { \
       fprintf(stderr, "cannot unpack section %s\n", zinfo->get_name().c_str()); \
       success = false; \
       return; \
     } \
-    free_zs = true; \
+    dw_sec.free_ = true; \
   }
-  UNPACK_ZSECTION(zinfo, debug_info_, debug_info_size_, free_info)
-  UNPACK_ZSECTION(zabbrev, debug_abbrev_, debug_abbrev_size_, free_abbrev)
-  UNPACK_ZSECTION(zstrings, tree_builder->debug_str_, tree_builder->debug_str_size_, free_strings)
-  UNPACK_ZSECTION(zloc, debug_loc_, debug_loc_size_, free_loc)
-  UNPACK_ZSECTION(zline, debug_line_, debug_line_size_, free_line)
-  UNPACK_ZSECTION(zline_str, debug_line_str_, debug_line_str_size_, free_line_str)
-  UNPACK_ZSECTION(zstr_off, debug_str_offsets_, debug_str_offsets_size_, free_str_offsets)
-  UNPACK_ZSECTION(zaddr, debug_addr_, debug_addr_size_ , free_addr)
-  UNPACK_ZSECTION(zloclists, debug_loclists_, debug_loclists_size_, free_loclists)
-  UNPACK_ZSECTION(zrnglists, debug_rnglists_, debug_rnglists_size_, free_rnglists)
-  UNPACK_ZSECTION(zranges, debug_ranges_, debug_ranges_size_, free_ranges)
-  UNPACK_ZSECTION(zframe, debug_frame_, debug_frame_size_, free_frame)
+  UNPACK_ZSECTION(zinfo, debug_info_)
+  UNPACK_ZSECTION(zabbrev, debug_abbrev_)
+  UNPACK_ZSECTION(zstrings, debug_str_)
+  if ( debug_str_.free_ ) {
+   tree_builder->debug_str_ = debug_str_.s_;
+   tree_builder->debug_str_size_ = debug_str_.size_;
+  }
+  UNPACK_ZSECTION(zloc, debug_loc_)
+  UNPACK_ZSECTION(zline, debug_line_)
+  UNPACK_ZSECTION(zline_str, debug_line_str_)
+  UNPACK_ZSECTION(zstr_off, debug_str_offsets_)
+  UNPACK_ZSECTION(zaddr, debug_addr_)
+  UNPACK_ZSECTION(zloclists, debug_loclists_)
+  UNPACK_ZSECTION(zrnglists, debug_rnglists_)
+  UNPACK_ZSECTION(zranges, debug_ranges_)
+  UNPACK_ZSECTION(zframe, debug_frame_)
 
   tree_builder->m_rnames = get_regnames(reader.get_machine());
   tree_builder->m_snames = this;
-  tree_builder->has_rngx = (debug_rnglists_ != nullptr);
+  tree_builder->has_rngx = (debug_rnglists_.s_ != nullptr);
   parse_rnglists();
   if ( g_opt_f ) parse_frames();
-  success = (debug_info_ && debug_abbrev_);
+  success = (debug_info_.s_ && debug_abbrev_.s_);
 }
 
 void ElfFile::free_section(const unsigned char *&s, bool f)
@@ -322,19 +289,6 @@ void ElfFile::free_section(const unsigned char *&s, bool f)
 
 ElfFile::~ElfFile()
 {
-  free_section(debug_info_, free_info);
-  free_section(debug_abbrev_, free_abbrev);
-  if ( tree_builder )
-    free_section(tree_builder->debug_str_, free_strings);
-  free_section(debug_loc_, free_loc);
-  free_section(debug_line_, free_line);
-  free_section(debug_line_str_, free_line_str);
-  free_section(debug_str_offsets_, free_str_offsets);
-  free_section(debug_addr_, free_addr);
-  free_section(debug_loclists_, free_loclists);
-  free_section(debug_rnglists_, free_rnglists);
-  free_section(debug_ranges_, free_ranges);
-  free_section(debug_frame_, free_frame);
 }
 
 // static
@@ -545,8 +499,8 @@ uint64_t ElfFile::get_encoded_value(const unsigned char **pdata, int encoding, c
   if ( (encoding & 0x70) == DW_EH_PE_pcrel )
   {
     if ( g_opt_d )
-      printf("pcrel val %lX diff %lX vma %lX\n", val, data - debug_frame_, frs_vma);
-    val += frs_vma + (data - debug_frame_);
+      printf("pcrel val %lX diff %lX vma %lX\n", val, data - debug_frame_.s_, debug_frame_.vma_);
+    val += debug_frame_.vma_ + (data - debug_frame_.s_);
   }
   *pdata = data + size;
   return val;
@@ -555,9 +509,9 @@ uint64_t ElfFile::get_encoded_value(const unsigned char **pdata, int encoding, c
 // ripped from dwarf.c function display_debug_frames
 bool ElfFile::parse_frames()
 {
-  if ( !debug_frame_ || !debug_frame_size_ ) return false;
-  const unsigned char *start = debug_frame_, 
-   *end = start + debug_frame_size_;
+  if ( debug_frame_.empty() ) return false;
+  const unsigned char *start = debug_frame_.s_, 
+   *end = start + debug_frame_.size_;
   one_cie cie;
   unsigned int save_eh_addr_size = eh_addr_size;
   while( start < end )
@@ -606,11 +560,11 @@ bool ElfFile::parse_frames()
       if ( is_eh ) {
         uint64_t sign = (uint64_t) 1 << (offset_size * 8 - 1);
         cie_off = (cie_off ^ sign) - sign;
-        cie_off = start - 4 - debug_frame_ - cie_off;
+        cie_off = start - 4 - debug_frame_.s_ - cie_off;
       }
       // skip for now looking in chunks
       unsigned int off_size = 4;
-      const unsigned char *cie_scan = debug_frame_ + cie_off;
+      const unsigned char *cie_scan = debug_frame_.s_ + cie_off;
       length = endc( *(const uint32_t *)cie_scan );
       cie_scan += 4;
       if ( length == 0xffffffff )
@@ -651,7 +605,7 @@ bool ElfFile::parse_frames()
       start += skip;
     }
     if ( g_opt_d ) {
-      printf("Off %lx ptr_size %d cie_id %lX pc=%lX len %lX\n", saved_start - debug_frame_,
+      printf("Off %lx ptr_size %d cie_id %lX pc=%lX len %lX\n", saved_start - debug_frame_.s_,
        cie.ptr_size, cie_id, pc_begin, pc_range);
     }
     uint64_t res = 0;
@@ -752,8 +706,8 @@ bool ElfFile::parse_dfa(const unsigned char *start, const unsigned char *block_e
 bool ElfFile::get_rnglistx(int64_t off, uint64_t base_addr, unsigned char addr_size,
  std::list<std::pair<uint64_t, uint64_t> > &res)
 {
-  if ( debug_rnglists_ ) return get_rnglistx_(off, res);
-  if ( debug_ranges_ ) return get_old_range(off, base_addr, addr_size, res);
+  if ( !debug_rnglists_.empty() ) return get_rnglistx_(off, res);
+  if ( !debug_ranges_.empty() ) return get_old_range(off, base_addr, addr_size, res);
   return false;
 }
 
@@ -761,10 +715,10 @@ bool ElfFile::get_rnglistx(int64_t off, uint64_t base_addr, unsigned char addr_s
 bool ElfFile::get_old_range(int64_t off, uint64_t base, unsigned char addr_size,
  std::list<std::pair<uint64_t, uint64_t> > &res)
 {
-  if ( !debug_ranges_ || !debug_ranges_size_ ) return false;
-  if ( off < 0 || (size_t)off >= debug_ranges_size_ ) return false;
-  auto start = debug_ranges_ + off;
-  auto finish = debug_ranges_ + debug_ranges_size_;
+  if ( debug_ranges_.empty() ) return false;
+  if ( off < 0 || (size_t)off >= debug_ranges_.size_ ) return false;
+  auto start = debug_ranges_.s_ + off;
+  auto finish = debug_ranges_.s_ + debug_ranges_.size_;
   size_t ba = finish - start;
   while ( start < finish )
   {
@@ -794,8 +748,8 @@ bool ElfFile::get_old_range(int64_t off, uint64_t base, unsigned char addr_size,
 // ripped from dwarf.c function display_debug_ranglists_list
 bool ElfFile::get_rnglistx_(int64_t off, std::list<std::pair<uint64_t, uint64_t> > &res)
 {
-  if ( !debug_rnglists_ || !debug_rnglists_size_ ) return false;
-  if ( off < 0 || (size_t)off >= debug_rnglists_size_ ) return false;
+  if ( debug_rnglists_.empty() ) return false;
+  if ( off < 0 || (size_t)off >= debug_rnglists_.size_ ) return false;
   // find rnglist_ctx for this off
   rnglist_ctx *ctx = nullptr;
   for ( auto &r: m_rnglists )
@@ -805,8 +759,8 @@ bool ElfFile::get_rnglistx_(int64_t off, std::list<std::pair<uint64_t, uint64_t>
     }
   if ( !ctx ) return false;
   unsigned int debug_addr_section_hdr_len = ctx->offset_size == 4 ? 8 : 16;
-  const unsigned char *next = debug_rnglists_ + off;
-  auto finish = debug_rnglists_ + ctx->end;
+  const unsigned char *next = debug_rnglists_.s_ + off;
+  auto finish = debug_rnglists_.s_ + ctx->end;
   size_t ba = finish - next;
   uint64_t base_address = 0;
   while( next < finish )
@@ -883,11 +837,11 @@ bool ElfFile::get_rnglistx_(int64_t off, std::list<std::pair<uint64_t, uint64_t>
 // ripped from dwarf.c function display_debug_rnglists
 bool ElfFile::parse_rnglists()
 {
-  if ( !debug_rnglists_ || !debug_rnglists_size_ ) return false;
+  if ( debug_rnglists_.empty() ) return false;
   m_rnglists.clear();
-  const unsigned char *start = debug_rnglists_,
-   *finish = start + debug_rnglists_size_;
-  size_t ba = debug_rnglists_size_;
+  const unsigned char *start = debug_rnglists_.s_,
+   *finish = start + debug_rnglists_.size_;
+  size_t ba = debug_rnglists_.size_;
   while(start < finish)
   {
     rnglist_ctx ctx;
@@ -904,7 +858,7 @@ bool ElfFile::parse_rnglists()
       ctx.offset_size += 8;
     }
     if ( init_len > uint64_t(finish - start) ) return false;
-    ctx.end = start + init_len - debug_rnglists_;
+    ctx.end = start + init_len - debug_rnglists_.s_;
     // read version, addr_size, segment_size & count
     ctx.version = endc(*(short *)start);
     start += 2; ba -= 2;
@@ -915,13 +869,13 @@ bool ElfFile::parse_rnglists()
     if ( seg_size ) return false;
     start += 4;
     ba -= 4;
-    ctx.start = start - debug_rnglists_;
+    ctx.start = start - debug_rnglists_.s_;
 #if DEBUG
     printf("rng_ctx: start %lX end %lX addr_size %d offset_size %d\n", 
       ctx.start, ctx.end, ctx.addr_size, ctx.offset_size);
 #endif
     m_rnglists.push_back(ctx);
-    start = debug_rnglists_ + ctx.end;
+    start = debug_rnglists_.s_ + ctx.end;
     ba = finish - start;
   }
   return !m_rnglists.empty();
@@ -929,14 +883,14 @@ bool ElfFile::parse_rnglists()
 
 bool ElfFile::read_debug_lines()
 {
-  if ( debug_line_ == nullptr )
+  if ( debug_line_.empty() )
     return false;
   m_li.m_ptr = nullptr;
   // check that this unit is still inside section
-  if ( m_curr_lines >= debug_line_ + debug_line_size_ )
+  if ( m_curr_lines >= debug_line_.s_ + debug_line_.size_ )
     return false;
   auto ptr = m_curr_lines;
-  size_t ba = debug_line_size_ - (m_curr_lines - debug_line_);
+  size_t ba = debug_line_.size_ - (m_curr_lines - debug_line_.s_);
   size_t addr_size = 0;
   // printf("read_debug_lines: %lX ba %lX\n", m_curr_lines - debug_line_, ba);
   reset_lines();
@@ -1088,7 +1042,7 @@ bool ElfFile::read_debug_lines()
 
 bool ElfFile::read_delayed_lines()
 {
-  if ( debug_line_ == nullptr )
+  if ( debug_line_.empty() )
     return false;
   if ( !offsets_base )
     return false;
@@ -1300,7 +1254,7 @@ uint32_t ElfFile::read_x3(const unsigned char* &data, size_t& bytes_available)
   uint32_t res = 0;
   if ( bytes_available < 3)
   {
-    fprintf(stderr, "read_x3 tries to read behind available data at %lx\n", data - debug_info_);
+    fprintf(stderr, "read_x3 tries to read behind available data at %lx\n", data - debug_info_.s_);
     return 0;
   }
   if ( reader.get_encoding() == ELFDATA2LSB )
@@ -1333,20 +1287,20 @@ void ElfFile::read_range(Dwarf32::Form form, const unsigned char* &info, size_t&
      break;
     case Dwarf32::Form::DW_FORM_rnglistx:
       value = ElfFile::ULEB128(info, bytes_available);
-      value = fetch_indexed_value(value, debug_rnglists_, debug_rnglists_size_, rnglists_base);
+      value = fetch_indexed_value(value, debug_rnglists_.s_, debug_rnglists_.size_, rnglists_base);
       if ( (uint64_t)-1 == value ) {
         return;
       }
       value += rnglists_base;
-      if ( value > debug_rnglists_size_ )
+      if ( value > debug_rnglists_.size_ )
       {
-        fprintf(stderr, "laddr %lx is not inside rnglists section size %lx\n", value, debug_rnglists_size_);
+        fprintf(stderr, "laddr %lx is not inside rnglists section size %lx\n", value, debug_rnglists_.size_);
         value = (uint64_t)-1;
         return;
       }
      break;
     default:
-     fprintf(stderr, "ERR(read_range): Unpexpected form type 0x%x at %lx\n", form,  info - debug_info_);
+     fprintf(stderr, "ERR(read_range): Unpexpected form type 0x%x at %lx\n", form,  info - debug_info_.s_);
      exit(1);
   }
 }
@@ -1495,7 +1449,7 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& b
       break;
 
     default:
-      fprintf(stderr, "ERR(PassData): Unpexpected form type 0x%x at %lx\n", form,  data - debug_info_);
+      fprintf(stderr, "ERR(PassData): Unpexpected form type 0x%x at %lx\n", form,  data - debug_info_.s_);
       break;
   }
 }
@@ -1534,16 +1488,16 @@ uint64_t ElfFile::fetch_indexed_value(uint64_t idx, const unsigned char *s, uint
 // ripped from functions display_offset_entry_loclists & display_loclists_list in dwarf.c
 bool ElfFile::get_loclistx(uint64_t off, std::list<LocListXItem> &out_list, uint64_t func_base)
 {
-  if ( off > debug_loclists_size_ )
+  if ( off > debug_loclists_.size_ )
   {
-    fprintf(stderr, "loclistx off %lx is not inside loclists section size %lx\n", off, debug_loclists_size_);
+    fprintf(stderr, "loclistx off %lx is not inside loclists section size %lx\n", off, debug_loclists_.size_);
     return false;
   }
   uint64_t addr, base_addr = func_base;
   uint64_t begin = 0, end = 0;
-  const unsigned char *start = debug_loclists_ + off;
-  const unsigned char *lend = debug_loclists_ + debug_loclists_size_;
-  size_t avail = debug_loclists_size_ - off;
+  const unsigned char *start = debug_loclists_.s_ + off;
+  const unsigned char *lend = debug_loclists_.s_ + debug_loclists_.size_;
+  size_t avail = debug_loclists_.size_ - off;
   while( start < lend )
   {
 //  fprintf(stderr, "get_loclistx: off %lx start %lx %d ", off, start - debug_loclists_, address_size_);
@@ -1625,7 +1579,7 @@ bool ElfFile::get_loclistx(uint64_t off, std::list<LocListXItem> &out_list, uint
          begin = end = 0;
         break;
       default:
-        fprintf(stderr, "unknown LLE tag %d at %lx\n", llet, start - debug_loclists_);
+        fprintf(stderr, "unknown LLE tag %d at %lx\n", llet, start - debug_loclists_.s_);
         return false;
     }
     if ( llet == Dwarf32::dwarf_location_list_entry_type::DW_LLE_base_address ||
@@ -1640,11 +1594,11 @@ bool ElfFile::get_loclistx(uint64_t off, std::list<LocListXItem> &out_list, uint
     uint64_t len = ElfFile::ULEB128(tmp_start, tmp_avail);
     if ( len > avail )
     {
-      fprintf(stderr, "bad LLE len %ld at %lx\n", len, start - debug_loclists_);
+      fprintf(stderr, "bad LLE len %ld at %lx\n", len, start - debug_loclists_.s_);
       break;
     }
 //  fprintf(stderr, "len %lX at %lx %lX - %lX\n", len, start - debug_loclists_, begin, end);
-    DecodeAddrLocation(Dwarf32::Form::DW_FORM_block, start, avail, &top.loc, debug_loclists_);
+    DecodeAddrLocation(Dwarf32::Form::DW_FORM_block, start, avail, &top.loc, debug_loclists_.s_);
     start = tmp_start + len;
     avail = tmp_avail - len;
   }
@@ -1667,19 +1621,19 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
       lindex = ElfFile::ULEB128(data, bytes_available);
       if ( !loclist_base )
       {
-        fprintf(stderr, "no loclist_base for DW_FORM_loclistx at %lx\n", data - debug_info_);
+        fprintf(stderr, "no loclist_base for DW_FORM_loclistx at %lx\n", data - debug_info_.s_);
         return 0;
       }
-      laddr = fetch_indexed_value(lindex, debug_loclists_, debug_loclists_size_, loclist_base);
+      laddr = fetch_indexed_value(lindex, debug_loclists_.s_, debug_loclists_.size_, loclist_base);
       if ( (uint64_t)-1 == laddr )
         return 0;
       laddr += loclist_base;
-      if ( laddr > debug_loclists_size_ )
+      if ( laddr > debug_loclists_.size_ )
       {
-        fprintf(stderr, "laddr %lx is not inside loclists section size %lx\n", laddr, debug_loclists_size_);
+        fprintf(stderr, "laddr %lx is not inside loclists section size %lx\n", laddr, debug_loclists_.size_);
         return 0;
       }
-      data = (debug_loclists_ + laddr);
+      data = (debug_loclists_.s_ + laddr);
       // store locations block with DW_LLE here - it will be parsed later within get_loclistx virtual method
       tree_builder->SetLocX(laddr);
       return 0;
@@ -2099,7 +2053,7 @@ uint64_t ElfFile::DecodeLocation(Dwarf32::Form form, const unsigned char* info, 
       }
 
       default:
-        fprintf(stderr, "DecodeLocation: unknown op %X at %lX\n", op, info - debug_info_);
+        fprintf(stderr, "DecodeLocation: unknown op %X at %lX\n", op, info - debug_info_.s_);
         return 0;
     }
   }
@@ -2112,7 +2066,7 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info, 
 
   switch(form) {
     case Dwarf32::Form::DW_FORM_flag_present:
-      fprintf(stderr, "ERR: DW_FORM_flag_present at %lX\n", info - debug_info_);
+      fprintf(stderr, "ERR: DW_FORM_flag_present at %lX\n", info - debug_info_.s_);
       value = 1;
      break;
     case Dwarf32::Form::DW_FORM_flag:
@@ -2190,7 +2144,7 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info, 
        value = m_implicit_const;
       break;
     default:
-      fprintf(stderr, "ERR: Unexpected form data 0x%x at %lX\n", form, info - debug_info_);
+      fprintf(stderr, "ERR: Unexpected form data 0x%x at %lX\n", form, info - debug_info_.s_);
       exit(1);
   }
 
@@ -2199,23 +2153,23 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info, 
 
 uint64_t ElfFile::get_indexed_addr(uint64_t pos, int size)
 {
-  if ( !debug_addr_size_ || !addr_base )
+  if ( !debug_addr_.size_ || !addr_base )
     return 0;
   pos *= address_size_;
-  if ( pos + size + addr_base > debug_addr_size_ )
+  if ( pos + size + addr_base > debug_addr_.size_ )
     return 0;
   switch(size)
   {
-    case 1: { const uint8_t *b = (const uint8_t *)(debug_addr_ + addr_base + pos);
+    case 1: { const uint8_t *b = (const uint8_t *)(debug_addr_.s_ + addr_base + pos);
       return *b;
     }
-    case 2: { const uint16_t *b = (const uint16_t *)(debug_addr_ + addr_base + pos);
+    case 2: { const uint16_t *b = (const uint16_t *)(debug_addr_.s_ + addr_base + pos);
       return endc(*b);
     }
-    case 4: { const uint32_t *b = (const uint32_t *)(debug_addr_ + addr_base + pos);
+    case 4: { const uint32_t *b = (const uint32_t *)(debug_addr_.s_ + addr_base + pos);
       return endc(*b);
     }
-    case 8: { const uint64_t *b = (const uint64_t *)(debug_addr_ + addr_base + pos);
+    case 8: { const uint64_t *b = (const uint64_t *)(debug_addr_.s_ + addr_base + pos);
       return endc(*b);
     }
   }
@@ -2224,22 +2178,22 @@ uint64_t ElfFile::get_indexed_addr(uint64_t pos, int size)
 
 uint64_t ElfFile::fetch_indexed_addr(uint64_t pos, int size)
 {
-  if ( !debug_addr_size_  )
+  if ( !debug_addr_.size_  )
     return 0;
-  if ( pos + size > debug_addr_size_ )
+  if ( pos + size > debug_addr_.size_ )
     return 0;
   switch(size)
   {
-    case 1: { const uint8_t *b = (const uint8_t *)(debug_addr_  + pos);
+    case 1: { const uint8_t *b = (const uint8_t *)(debug_addr_.s_ + pos);
       return *b;
     }
-    case 2: { const uint16_t *b = (const uint16_t *)(debug_addr_  + pos);
+    case 2: { const uint16_t *b = (const uint16_t *)(debug_addr_.s_ + pos);
       return endc(*b);
     }
-    case 4: { const uint32_t *b = (const uint32_t *)(debug_addr_  + pos);
+    case 4: { const uint32_t *b = (const uint32_t *)(debug_addr_.s_ + pos);
       return endc(*b);
     }
-    case 8: { const uint64_t *b = (const uint64_t *)(debug_addr_  + pos);
+    case 8: { const uint64_t *b = (const uint64_t *)(debug_addr_.s_ + pos);
       return endc(*b);
     }
   }
@@ -2248,33 +2202,33 @@ uint64_t ElfFile::fetch_indexed_addr(uint64_t pos, int size)
 
 const char* ElfFile::get_indexed_str(uint32_t str_pos)
 {
-  if ( !debug_str_offsets_size_ || !offsets_base )
+  if ( !debug_str_offsets_.size_ || !offsets_base )
     return nullptr;
   uint64_t index_offset = str_pos * 4;
-  if ( index_offset + offsets_base > debug_str_offsets_size_ )
+  if ( index_offset + offsets_base > debug_str_offsets_.size_ )
     return nullptr;
-  uint32_t str_offset = endc(*(uint32_t *)(debug_str_offsets_ + index_offset + offsets_base));
+  uint32_t str_offset = endc(*(uint32_t *)(debug_str_offsets_.s_ + index_offset + offsets_base));
   return (const char*)&tree_builder->debug_str_[str_offset];
 }
 
 const char* ElfFile::check_strp(uint32_t str_pos)
 {
-  if ( !debug_line_str_ )
+  if ( debug_line_str_.empty() )
     return nullptr;
-  if ( (size_t)str_pos > debug_line_str_size_ )
+  if ( (size_t)str_pos > debug_line_str_.size_ )
   {
-    fprintf(stderr, "strp %X is not in debug_line_str section size %lx\n", str_pos, debug_line_str_size_);
+    fprintf(stderr, "strp %X is not in debug_line_str section size %lx\n", str_pos, debug_line_str_.size_);
     fflush(stderr);
     return nullptr;
   } else
-    return (const char*)debug_line_str_ + str_pos;
+    return (const char*)debug_line_str_.s_ + str_pos;
 }
 
 const char* ElfFile::check_strx4(uint32_t str_pos)
 {
-  if ( (size_t)str_pos > debug_str_offsets_size_ )
+  if ( (size_t)str_pos > debug_str_offsets_.size_ )
   {
-    fprintf(stderr, "stringx4 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_size_);
+    fprintf(stderr, "stringx4 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_.size_);
     fflush(stderr);
     return nullptr;
   } else
@@ -2283,9 +2237,9 @@ const char* ElfFile::check_strx4(uint32_t str_pos)
 
 const char* ElfFile::check_strx2(uint32_t str_pos)
 {
-  if ( (size_t)str_pos > debug_str_offsets_size_ )
+  if ( (size_t)str_pos > debug_str_offsets_.size_ )
   {
-    fprintf(stderr, "stringx2 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_size_);
+    fprintf(stderr, "stringx2 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_.size_);
     fflush(stderr);
     return nullptr;
   } else
@@ -2294,9 +2248,9 @@ const char* ElfFile::check_strx2(uint32_t str_pos)
 
 const char* ElfFile::check_strx3(uint32_t str_pos)
 {
-  if ( (size_t)str_pos > debug_str_offsets_size_ )
+  if ( (size_t)str_pos > debug_str_offsets_.size_ )
   {
-    fprintf(stderr, "stringx3 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_size_);
+    fprintf(stderr, "stringx3 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_.size_);
     fflush(stderr);
     return nullptr;
   } else
@@ -2305,9 +2259,9 @@ const char* ElfFile::check_strx3(uint32_t str_pos)
 
 const char* ElfFile::check_strx1(uint32_t str_pos)
 {
-  if ( (size_t)str_pos > debug_str_offsets_size_ )
+  if ( (size_t)str_pos > debug_str_offsets_.size_ )
   {
-    fprintf(stderr, "stringx1 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_size_);
+    fprintf(stderr, "stringx1 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_.size_);
     fflush(stderr);
     return nullptr;
   } else
@@ -2365,7 +2319,7 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
       bytes_available -= sizeof(str_pos);
       if ( str_pos > tree_builder->debug_str_size_ )
       {
-        fprintf(stderr, "string %X is not in string section at %lX\n", str_pos, s - debug_info_);
+        fprintf(stderr, "string %X is not in string section at %lX\n", str_pos, s - debug_info_.s_);
         fflush(stderr);
       } else
         str = (const char*)&tree_builder->debug_str_[str_pos];
@@ -2381,7 +2335,7 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
       bytes_available--;
       break;
     default:
-      fprintf(stderr, "ERR: Unexpected form string 0x%x at %lX\n", form, info - debug_info_);
+      fprintf(stderr, "ERR: Unexpected form string 0x%x at %lX\n", form, info - debug_info_.s_);
       break;
   }
 
@@ -2390,17 +2344,17 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
 
 // load tags from .debug_abbrev section
 bool ElfFile::LoadAbbrevTags(uint32_t abbrev_offset) {
-  if (!debug_info_ || !debug_abbrev_)
+  if (debug_info_.empty() || debug_abbrev_.empty() )
     return false;
-  if ( abbrev_offset >= debug_abbrev_size_ )
+  if ( abbrev_offset >= debug_abbrev_.size_ )
   {
     fprintf(stderr, "abbrev_offset %X is out of section\n", abbrev_offset);
     return false;
   }
   compilation_unit_.clear();
 
-  const unsigned char* abbrev = reinterpret_cast<const unsigned char*>(debug_abbrev_ + abbrev_offset);
-  size_t abbrev_bytes = debug_abbrev_size_ - abbrev_offset;
+  const unsigned char* abbrev = reinterpret_cast<const unsigned char*>(debug_abbrev_.s_ + abbrev_offset);
+  size_t abbrev_bytes = debug_abbrev_.size_ - abbrev_offset;
 
   // For all compilation tags
   while (abbrev_bytes > 0 && abbrev[0]) {
@@ -2540,7 +2494,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
           if (form != Dwarf32::Form::DW_FORM_ref_addr) {
             // The offset is relative to the current compilation unit, we make it
             // absolute
-            v += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
+            v += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_.s_;
           }
         tree_builder->SetObjPtr((int)v);
       }
@@ -2587,7 +2541,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case 0x2905:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit && tree_builder->is_go() )
       {
-        if ( !offsets_base && debug_str_offsets_ )
+        if ( !offsets_base && debug_str_offsets_.s_ )
           curr_asgn = &ElfFile::asgn_package;
         asgn_package(FormStringValue(form, info, info_bytes));
         return true;
@@ -2601,7 +2555,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         if (form != Dwarf32::Form::DW_FORM_ref_addr) {
           // The offset is relative to the current compilation unit, we make it
           // absolute
-          addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
+          addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_.s_;
         }
         tree_builder->SetGoKey(m_tag_id, addr);
         return true;
@@ -2615,7 +2569,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         if (form != Dwarf32::Form::DW_FORM_ref_addr) {
           // The offset is relative to the current compilation unit, we make it
           // absolute
-          addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
+          addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_.s_;
         }
         tree_builder->SetGoElem(m_tag_id, addr);
         return true;
@@ -2646,9 +2600,9 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
      {
        rnglists_base = FormDataValue(form, info, info_bytes);
         // check that it located somewhere inside .debug_rnglists section
-        if ( (size_t)rnglists_base > debug_rnglists_size_ )
+        if ( (size_t)rnglists_base > debug_rnglists_.size_ )
         {
-          fprintf(stderr, "bad DW_AT_rnglists_base %lx, size of .debug_rnglists %lx\n", rnglists_base, debug_rnglists_size_);
+          fprintf(stderr, "bad DW_AT_rnglists_base %lx, size of .debug_rnglists %lx\n", rnglists_base, debug_rnglists_.size_);
           rnglists_base = 0;
         }
         return true;
@@ -2659,9 +2613,9 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
      {
        loclist_base = FormDataValue(form, info, info_bytes);
         // check that it located somewhere inside .debug_loclists section
-        if ( (size_t)loclist_base > debug_loclists_size_ )
+        if ( (size_t)loclist_base > debug_loclists_.size_ )
         {
-          fprintf(stderr, "bad DW_AT_loclist_base %lx, size of .debug_loclists %lx\n", loclist_base, debug_loclists_size_);
+          fprintf(stderr, "bad DW_AT_loclist_base %lx, size of .debug_loclists %lx\n", loclist_base, debug_loclists_.size_);
           loclist_base = 0;
         }
         return true;
@@ -2672,9 +2626,9 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       {
         addr_base = FormDataValue(form, info, info_bytes);
         // check that it located somewhere inside .debug_addr section
-        if ( (size_t)addr_base > debug_addr_size_ )
+        if ( (size_t)addr_base > debug_addr_.size_ )
         {
-          fprintf(stderr, "bad DW_AT_addr_base %lx, size of .debug_addr %lx\n", addr_base, debug_addr_size_);
+          fprintf(stderr, "bad DW_AT_addr_base %lx, size of .debug_addr %lx\n", addr_base, debug_addr_.size_);
           addr_base = 0;
         } else
           if ( tree_builder->cu.need_base_addr_idx )
@@ -2687,13 +2641,13 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       {
         offsets_base = FormDataValue(form, info, info_bytes);
         // check that it located somewhere inside .debug_str_offsets section
-        if ( (size_t)offsets_base > debug_str_offsets_size_ )
+        if ( (size_t)offsets_base > debug_str_offsets_.size_ )
         {
-          fprintf(stderr, "bad DW_AT_str_offsets_base %lx, size of .debug_str_offsets %lx\n", offsets_base, debug_str_offsets_size_);
+          fprintf(stderr, "bad DW_AT_str_offsets_base %lx, size of .debug_str_offsets %lx\n", offsets_base, debug_str_offsets_.size_);
           offsets_base = 0;
         }
         apply_dlist();
-        if ( g_opt_F && debug_line_ && m_li.m_ptr )
+        if ( g_opt_F && !debug_line_.empty() && m_li.m_ptr )
           read_delayed_lines();
         return true;
       }
@@ -2702,7 +2656,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case Dwarf32::Attribute::DW_AT_producer:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
       {
-        if ( !offsets_base && debug_str_offsets_ )
+        if ( !offsets_base && debug_str_offsets_.s_ )
           curr_asgn = &ElfFile::asgn_producer;
         asgn_producer(FormStringValue(form, info, info_bytes));
         return true;
@@ -2711,7 +2665,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case Dwarf32::Attribute::DW_AT_comp_dir:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
       {
-        if ( !offsets_base && debug_str_offsets_ )
+        if ( !offsets_base && debug_str_offsets_.s_ )
           curr_asgn = &ElfFile::asgn_comp_dir;
         asgn_comp_dir(FormStringValue(form, info, info_bytes));
         return true;
@@ -2727,7 +2681,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case Dwarf32::Attribute::DW_AT_name:
       if ( m_section->type == Dwarf32::Tag::DW_TAG_compile_unit )
       {
-        if ( !offsets_base && debug_str_offsets_ )
+        if ( !offsets_base && debug_str_offsets_.s_ )
           curr_asgn = &ElfFile::asgn_cu_name;
         asgn_cu_name(FormStringValue(form, info, info_bytes));
         return true;
@@ -2743,7 +2697,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       if ( Dwarf32::Attribute::DW_AT_name != attribute )
         tree_builder->SetLinkageName(name);
       else
-        tree_builder->SetElementName(name, info - debug_info_);
+        tree_builder->SetElementName(name, info - debug_info_.s_);
       return true;
     }
     case Dwarf32::Attribute::DW_AT_decl_file:
@@ -2788,9 +2742,9 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         if (form != Dwarf32::Form::DW_FORM_ref_addr) {
           // The offset is relative to the current compilation unit, we make it
           // absolute
-          addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
+          addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_.s_;
         }
-        // fprintf(stderr, "discr %lX form %d at %lX\n", addr, form, info - debug_info_);  
+        // fprintf(stderr, "discr %lX form %d at %lX\n", addr, form, info - debug_info_.s_);  
         tree_builder->SetDiscr(addr);
       }
       return true;
@@ -2802,7 +2756,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
           if (form != Dwarf32::Form::DW_FORM_ref_addr) {
             // The offset is relative to the current compilation unit, we make it
             // absolute
-            addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
+            addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_.s_;
           }
         tree_builder->SetAbs(addr);
       }
@@ -2815,7 +2769,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         if (form != Dwarf32::Form::DW_FORM_ref_addr) {
           // The offset is relative to the current compilation unit, we make it
           // absolute
-          addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
+          addr += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_.s_;
         }
         tree_builder->SetSpec(addr);
       }
@@ -2853,8 +2807,8 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case Dwarf32::Attribute::DW_AT_ranges:
       if ( !m_regged || m_section->type != Dwarf32::Tag::DW_TAG_subprogram )
         return false;
-      else if ( debug_ranges_ || debug_rnglists_) {
-        if ( g_opt_d ) printf("range form %d at %lX\n", form, info - debug_info_);
+      else if ( !debug_ranges_.empty() || !debug_rnglists_.empty()) {
+        if ( g_opt_d ) printf("range form %d at %lX\n", form, info - debug_info_.s_);
         uint64_t off;
         read_range(form, info, info_bytes, off);
         if ( off != (u_int64_t)-1 )
@@ -2891,7 +2845,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         if (form != Dwarf32::Form::DW_FORM_ref_addr) {
           // The offset is relative to the current compilation unit, we make it
           // absolute
-          ctype += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
+          ctype += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_.s_;
         }
         tree_builder->SetContainingType(ctype);
       }
@@ -2923,7 +2877,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         return false;
       else {
         param_loc loc;
-        uint64_t offset = DecodeAddrLocation(form, info, info_bytes, &loc, debug_info_);
+        uint64_t offset = DecodeAddrLocation(form, info, info_bytes, &loc, debug_info_.s_);
         if ( tree_builder->is_formal_param() )
         {
           if ( !loc.empty() )
@@ -2943,9 +2897,9 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       if (form != Dwarf32::Form::DW_FORM_ref_addr) {
         // The offset is relative to the current compilation unit, we make it
         // absolute
-        id += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_;
+        id += reinterpret_cast<const unsigned char*>(unit_base) - debug_info_.s_;
       }
-      // fprintf(stderr, "type %lX form %d at %lX\n", id, form, info - debug_info_);
+      // fprintf(stderr, "type %lX form %d at %lX\n", id, form, info - debug_info_.s_);
       if ( m_regged )
         tree_builder->SetElementType(id);
       return true;
@@ -3028,16 +2982,16 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
 
 bool ElfFile::GetAllClasses() 
 {
-  const unsigned char* info = reinterpret_cast<const unsigned char*>(debug_info_);
-  size_t info_bytes = debug_info_size_;
-  m_curr_lines = debug_line_;
+  const unsigned char* info = reinterpret_cast<const unsigned char*>(debug_info_.s_);
+  size_t info_bytes = debug_info_.size_;
+  m_curr_lines = debug_line_.s_;
 
   while (info_bytes > 0) {
     // process previous compilation unit
     tree_builder->ProcessUnit();
     // Load the compilation unit information
     const unsigned char* cu_start = info;
-    cu_base = cu_start - debug_info_;
+    cu_base = cu_start - debug_info_.s_;
     const Dwarf32::CompilationUnitHdr* unit_hdr =
         reinterpret_cast<const Dwarf32::CompilationUnitHdr*>(info);
     const unsigned char* info_end;
@@ -3083,7 +3037,7 @@ bool ElfFile::GetAllClasses()
     }
     // read debug lines
     if ( !read_debug_lines() )
-      free_section(debug_line_, free_line);
+      debug_line_.clean();
 
     if (!LoadAbbrevTags(abbrev_offset)) {
       fprintf(stderr, "ERR: Can't load the compilation, abbrev_offset %X\n", abbrev_offset);
@@ -3099,14 +3053,14 @@ bool ElfFile::GetAllClasses()
     loclist_base = 0;
     // For all compilation tags
     while (info < info_end) {
-      m_tag_id = info - debug_info_; 
+      m_tag_id = info - debug_info_.s_; 
       uint32_t info_number = ElfFile::ULEB128(info, info_bytes);
-      DBG_PRINTF(".info+%lx\t Info Number %X\n", info-debug_info_, info_number);
+      DBG_PRINTF(".info+%lx\t Info Number %X\n", info-debug_info_.s_, info_number);
       if (!info_number) { // reserved
         if ( m_level )
         {
           m_level--;
-          tree_builder->pop_stack(info-debug_info_);
+          tree_builder->pop_stack(info-debug_info_.s_);
         }
         continue;
       }
@@ -3119,7 +3073,7 @@ bool ElfFile::GetAllClasses()
       }
       m_section = &it_section->second;
       const unsigned char* abbrev = m_section->ptr;
-      size_t abbrev_bytes = debug_abbrev_size_ - (abbrev - debug_abbrev_);
+      size_t abbrev_bytes = debug_abbrev_.size_ - (abbrev - debug_abbrev_.s_);
 //      if ( m_tag_id >= 0x353d0a ) {
 //  printf("before RegisterNewTag(%X) m_regged %d taf %lX\n", m_section->type, m_regged, m_tag_id);
 //      }
@@ -3141,7 +3095,7 @@ bool ElfFile::GetAllClasses()
           m_implicit_const = ElfFile::SLEB128(abbrev, abbrev_bytes);
 
         if ( g_opt_d )
-          fprintf(g_outf,".info+%lx\t %02x %02x\n", info-debug_info_, 
+          fprintf(g_outf,".info+%lx\t %02x %02x\n", info-debug_info_.s_, 
                                                 abbrev_attribute, abbrev_form);
         bool logged = LogDwarfInfo(abbrev_attribute, abbrev_form, info, info_bytes, cu_start);
         if (!logged) {
@@ -3153,7 +3107,7 @@ bool ElfFile::GetAllClasses()
       {
         const unsigned char* info2 = cu_start + m_next;
         if ( g_opt_d)
-          fprintf(g_outf, "%lX m_next %lX - %lX\n", info - debug_info_, m_next, info2 - debug_info_);
+          fprintf(g_outf, "%lX m_next %lX - %lX\n", info - debug_info_.s_, m_next, info2 - debug_info_.s_);
         if ( info2 > info )
         {
           info_bytes -= info2 - info;

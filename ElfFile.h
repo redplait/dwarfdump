@@ -40,7 +40,7 @@ struct dwarf_section {
  const unsigned char *s_ = nullptr;
  size_t size_ = 0;
  uint64_t vma_ = 0;
- 
+
  void clean()
  {
    if ( free_ && s_ )
@@ -79,7 +79,7 @@ public:
   virtual bool get_loclistx(uint64_t off, std::list<LocListXItem> &, uint64_t);
 private:
   bool unzip_section(ELFIO::section *, const unsigned char * &data, size_t &);
-  bool check_compressed_section(ELFIO::section *, const unsigned char * &data, size_t &);
+  bool check_compressed_section(ELFIO::section *, dwarf_section &ds);
   template <typename T>
   bool uncompressed_section(ELFIO::section *, const unsigned char * &data, size_t &);
   static uint64_t ULEB128(const unsigned char* &data, size_t& bytes_available);
@@ -111,32 +111,23 @@ private:
   endianess_convertor endc;
   TreeBuilder *tree_builder;
 
-  const unsigned char* debug_info_;
-  size_t debug_info_size_;
-  const unsigned char* debug_abbrev_;
-  size_t debug_abbrev_size_;
-  const unsigned char *debug_loc_;
-  size_t debug_loc_size_;
-  const unsigned char *debug_str_offsets_;
-  size_t debug_str_offsets_size_;
-  const unsigned char *debug_addr_;
-  size_t debug_addr_size_;
-  const unsigned char *debug_loclists_;
-  size_t debug_loclists_size_;
+  dwarf_section debug_info_,
+   debug_abbrev_,
+   debug_loc_,
+   debug_str_offsets_,
+   debug_addr_,
+   debug_loclists_,
+  // shared with TreeBuilder - for method is_string_pool
+   debug_str_,
   // for file names we need section .debug_line
-  const unsigned char *debug_line_;
-  size_t debug_line_size_;
+   debug_line_,
   // for file names in dwarf5 we also need .debug_line_str
-  const unsigned char *debug_line_str_;
-  size_t debug_line_str_size_;
+   debug_line_str_,
   // section with addresses ranges - when opt_f
-  const unsigned char *debug_rnglists_;
-  size_t debug_rnglists_size_;
-  const unsigned char *debug_ranges_;
-  size_t debug_ranges_size_;
+   debug_rnglists_,
+   debug_ranges_,
   // section with frame info - when opt_f
-  const unsigned char *debug_frame_;
-  size_t debug_frame_size_;
+   debug_frame_;
 
   struct TagSection {
       unsigned int number;
@@ -248,7 +239,6 @@ private:
   // data for CFA
   std::map<uint64_t, uint64_t> m_dfa; // key - address, value - DFA_def_cfa_offset
   int eh_addr_size;
-  uint64_t frs_vma = 0; // vma of .eh_frame section
   unsigned int size_of_encoded_value(int);
   uint64_t byte_get(const unsigned char *, unsigned int size);
   uint64_t byte_get_signed(const unsigned char *, unsigned int size);
