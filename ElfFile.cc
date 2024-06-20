@@ -222,6 +222,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
         free_frame = true;
     } else if (g_opt_f && !strcmp(name, ".eh_frame")) {
       is_eh = true;
+      frs_vma = s->get_address();
       debug_frame_ = reinterpret_cast<const unsigned char*>(s->get_data());
       debug_frame_size_ = s->get_size();
       if ( check_compressed_section(s, debug_frame_, debug_frame_size_) )
@@ -457,8 +458,7 @@ const unsigned char *ElfFile::read_cie(const unsigned char *start, const unsigne
   // skip augmentation
   while( start < end)
   {
-    if ( !*start ) break;
-    start++;
+    if ( !*start++ ) break;
   }
   if ( !strcmp((const char*)res.augmentation, "eh") ) start += eh_addr_size;
   if ( res.version >= 4 )
@@ -541,6 +541,12 @@ uint64_t ElfFile::get_encoded_value(const unsigned char **pdata, int encoding, c
     val = byte_get_signed (data, size);
   else
     val = byte_get (data, size);
+  if ( (encoding & 0x70) == DW_EH_PE_pcrel )
+  {
+    if ( g_opt_d )
+      printf("pcrel val %lX diff %lX vma %lX\n", val, data - debug_frame_, frs_vma);
+    val += frs_vma + (data - debug_frame_);
+  }
   *pdata = data + size;
   return val;
 }

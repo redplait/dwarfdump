@@ -216,6 +216,7 @@ private:
   // data for CFA
   std::map<uint64_t, uint64_t> m_dfa; // key - address, value - DFA_def_cfa_offset
   int eh_addr_size;
+  uint64_t frs_vma = 0; // vma of .eh_frame section
   unsigned int size_of_encoded_value(int);
   uint64_t byte_get(const unsigned char *, unsigned int size);
   uint64_t byte_get_signed(const unsigned char *, unsigned int size);
