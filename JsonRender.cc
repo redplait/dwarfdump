@@ -114,12 +114,19 @@ void JsonRender::RenderGoAttrs(std::string &res, uint64_t id)
     put(res, "go_index", g.dict_index);
 }
 
+inline void cut_last_comma(std::string &result) {
+    if (result.back() == '\n')
+      result.pop_back();
+    if (result.back() == ',')
+      result.pop_back();
+}
+
 std::string JsonRender::GenerateJson(Element &e) {
   std::string result;
 
-  if (e.type_ == ElementType::ns_end) {
+  if (e.type_ == ElementType::ns_end)
     return "";
-  }
+  if ( ElementType::lexical_block == e.type_ ) return "";
   // A member is a special case
   if (e.type_ == ElementType::member) {
     result = "{";
@@ -145,7 +152,7 @@ std::string JsonRender::GenerateJson(Element &e) {
     return result;
   }
 
-  // The others are generic  
+  // The others are generic
   result += "\""+std::to_string(e.id_)+"\":{";
   put(result, "type", e.TypeName());
   if ( e.dumped_ )
@@ -188,6 +195,41 @@ std::string JsonRender::GenerateJson(Element &e) {
       auto sname = m_snames->find_sname(e.addr_);
       if ( sname != nullptr )
         put(result, "section", sname);
+    }
+    // frame size
+    if ( e.type_ == ElementType::subroutine && m_locX )
+    {
+      uint64_t fsize = 0;
+      if ( m_locX->find_dfa(e.addr_, fsize) )
+        put(result, "frame_size", fsize);
+    }
+  } else if ( e.has_range_ )
+  {
+    std::list<std::pair<uint64_t, uint64_t> > ranges;
+    if ( lookup_range(e.id_, ranges) )
+    {
+      result += "\"addr_ranges\":[";
+      for ( auto &r: ranges ) {
+        result += "{";
+        put(result, "start", r.first);
+        put(result, "end", r.second);
+        if ( g_opt_s && m_snames != nullptr )
+        {
+          auto sname = m_snames->find_sname(r.first);
+          if ( sname != nullptr )
+            put(result, "section", sname);
+        }
+        result += "},";
+      }
+      result += "],";
+      // try get frame size for any range
+      if ( m_locX) for ( auto &r: ranges ) {
+        uint64_t fsize = 0;
+        if ( m_locX->find_dfa(r.first, fsize) ) {
+          put(result, "frame_size", fsize);
+          break;
+        }
+      }
     }
   }
   if ( e.inlined_ )
@@ -285,15 +327,18 @@ std::string JsonRender::GenerateJson(Element &e) {
     }
     result += "],";
   }
+  if ( e.m_comp && !e.m_comp->lvars_.empty() ) {
+    result += "\"lvars\":[";
+    for ( auto m: e.m_comp->lvars_ )
+      result += GenerateJson(*m) + ",\n";
+    cut_last_comma(result);
+    result += "],";
+  }
   if ( e.m_comp && !e.m_comp->methods_.empty() ) {
     result += "\"methods\":[";
     for ( auto &m: e.m_comp->methods_ )
-      result += GenerateJson(m) + ",\n"; 
-
-    if (result.back() == '\n')
-      result.pop_back();
-    if (result.back() == ',')
-      result.pop_back();
+      result += GenerateJson(m) + ",\n";
+    cut_last_comma(result);
     result += "],";
   }
   if (result.back() == ',') {
