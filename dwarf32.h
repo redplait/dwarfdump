@@ -97,6 +97,7 @@ namespace Dwarf32 {
     DW_TAG_template_alias = 0x43,
 
     // DWARF 5
+    DW_TAG_dynamic_type = 0x46,
     DW_TAG_atomic_type = 0x47,
     DW_TAG_immutable_type = 0x4b,
 
@@ -209,6 +210,13 @@ namespace Dwarf32 {
     DW_AT_str_offsets_base = 0x72,
     DW_AT_addr_base = 0x73,
     DW_AT_rnglists_base = 0x74,
+    DW_AT_reference = 0x77,
+    DW_AT_rvalue_reference = 0x78,
+    DW_AT_call_return_pc = 0x7d,
+    DW_AT_call_pc = 0x81,
+    DW_AT_call_tail_call = 0x82,
+    DW_AT_call_data_location = 0x85,
+    DW_AT_call_data_value = 0x86,
     DW_AT_noreturn = 0x87,
     DW_AT_alignment = 0x88,
     DW_AT_export_symbols = 0x89,

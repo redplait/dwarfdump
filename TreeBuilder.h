@@ -207,6 +207,7 @@ public:
     const_type,
     volatile_type,
     restrict_type,
+    dynamic_type,
     atomic_type, // _Atomic - since C11
     immutable_type,
     // I don`t have samples for DW_TAG_packed_type & DW_TAG_shared_type
