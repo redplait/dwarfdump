@@ -271,6 +271,14 @@ bool PlainRender::dump_type(uint64_t key, OUT std::string &res, named *n, int le
     res += tmp;
     return true;
   }
+  if ( el->second->type_ == ElementType::dynamic_type )
+  {
+    std::string tmp;
+    dump_type(el->second->type_id_, tmp, n);
+    res = "dynamic "; // ??
+    res += tmp;
+    return true;
+  }
   if ( el->second->type_ == ElementType::atomic_type )
   {
     std::string tmp;
@@ -538,6 +546,10 @@ void PlainRender::dump_method(Method *e, const Element *owner, std::string &res)
     res += "static ";
   if ( e->expl_ )
     res += "explicit ";
+  if ( e->ref_ )
+    res += " &";
+  else if ( e->rval_ref_ )
+    res += " &&";
   std::string tmp;
   if ( e->type_id_ )
   {

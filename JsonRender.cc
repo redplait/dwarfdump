@@ -43,6 +43,7 @@ std::string JsonRender::GenerateJson() {
       if ( ti == m_tls.end() )
         continue;
     }
+    if ( e.type_ == ElementType::var_type && e.dumped_ ) continue;
     auto jres = GenerateJson(e);
     if ( !jres.empty() )
     {
@@ -259,6 +260,10 @@ std::string JsonRender::GenerateJson(Element &e) {
       put(result, "default", m.def_);
     if ( m.expl_ )
       put(result, "explicit", m.expl_);
+    if ( m.ref_ )
+      put(result, "ref_", m.ref_ );
+    if ( m.rval_ref_ )
+      put(result, "rval_ref_", m.rval_ref_);
   }
   if (e.count_)
     put(result, "count", e.count_);
@@ -332,7 +337,10 @@ std::string JsonRender::GenerateJson(Element &e) {
   if ( e.m_comp && !e.m_comp->lvars_.empty() ) {
     result += "\"lvars\":[";
     for ( auto m: e.m_comp->lvars_ )
+    {
       result += GenerateJson(*m) + ",\n";
+      m->dumped_ = 1;
+    }
     cut_last_comma(result);
     result += "],";
   }
