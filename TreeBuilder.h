@@ -282,6 +282,8 @@ public:
   void SetVtblIndex(uint64_t);
   void SetDefaulted();
   void SetExplicit();
+  void SetRef_();
+  void SetRValRef_();
   void SetConstExpr();
   void SetSpec(uint64_t);
   void SetAbs(uint64_t);
@@ -530,6 +532,8 @@ protected:
       art_ = e.art_;
       def_ = e.def_;
       expl_ = e.expl_;
+      ref_ = e.ref_;
+      rval_ref_ = e.rval_ref_;
     }
     Method(Method &&e): Element(std::move(e))
     {
@@ -546,7 +550,10 @@ protected:
     uint64_t this_arg_ = 0;
     bool art_ = false,  // from DW_AT_artificial - for destructors
      def_ = false,  // DW_AT_defaulted
-     expl_ = false; // DW_AT_explicit
+     expl_ = false, // DW_AT_explicit
+     // see details at https://dwarfstd.org/issues/131105.1.html
+     ref_ = false,  // DW_AT_reference
+     rval_ref_ = false; // DW_AT_rvalue_reference
   };
 
   struct Compound {

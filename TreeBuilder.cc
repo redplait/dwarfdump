@@ -1315,6 +1315,22 @@ void TreeBuilder::SetExplicit()
   m->expl_ = true;
 }
 
+void TreeBuilder::SetRef_()
+{
+  if ( !recent_ || current_element_type_ != ElementType::method )
+    return;
+  Method *m = static_cast<Method *>(recent_);
+  m->ref_ = true;
+}
+
+void TreeBuilder::SetRValRef_()
+{
+  if ( !recent_ || current_element_type_ != ElementType::method )
+    return;
+  Method *m = static_cast<Method *>(recent_);
+  m->rval_ref_ = true;
+}
+
 void TreeBuilder::SetDefaulted()
 {
   if ( !recent_ || current_element_type_ != ElementType::method )

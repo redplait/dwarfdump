@@ -2715,6 +2715,10 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         return true;
       }
       return false;
+    case Dwarf32::Attribute::DW_AT_rvalue_reference:
+      return ProcessFlags(form, info, info_bytes, &TreeBuilder::SetRValRef_);
+    case Dwarf32::Attribute::DW_AT_reference:
+      return ProcessFlags(form, info, info_bytes, &TreeBuilder::SetRef_);
     case Dwarf32::Attribute::DW_AT_const_expr:
       return ProcessFlags(form, info, info_bytes, &TreeBuilder::SetConstExpr);
     case Dwarf32::Attribute::DW_AT_explicit:
