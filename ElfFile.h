@@ -247,4 +247,6 @@ private:
   bool parse_frames();
   const unsigned char *read_cie(const unsigned char *, const unsigned char *, one_cie &);
   bool parse_dfa(const unsigned char *, const unsigned char *, unsigned char ptr_size, uint64_t &);
+  // relocs
+  bool try_apply_debug_relocs();
 };

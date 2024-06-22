@@ -1,12 +1,12 @@
 EHDR = ../ELFIO
-SRC=main.cc nfilter.cc regnames.cc ElfFile.cc GoTypes.cc TreeBuilder.cc JsonRender.cc PlainRender.cc
+SRC=main.cc nfilter.cc regnames.cc ElfFile.cc Elf_reloc.cc GoTypes.cc TreeBuilder.cc JsonRender.cc PlainRender.cc
 
 
 all: $(SRC)
 	g++ -O3 -I $(EHDR) $(SRC) -o dumper -Wall -lz
 
 dumper.d: $(SRC)
-	g++ -g -gdwarf-3 -I $(EHDR) $(SRC) -o dumper.d -Wall -lz
+	g++ -g -gdwarf-4 -I $(EHDR) $(SRC) -o dumper.d -Wall -lz
 
 dumper.g: dumper.d	
 	objdump -g dumper.d > dumper.g
