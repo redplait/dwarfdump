@@ -1165,15 +1165,16 @@ bool ElfFile::try_apply_debug_relocs()
  // fill symbols
  symbol_section_accessor symbols( reader, sym_sec );
  Elf_Xword sym_no = symbols.get_symbols_num();
- if ( !sym_no )
+ if ( !sym_no ) {
    fprintf(stderr, "no symbols\n");
- else {
+   return false;
+ } else {
     m_symbols.resize(sym_no);
     for ( Elf_Xword i = 0; i < sym_no; ++i )
     {
       std::string name;
       auto &curr_sym = m_symbols[i];
-      symbols.get_symbol( i, name, 
+      symbols.get_symbol( i, name,
         curr_sym.addr, curr_sym.size, curr_sym.bind, curr_sym.type, curr_sym.section, curr_sym.other);
     }
   }
@@ -1200,12 +1201,10 @@ bool ElfFile::try_apply_debug_relocs()
      unsigned rtype = 0;
      Elf_Sxword add = 0;
      ac.get_entry(i, offset, sym_idx, rtype, add);
-     unsigned int reloc_type;
 	   unsigned int reloc_size = 0;
 	   bool reloc_inplace = false;
 	   bool reloc_subtract = false;
-     const unsigned char *rloc;
-     reloc_type = get_reloc_type(rtype);
+     unsigned int reloc_type = get_reloc_type(rtype);
      if (target_specific_reloc_handling (machine, offset, sym_idx, rtype, add))
 	    continue;
 	   else if (is_none_reloc (machine, reloc_type))
@@ -1263,12 +1262,12 @@ bool ElfFile::try_apply_debug_relocs()
 	      static unsigned int prev_reloc = 0;
 
 	      if (reloc_type != prev_reloc)
-	        fprintf(stderr, "unable to apply unsupported reloc type %d to section %s\n",
-		      reloc_type, reader.sections[inf]->get_name().c_str());
+	        fprintf(stderr, "unable to apply unsupported reloc idx %d type %d to section %s\n",
+		      reloc_type, i, reader.sections[inf]->get_name().c_str());
 	      prev_reloc = reloc_type;
 	      continue;
 	    }
-    rloc = apply_to->s_ + offset;
+    const unsigned char *rloc = apply_to->s_ + offset;
 	  if ( !apply_to->in_section(offset, reloc_size) )
 	    {
 	      fprintf(stderr, "skipping invalid relocation offset %lX in section %s\n",
@@ -1331,6 +1330,7 @@ bool ElfFile::try_apply_debug_relocs()
 	  else
 	    byte_put (rloc, addend + m_symbols[sym_idx].addr, reloc_size);
    }
+   m_symbols.clear();
    reset_target_specific_reloc();
  }
  return true;
