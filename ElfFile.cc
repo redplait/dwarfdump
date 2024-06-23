@@ -152,6 +152,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   else
     eh_addr_size = 8;
   endc.setup(reader.get_encoding());
+  m_lsb = reader.get_encoding() == ELFDATA2LSB;
   success = true;
 
   // compressed sections
@@ -380,7 +381,7 @@ uint64_t ElfFile::byte_get(const unsigned char *start, unsigned int size)
   switch (size) {
     case 1: return *start;
     case 2: return endc( *(uint16_t *)start );
-    case 3: if ( reader.get_encoding() == ELFDATA2LSB )
+    case 3: if ( m_lsb )
       return start[0] | start[1] << 8 | start[2] << 16;
      else
       return start[1] | start[1] << 8 | start[0] << 16;
@@ -1261,7 +1262,7 @@ uint32_t ElfFile::read_x3(const unsigned char* &data, size_t& bytes_available)
     fprintf(stderr, "read_x3 tries to read behind available data at %lx\n", data - debug_info_.s_);
     return 0;
   }
-  if ( reader.get_encoding() == ELFDATA2LSB )
+  if ( m_lsb )
    res = data[0] | (data[1] << 8) | (data[2] << 16);
   else
    res = data[2] | (data[1] << 8) | (data[0] << 16);
