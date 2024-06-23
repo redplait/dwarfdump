@@ -64,6 +64,21 @@ struct dwarf_section {
  {
    return (!s_ || !size_);
  }
+ inline bool in_section(const unsigned char *s) const
+ {
+   return (s >= s_) && (s < s_ + size_);
+ }
+ inline bool in_section(Elf64_Addr off, unsigned int reloc_size) const
+ { 
+   return (off < size_) && (off + reloc_size <= size_);
+ }
+};
+
+struct elf_symbol {
+  Elf64_Addr addr = 0;
+  Elf_Xword size = 0;
+  Elf_Half section = 0;
+  unsigned char bind = 0, type = 0, other = 0;
 };
 
 class ElfFile : public ISectionNames, public IGetLoclistX
@@ -209,20 +224,8 @@ private:
   bool get_filename(unsigned int fid, std::string &, const char *&);
   // sections from original elf file
   std::vector<saved_section> m_orig_sects;
-  bool m_regged;
+  bool m_regged, m_lsb,
   // free sections flags
-  bool free_info = false,
-   free_abbrev = false,
-   free_strings = false,
-   free_str_offsets = false,
-   free_addr = false,
-   free_loc = false,
-   free_line = false,
-   free_line_str = false,
-   free_loclists = false,
-   free_rnglists = false,
-   free_ranges = false,
-   free_frame = false,
    is_eh = false;
   // data for rnglists
   struct rnglist_ctx {
@@ -248,5 +251,23 @@ private:
   const unsigned char *read_cie(const unsigned char *, const unsigned char *, one_cie &);
   bool parse_dfa(const unsigned char *, const unsigned char *, unsigned char ptr_size, uint64_t &);
   // relocs
+  dwarf_section *apply_to = nullptr;
+  std::vector<elf_symbol> m_symbols;
+  bool uses_msp430x_relocs = false;
+  bool had_relocs = false;
+  elf_symbol * saved_sym = nullptr;
+  uint64_t saved_sym1 = 0,
+    saved_sym2 = 0, value;
+  void reset_target_specific_reloc() {
+    saved_sym = nullptr;
+    saved_sym1 = saved_sym2 = 0;
+  }
+  // read ULEB128 from apply_to section
+  uint64_t read_leb128(Elf64_Addr offset, bool sign,
+    unsigned int &length_return, int &status_return);
+
+  void byte_put(const unsigned char *, uint64_t, unsigned int size);
+  unsigned int get_reloc_type(unsigned int);
+  bool target_specific_reloc_handling(Elf_Half machine, Elf64_Addr, Elf_Word, unsigned, Elf_Sxword add);
   bool try_apply_debug_relocs();
 };

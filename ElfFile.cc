@@ -272,11 +272,15 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   UNPACK_ZSECTION(zframe, debug_frame_)
 
   tree_builder->m_rnames = get_regnames(reader.get_machine());
-  tree_builder->m_snames = this;
   tree_builder->has_rngx = (debug_rnglists_.s_ != nullptr);
+  success = (debug_info_.s_ && debug_abbrev_.s_);
+  if ( !success) return;
+  success = try_apply_debug_relocs();
+  if ( !success ) return;
+  if ( !had_relocs )
+    tree_builder->m_snames = this;
   parse_rnglists();
   if ( g_opt_f ) parse_frames();
-  success = (debug_info_.s_ && debug_abbrev_.s_);
 }
 
 void ElfFile::free_section(const unsigned char *&s, bool f)

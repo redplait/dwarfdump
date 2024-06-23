@@ -7,7 +7,7 @@
 #include "regnames.h"
 #include "GoTypes.h"
 
-extern int g_opt_g, g_opt_k, g_opt_l, g_opt_s, g_opt_v, g_opt_x;
+extern int g_opt_d, g_opt_g, g_opt_k, g_opt_l, g_opt_s, g_opt_v, g_opt_x;
 extern FILE *g_outf;
 
 enum param_op_type
