@@ -2,23 +2,24 @@
 #include <limits.h>
 
 // from elf/common.h
-#define EM_IAMCU	  6
-#define EM_ARC_COMPACT	 93	/* ARC International ARCompact processor */
-#define EM_OR1K		       92	/* OpenRISC 1000 32-bit embedded processor */
-#define EM_PJ_OLD	       99	/* Old value for picoJava.  Deprecated.  */
-#define EM_TI_PRU	       144	/* Texas Instruments Programmable Realtime Unit */
-#define EM_K1OM		       181	/* Intel K1OM */
-#define EM_AVR_OLD		   0x1057
-#define EM_MSP430_OLD		 0x1059
-#define EM_CYGNUS_FR30	 0x3330
-#define EM_CYGNUS_D10V	 0x7650
-#define EM_CYGNUS_D30V	 0x7676
-#define EM_IP2K_OLD		   0x8217
-#define EM_CYGNUS_V850	 0x9080
-#define EM_S390_OLD		   0xa390
-#define EM_XTENSA_OLD		 0xabc7
-#define EM_CYGNUS_MN10300	0xbeef
-#define EM_CYGNUS_MN10200	0xdead
+#define EM_IAMCU	   6
+#define EM_ARC_COMPACT     93  /* ARC International ARCompact processor */
+#define EM_OR1K		   92  /* OpenRISC 1000 32-bit embedded processor */
+#define EM_PJ_OLD	   99  /* Old value for picoJava.  Deprecated.  */
+#define EM_TI_PRU	   144 /* Texas Instruments Programmable Realtime Unit */
+#define EM_K1OM		   181 /* Intel K1OM */
+#define EM_AVR_OLD	   0x1057
+#define EM_MSP430_OLD	   0x1059
+#define EM_CYGNUS_FR30     0x3330
+#define EM_CYGNUS_D10V     0x7650
+#define EM_CYGNUS_D30V     0x7676
+#define EM_IP2K_OLD	   0x8217
+#define EM_CYGNUS_V850	   0x9080
+#define EM_SW_64       0x9916
+#define EM_S390_OLD	   0xa390
+#define EM_XTENSA_OLD	   0xabc7
+#define EM_CYGNUS_MN10300  0xbeef
+#define EM_CYGNUS_MN10200  0xdead
 
 // elf/h8.h
 #define R_H8_DIR16   17
@@ -34,7 +35,7 @@ ElfFile::get_reloc_type(unsigned int reloc_info)
   switch( reader.get_machine() )
   {
     case EM_SPARCV9:
-    case EM_MIPS: return reloc_info & 0xff; 
+    case EM_MIPS: return reloc_info & 0xff;
   }
   return reloc_info;
 }
@@ -199,6 +200,8 @@ is_32bit_abs_reloc (Elf_Half machine, unsigned int reloc_type, Elf_Half &prev_wa
 	|| reloc_type == 23; /* R_SPARC_UA32.  */
     case EM_SPU:
       return reloc_type == 6; /* R_SPU_ADDR32 */
+    case EM_SW_64:
+      return reloc_type == 1; /* R_SW64_REFLONG */
     case EM_TI_C6000:
       return reloc_type == 1; /* R_C6000_ABS32.  */
     case EM_TILEGX:
@@ -286,7 +289,7 @@ is_32bit_pcrel_reloc (Elf_Half machine, unsigned int reloc_type)
       return reloc_type == 57;	/* R_RISCV_32_PCREL.  */
     case EM_S390_OLD:
     case EM_S390:
-      return reloc_type == 5;  /* R_390_PC32.  */
+      return reloc_type == 5;  /*  R_390_PC32.  */
     case EM_SH:
       return reloc_type == 2;  /* R_SH_REL32.  */
     case EM_SPARC32PLUS:
@@ -295,6 +298,8 @@ is_32bit_pcrel_reloc (Elf_Half machine, unsigned int reloc_type)
       return reloc_type == 6;  /* R_SPARC_DISP32.  */
     case EM_SPU:
       return reloc_type == 13; /* R_SPU_REL32.  */
+    case EM_SW_64:
+      return 10 == reloc_type; /* R_SW64_SREL32 */
     case EM_TILEGX:
       return reloc_type == 6; /* R_TILEGX_32_PCREL.  */
     case EM_TILEPRO:
@@ -359,6 +364,8 @@ is_64bit_abs_reloc (Elf_Half machine, unsigned int reloc_type)
     case EM_S390_OLD:
     case EM_S390:
       return reloc_type == 22;	/* R_S390_64.  */
+    case EM_SW_64:
+      return 2 == reloc_type; /* R_SW64_REFQUAD */
     case EM_TILEGX:
       return reloc_type == 1; /* R_TILEGX_64.  */
     case EM_MIPS:
@@ -400,6 +407,8 @@ is_64bit_pcrel_reloc (Elf_Half machine, unsigned int reloc_type)
     case EM_S390_OLD:
     case EM_S390:
       return reloc_type == 23;	/* R_S390_PC64.  */
+    case EM_SW_64:
+      return 11 == reloc_type; /* R_SW64_SREL64 */
     case EM_TILEGX:
       return reloc_type == 5;  /* R_TILEGX_64_PCREL.  */
     default:
@@ -754,6 +763,7 @@ is_none_reloc (Elf_Half machine, unsigned int reloc_type)
     case EM_SPARC32PLUS:
     case EM_SPARC:   /* R_SPARC_NONE.  */
     case EM_SPARCV9:
+    case EM_SW_64:
     case EM_TILEGX:  /* R_TILEGX_NONE.  */
     case EM_TILEPRO: /* R_TILEPRO_NONE.  */
     case EM_TI_C6000:/* R_C6000_NONE.  */
@@ -844,11 +854,12 @@ uint64_t ElfFile::read_leb128(Elf64_Addr offset, bool sign,
 
 }
 
-bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset, 
+bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset,
  Elf_Word sym_index, unsigned reloc_type, Elf_Sxword add)
 {
   unsigned int reloc_size = 0;
-	int leb_ret = 0;
+  int leb_ret = 0;
+  uint64_t value = 0;
   switch (machine)
     {
     case EM_LOONGARCH:
@@ -860,8 +871,6 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 	    case 107: /* R_LARCH_ADD_ULEB128.  */
 	    case 108: /* R_LARCH_SUB_ULEB128.  */
 	      {
-		uint64_t value = 0;
-
 		if (offset < (size_t)apply_to->size_ )
 		  value = read_leb128 (offset, false, reloc_size, leb_ret);
 		if ( leb_ret != 0 || reloc_size == 0 || reloc_size > 8 )
@@ -942,7 +951,6 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 	  handle_sym_diff:
 	    if (saved_sym != NULL)
 	      {
-		uint64_t value;
 		switch (reloc_type)
 		  {
 		  case 1: /* R_MSP430_32 or R_MSP430_ABS32 */
@@ -966,8 +974,7 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 			   "%d \n", "MSP430", sym_index);
 		else
 		  {
-		    value = add + (m_symbols[sym_index].addr
-					       - saved_sym->addr);
+		    value = add + (m_symbols[sym_index].addr - saved_sym->addr);
 
 		    if (apply_to->in_section(offset, reloc_size))
 		      byte_put (apply_to->s_ + offset, value, reloc_size);
@@ -1010,16 +1017,14 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 	  case 2: /* R_MN10300_16 */
 	    if (saved_sym != NULL)
 	      {
-		int reloc_size = reloc_type == 1 ? 4 : 2;
-		uint64_t value;
+		reloc_size = reloc_type == 1 ? 4 : 2;
 
 		if (sym_index >= m_symbols.size())
 		  fprintf(stderr, "%s reloc contains invalid symbol index "
 			   "%d\n", "MN10300", sym_index);
 		else
 		  {
-		    value = add + (m_symbols[sym_index].addr
-					       - saved_sym->addr);
+		    value = add + (m_symbols[sym_index].addr - saved_sym->addr);
 
 		    if ( apply_to->in_section(offset, reloc_size))
 		      byte_put (apply_to->s_ + offset, value, reloc_size);
@@ -1178,6 +1183,7 @@ bool ElfFile::try_apply_debug_relocs()
         curr_sym.addr, curr_sym.size, curr_sym.bind, curr_sym.type, curr_sym.section, curr_sym.other);
     }
   }
+ unsigned int prev_reloc = 0; 
  // apply all reloc sections from rs list
  for ( auto irs: rs )
  {
@@ -1201,12 +1207,12 @@ bool ElfFile::try_apply_debug_relocs()
      unsigned rtype = 0;
      Elf_Sxword add = 0;
      ac.get_entry(i, offset, sym_idx, rtype, add);
-	   unsigned int reloc_size = 0;
-	   bool reloc_inplace = false;
-	   bool reloc_subtract = false;
+     unsigned int reloc_size = 0;
+     bool reloc_inplace = false;
+     bool reloc_subtract = false;
      unsigned int reloc_type = get_reloc_type(rtype);
      if (target_specific_reloc_handling (machine, offset, sym_idx, rtype, add))
-	    continue;
+       continue;
 	   else if (is_none_reloc (machine, reloc_type))
 	    continue;
 	   else if (is_32bit_abs_reloc (machine, reloc_type, prev_warn)
@@ -1222,36 +1228,31 @@ bool ElfFile::try_apply_debug_relocs()
 	   else if (is_8bit_abs_reloc (machine, reloc_type)
 		   || is_6bit_abs_reloc (machine, reloc_type))
 	    reloc_size = 1;
-	   else if ((reloc_subtract = is_32bit_inplace_sub_reloc (machine,
-								 reloc_type))
+	   else if ((reloc_subtract = is_32bit_inplace_sub_reloc (machine, reloc_type))
 		   || is_32bit_inplace_add_reloc (machine, reloc_type))
 	    {
 	      reloc_size = 4;
 	      reloc_inplace = true;
 	    }
-	  else if ((reloc_subtract = is_64bit_inplace_sub_reloc (machine,
-								 reloc_type))
+	  else if ((reloc_subtract = is_64bit_inplace_sub_reloc (machine, reloc_type))
 		   || is_64bit_inplace_add_reloc (machine, reloc_type))
 	    {
 	      reloc_size = 8;
 	      reloc_inplace = true;
 	    }
-	  else if ((reloc_subtract = is_16bit_inplace_sub_reloc (machine,
-								 reloc_type))
+	  else if ((reloc_subtract = is_16bit_inplace_sub_reloc (machine, reloc_type))
 		   || is_16bit_inplace_add_reloc (machine, reloc_type))
 	    {
 	      reloc_size = 2;
 	      reloc_inplace = true;
 	    }
-	  else if ((reloc_subtract = is_8bit_inplace_sub_reloc (machine,
-								reloc_type))
+	  else if ((reloc_subtract = is_8bit_inplace_sub_reloc (machine, reloc_type))
 		   || is_8bit_inplace_add_reloc (machine, reloc_type))
 	    {
 	      reloc_size = 1;
 	      reloc_inplace = true;
 	    }
-	  else if ((reloc_subtract = is_6bit_inplace_sub_reloc (machine,
-								reloc_type))
+	  else if ((reloc_subtract = is_6bit_inplace_sub_reloc (machine, reloc_type))
 		   || is_6bit_inplace_add_reloc (machine, reloc_type))
 	    {
 	      reloc_size = 1;
@@ -1259,8 +1260,6 @@ bool ElfFile::try_apply_debug_relocs()
 	    }
 	  else
 	    {
-	      static unsigned int prev_reloc = 0;
-
 	      if (reloc_type != prev_reloc)
 	        fprintf(stderr, "unable to apply unsupported reloc idx %d type %d to section %s\n",
 		      reloc_type, i, reader.sections[inf]->get_name().c_str());
@@ -1301,27 +1300,26 @@ bool ElfFile::try_apply_debug_relocs()
 	      || reloc_inplace)
 	    {
 	      if (is_6bit_inplace_sub_reloc (machine, reloc_type))
-		      addend += byte_get (rloc, reloc_size) & 0x3f;
+	        addend += byte_get (rloc, reloc_size) & 0x3f;
 	      else
-		      addend += byte_get (rloc, reloc_size);
+	        addend += byte_get (rloc, reloc_size);
 	    }
      if (is_32bit_pcrel_reloc (machine, reloc_type)
 	      || is_64bit_pcrel_reloc (machine, reloc_type))
 	    {
 	      /* On HPPA, all pc-relative relocations are biased by 8.  */
 	      if (machine == EM_PARISC)
-		      addend -= 8;
-	      byte_put (rloc, (addend + m_symbols[sym_idx].addr) - offset,
-		        reloc_size);
+	        addend -= 8;
+	      byte_put (rloc, (addend + m_symbols[sym_idx].addr) - offset, reloc_size);
 	    }
 	  else if (is_6bit_abs_reloc (machine, reloc_type)
 		   || is_6bit_inplace_sub_reloc (machine, reloc_type)
 		   || is_6bit_inplace_add_reloc (machine, reloc_type))
 	    {
 	      if (reloc_subtract)
-		      addend -= m_symbols[sym_idx].addr;
+	        addend -= m_symbols[sym_idx].addr;
 	      else
-		      addend += m_symbols[sym_idx].addr;
+	        addend += m_symbols[sym_idx].addr;
 	      addend = (addend & 0x3f) | (byte_get (rloc, reloc_size) & 0xc0);
 	      byte_put (rloc, addend, reloc_size);
 	    }
@@ -1331,6 +1329,7 @@ bool ElfFile::try_apply_debug_relocs()
 	    byte_put (rloc, addend + m_symbols[sym_idx].addr, reloc_size);
    }
    m_symbols.clear();
+   apply_to = nullptr;
    reset_target_specific_reloc();
  }
  return true;
