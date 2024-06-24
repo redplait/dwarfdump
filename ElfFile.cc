@@ -272,7 +272,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   UNPACK_ZSECTION(zranges, debug_ranges_)
   UNPACK_ZSECTION(zframe, debug_frame_)
 
-  tree_builder->m_rnames = get_regnames(reader.get_machine());
+  tree_builder->m_rnames = get_regnames(reader.get_machine(), reader.get_class() == ELFCLASS64);
   tree_builder->has_rngx = (debug_rnglists_.s_ != nullptr);
   success = (debug_info_.s_ && debug_abbrev_.s_);
   if ( !success) return;

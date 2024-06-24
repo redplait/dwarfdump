@@ -28,4 +28,4 @@ struct RegNames
   }
 };
 
-RegNames *get_regnames(ELFIO::Elf_Half mac);
+RegNames *get_regnames(ELFIO::Elf_Half mac, bool is64);

@@ -355,6 +355,52 @@ const char *ft32_addr_type(unsigned int v)
   return nullptr;
 }
 
+static const char *const dwarf_regnames_arc[] = {
+  "r0",   "r1",   "r2",   "r3",       "r4",     "r5",     "r6",    "r7",
+  "r8",   "r9",  "r10",  "r11",      "r12",    "r13",    "r14",   "r15",
+  "r16",  "r17",  "r18",  "r19",      "r20",    "r21",    "r22",   "r23",
+  "r24",  "r25",   "gp",   "fp",       "sp",  "ilink",  "ilink2", "blink",
+  "r32",  "r33",  "r34",  "r35",      "r36",    "r37",    "r38",   "r39",
+  "d1",   "d1",   "d2",   "d2",      "r44",    "r45",    "r46",   "r47",
+  "r48",  "r49",  "r50",  "r51",      "r52",    "r53",    "r54",   "r55",
+  "r56",  "r57", "r58",  "r59",  "lp_count",    "cc",   "limm",   "pcl",
+  "vr0",  "vr1",  "vr2",  "vr3",      "vr4",    "vr5",    "vr6",   "vr7",
+  "vr8",  "vr9", "vr10", "vr11",     "vr12",   "vr13",   "vr14",  "vr15",
+ "vr16", "vr17", "vr18", "vr19",     "vr20",   "vr21",   "vr22",  "vr23",
+ "vr24", "vr25", "vr26", "vr27",     "vr28",   "vr29",   "vr30",  "vr31",
+ "vr32", "vr33", "vr34", "vr35",     "vr36",   "vr37",   "vr38",  "vr39",
+ "vr40", "vr41", "vr42", "vr43",     "vr44",   "vr45",   "vr46",  "vr47",
+ "vr48", "vr49", "vr50", "vr51",     "vr52",   "vr53",   "vr54",  "vr55",
+ "vr56", "vr57", "vr58", "vr59",     "vr60",   "vr61",   "vr62",  "vr63",
+  "dr0",  "dr1",  "dr2",  "dr3",      "dr4",    "dr5",    "dr6",   "dr7",
+  "dr0",  "dr1",  "dr2",  "dr3",      "dr4",    "dr5",    "dr6",   "dr7",
+  "arg", "frame"
+};
+
+static const char *const dwarf_regnames_bfin[] = {
+  "R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7",
+  "P0", "P1", "P2", "P3", "P4", "P5", "SP", "FP",
+  "I0", "I1", "I2", "I3", "B0", "B1", "B2", "B3",
+  "L0", "L1", "L2", "L3", "M0", "M1", "M2", "M3",
+  "A0", "A1",
+  "CC",
+  "RETS", "RETI", "RETX", "RETN", "RETE", "ASTAT", "SEQSTAT", "USP",
+  "ARGP",
+  "LT0", "LT1", "LC0", "LC1", "LB0", "LB1"
+};
+
+static const char *const dwarf_regnames_c6x[] = {
+    "A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7",
+    "A8", "A9", "A10", "A11", "A12", "A13", "A14", "A15",
+    "A16", "A17", "A18", "A19", "A20", "A21", "A22", "A23",
+    "A24", "A25", "A26", "A27", "A28", "A29", "A30", "A31",
+    "B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7",
+    "B8", "B9", "B10", "B11", "B12", "B13", "B14", "B15",
+    "B16", "B17", "B18", "B19", "B20", "B21", "B22", "B23",
+    "B24", "B25", "B26", "B27", "B28", "B29", "B30", "B31",
+    "FP", "ARGP", "ILC"
+};
+
 static const char *const regnames_ft32[] =
 {
   "fp", "sp",
@@ -505,6 +551,151 @@ static const char *const regnames_loongarch[] =
   /* 63 */ "F31"
 };
 
+static const char *const regnames_avr32[] =
+{  "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
+   "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+   "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",
+    "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31",
+    "SREG", "SP", "PC2", "pc"
+};
+
+static const char *const regnames_epiphany[] = {
+  "r0",  "r1",  "r2",  "r3",  "r4",  "r5",  "r6",  "r7",
+  "r8",  "r9",  "r10", "fp",  "ip",  "sp",  "lr",  "r15",
+  "r16",  "r17","r18", "r19", "r20", "r21", "r22", "r23",
+  "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31",
+  "r32", "r33", "r34", "r35", "r36", "r37", "r38", "r39",
+  "r40", "r41", "r42", "r43", "r44", "r45", "r46", "r47",
+  "r48", "r49", "r50", "r51", "r52", "r53", "r54", "r55",
+  "r56", "r57", "r58", "r59", "r60", "r61", "r62", "r63",
+  "ap",  "sfp", "cc1", "cc2",
+  "config", "status", "lc", "ls", "le", "iret",
+  "fp_near", "fp_trunc", "fp_anyfp"
+};
+
+static const char *const regnames_frv[] = {
+  "gr0",  "sp",   "fp",   "gr3",  "gr4",  "gr5",  "gr6",  "gr7",
+  "gr8",  "gr9",  "gr10", "gr11", "gr12", "gr13", "gr14", "gr15",
+  "gr16", "gr17", "gr18", "gr19", "gr20", "gr21", "gr22", "gr23",
+  "gr24", "gr25", "gr26", "gr27", "gr28", "gr29", "gr30", "gr31",
+  "gr32", "gr33", "gr34", "gr35", "gr36", "gr37", "gr38", "gr39",
+  "gr40", "gr41", "gr42", "gr43", "gr44", "gr45", "gr46", "gr47",
+  "gr48", "gr49", "gr50", "gr51", "gr52", "gr53", "gr54", "gr55",
+  "gr56", "gr57", "gr58", "gr59", "gr60", "gr61", "gr62", "gr63",
+  "fr0",  "fr1",  "fr2",  "fr3",  "fr4",  "fr5",  "fr6",  "fr7",
+  "fr8",  "fr9",  "fr10", "fr11", "fr12", "fr13", "fr14", "fr15",
+  "fr16", "fr17", "fr18", "fr19", "fr20", "fr21", "fr22", "fr23",
+  "fr24", "fr25", "fr26", "fr27", "fr28", "fr29", "fr30", "fr31",
+  "fr32", "fr33", "fr34", "fr35", "fr36", "fr37", "fr38", "fr39",
+  "fr40", "fr41", "fr42", "fr43", "fr44", "fr45", "fr46", "fr47",
+  "fr48", "fr49", "fr50", "fr51", "fr52", "fr53", "fr54", "fr55",
+  "fr56", "fr57", "fr58", "fr59", "fr60", "fr61", "fr62", "fr63",
+  "fcc0", "fcc1", "fcc2", "fcc3", "icc0", "icc1", "icc2", "icc3",
+  "cc0",  "cc1",  "cc2",  "cc3",  "cc4",  "cc5",  "cc6",  "cc7",
+  "acc0", "acc1", "acc2", "acc3", "acc4", "acc5", "acc6", "acc7",
+  "acc8", "acc9", "acc10", "acc11",
+  "accg0","accg1","accg2","accg3","accg4","accg5","accg6","accg7",
+  "accg8", "accg9", "accg10", "accg11",
+  "ap",   "lr",   "lcr",  "iacc0h", "iacc0l"
+};
+
+static const char *const regnames_lm32[] = {
+ "r0",  "r1",  "r2",  "r3",  "r4",  "r5",  "r6",  "r7",
+ "r8",  "r9",  "r10", "r11", "r12", "r13", "r14", "r15",
+ "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",
+ "r24", "r25",  "gp",  "fp",  "sp",  "ra",  "ea",  "ba"
+};
+
+static const char *const regnames_mcore[] = {
+  "sp", "r1", "r2",  "r3",  "r4",  "r5",  "r6",  "r7",
+  "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+  "apvirtual",  "c", "fpvirtual", "x19"
+};
+
+static const char *const regnames_microblaze[] = {
+  "r0",   "r1",   "r2",   "r3",   "r4",   "r5",   "r6",   "r7",
+  "r8",   "r9",   "r10",  "r11",  "r12",  "r13",  "r14",  "r15",
+  "r16",  "r17",  "r18",  "r19",  "r20",  "r21",  "r22",  "r23",
+  "r24",  "r25",  "r26",  "r27",  "r28",  "r29",  "r30",  "r31",
+  "rmsr", "$ap",  "$rap", "$frp"
+};
+
+static const char *const regnames_or1k[] = {
+  "r0",   "r1",   "r2",   "r3",   "r4",   "r5",   "r6",   "r7",
+  "r8",   "r9",   "r10",  "r11",  "r12",  "r13",  "r14",  "r15",
+  "r17",  "r19",  "r21",  "r23",  "r25",  "r27",  "r29",  "r31",
+  "r16",  "r18",  "r20",  "r22",  "r24",  "r26",  "r28",  "r30",
+  "?ap",  "?fp",  "?sr_f"
+};
+
+static const char *const regnames_riscv[] = {
+ "zero","ra",  "sp",  "gp",  "tp",  "t0",  "t1",  "t2",
+  "s0",  "s1",  "a0",  "a1",  "a2",  "a3",  "a4",  "a5",
+  "a6",  "a7",  "s2",  "s3",  "s4",  "s5",  "s6",  "s7",
+  "s8",  "s9",  "s10", "s11", "t3",  "t4",  "t5",  "t6",
+  "ft0", "ft1", "ft2", "ft3", "ft4", "ft5", "ft6", "ft7",
+  "fs0", "fs1", "fa0", "fa1", "fa2", "fa3", "fa4", "fa5",
+  "fa6", "fa7", "fs2", "fs3", "fs4", "fs5", "fs6", "fs7",
+  "fs8", "fs9", "fs10","fs11","ft8", "ft9", "ft10","ft11",
+  "arg", "frame"
+};
+
+static const char *const regnames_rl78[] = {
+    "x",   "a",   "c",   "b",   "e",   "d",   "l",   "h",
+    "r8",  "r9",  "r10", "r11", "r12", "r13", "r14", "r15",
+    "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",
+    "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31",
+    "sp",  "ap",  "psw", "es",  "cs"
+};
+
+static const char *const regnames_rx[] = {
+ "r0",  "r1",  "r2",   "r3",   "r4",   "r5",   "r6",   "r7",
+ "r8",  "r9",  "r10",  "r11",  "r12",  "r13",  "r14",  "r15", "cc"
+};
+
+static const char *const regnames_v850[] = {
+  "r0",  "r1",  "r2",  "sp",  "gp",  "r5",  "r6" , "r7",
+  "r8",  "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+  "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",
+  "r24", "r25", "r26", "r27", "r28", "r29",  "ep", "r31",
+  "psw", "fcc", ".fp", ".ap"
+};
+
+static const char *const regnames_xtensa[] = {
+  "a0",   "sp",   "a2",   "a3",   "a4",   "a5",   "a6",   "a7",
+  "a8",   "a9",   "a10",  "a11",  "a12",  "a13",  "a14",  "a15",
+  "fp",   "argp", "b0",
+  "f0",   "f1",   "f2",   "f3",   "f4",   "f5",   "f6",   "f7",
+  "f8",   "f9",   "f10",  "f11",  "f12",  "f13",  "f14",  "f15",
+  "acc"
+};
+
+static const char *const regnames_pa32[] = {
+ "%r0",   "%r1",    "%r2",   "%r3",    "%r4",   "%r5",    "%r6",   "%r7", 
+ "%r8",   "%r9",    "%r10",  "%r11",   "%r12",  "%r13",   "%r14",  "%r15",
+ "%r16",  "%r17",   "%r18",  "%r19",   "%r20",  "%r21",   "%r22",  "%r23",
+ "%r24",  "%r25",   "%r26",  "%r27",   "%r28",  "%r29",   "%r30",  "%r31",
+ "%fr4",  "%fr4R",  "%fr5",  "%fr5R",  "%fr6",  "%fr6R",  "%fr7",  "%fr7R",
+ "%fr8",  "%fr8R",  "%fr9",  "%fr9R",  "%fr10", "%fr10R", "%fr11", "%fr11R",
+ "%fr12", "%fr12R", "%fr13", "%fr13R", "%fr14", "%fr14R", "%fr15", "%fr15R",
+ "%fr16", "%fr16R", "%fr17", "%fr17R", "%fr18", "%fr18R", "%fr19", "%fr19R",
+ "%fr20", "%fr20R", "%fr21", "%fr21R", "%fr22", "%fr22R", "%fr23", "%fr23R",
+ "%fr24", "%fr24R", "%fr25", "%fr25R", "%fr26", "%fr26R", "%fr27", "%fr27R",
+ "%fr28", "%fr28R", "%fr29", "%fr29R", "%fr30", "%fr30R", "%fr31", "%fr31R",
+ "SAR",   "sfp"
+};
+
+static const char *const regnames_pa64[] = {
+ "%r0",   "%r1",    "%r2",   "%r3",    "%r4",   "%r5",    "%r6",   "%r7",
+ "%r8",   "%r9",    "%r10",  "%r11",   "%r12",  "%r13",   "%r14",  "%r15",
+ "%r16",  "%r17",   "%r18",  "%r19",   "%r20",  "%r21",   "%r22",  "%r23",
+ "%r24",  "%r25",   "%r26",  "%r27",   "%r28",  "%r29",   "%r30",  "%r31",
+ "%fr4",  "%fr5",   "%fr6",  "%fr7",   "%fr8",  "%fr9",   "%fr10", "%fr11",
+ "%fr12", "%fr13",  "%fr14", "%fr15",  "%fr16", "%fr17",  "%fr18", "%fr19",
+ "%fr20", "%fr21",  "%fr22", "%fr23",  "%fr24", "%fr25",  "%fr26", "%fr27",
+ "%fr28", "%fr29",  "%fr30", "%fr31",  "SAR",   "sfp"
+};
+
 // sparc register names ripped from llvm/lib/Target/Sparc
 static const char *const regnames_sparc[] =
 {
@@ -600,7 +791,7 @@ static const char *const regnames_sparc[] =
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
-RegNames *get_regnames(ELFIO::Elf_Half mac)
+RegNames *get_regnames(ELFIO::Elf_Half mac, bool is64)
 {
   RegNames *res = nullptr;
   switch(mac)
@@ -627,6 +818,15 @@ RegNames *get_regnames(ELFIO::Elf_Half mac)
        res = new tableRegNames(dwarf_regnames_aarch64, ARRAY_SIZE(dwarf_regnames_aarch64));
        return res;
       break;
+    case ELFIO::EM_ARC:
+       res = new tableRegNames(dwarf_regnames_arc, ARRAY_SIZE(dwarf_regnames_arc));
+       return res;
+    case ELFIO::EM_BLACKFIN:
+       res = new tableRegNames(dwarf_regnames_bfin, ARRAY_SIZE(dwarf_regnames_bfin));
+       return res;
+    case ELFIO::EM_TI_C6000:
+       res = new tableRegNames(dwarf_regnames_c6x, ARRAY_SIZE(dwarf_regnames_c6x));
+       return res;
     case ELFIO::EM_S390:
        res = new tableRegNames(dwarf_regnames_s390, ARRAY_SIZE(dwarf_regnames_s390), &s390_addr_type);
        return res;
@@ -636,6 +836,13 @@ RegNames *get_regnames(ELFIO::Elf_Half mac)
        res = new tableRegNames(regnames_ppc, ARRAY_SIZE(regnames_ppc));
        return res;
       break;
+    case ELFIO::EM_AVR32:
+       res = new tableRegNames(regnames_avr32, ARRAY_SIZE(regnames_avr32));
+       return res;
+      break;
+    case ELFIO::EM_ADAPTEVA_EPIPHANY:
+       res = new tableRegNames(regnames_epiphany, ARRAY_SIZE(regnames_epiphany));
+       return res;
     case ELFIO::EM_FT32:
        res = new tableRegNames(regnames_ft32, ARRAY_SIZE(regnames_ft32), &ft32_addr_type);
        return res;
@@ -644,14 +851,52 @@ RegNames *get_regnames(ELFIO::Elf_Half mac)
        res = new tableRegNames(regnames_mips, ARRAY_SIZE(regnames_mips));
        return res;
       break;
+    case ELFIO::EM_PARISC:
+       if ( is64 )
+         res = new tableRegNames(regnames_pa64, ARRAY_SIZE(regnames_pa64));
+       else
+         res = new tableRegNames(regnames_pa32, ARRAY_SIZE(regnames_pa32));
+       return res;
+    case ELFIO::EM_RISCV:
+       res = new tableRegNames(regnames_riscv, ARRAY_SIZE(regnames_riscv));
+       return res;
     case ELFIO::EM_SPARCV9:
        res = new tableRegNames(regnames_sparc, ARRAY_SIZE(regnames_sparc));
        return res;
       break;
+    case ELFIO::EM_MCORE:
+       res = new tableRegNames(regnames_mcore, ARRAY_SIZE(regnames_mcore));
+       return res;
+    case ELFIO::EM_LATTICEMICO32:
+       res = new tableRegNames(regnames_lm32, ARRAY_SIZE(regnames_lm32));
+       return res;
+    case ELFIO::EM_CYGNUS_FRV:
+       res = new tableRegNames(regnames_frv, ARRAY_SIZE(regnames_frv));
+       return res;
+    case ELFIO::EM_MICROBLAZE:
+       res = new tableRegNames(regnames_microblaze, ARRAY_SIZE(regnames_microblaze));
+       return res;
+    case 92: // EM_OR1K
+       res = new tableRegNames(regnames_or1k, ARRAY_SIZE(regnames_or1k));
+       return res;
+    case ELFIO::EM_RL78:
+       res = new tableRegNames(regnames_rl78, ARRAY_SIZE(regnames_rl78));
+       return res;
+    case ELFIO::EM_RX:
+       res = new tableRegNames(regnames_rx, ARRAY_SIZE(regnames_rx));
+       return res;
+    case 0x9080: // EM_CYGNUS_V850
+       res = new tableRegNames(regnames_v850, ARRAY_SIZE(regnames_v850));
+       return res;
+    case 0xabc7: // EM_XTENSA_OLD
+    case ELFIO::EM_XTENSA:
+       res = new tableRegNames(regnames_xtensa, ARRAY_SIZE(regnames_xtensa));
+       return res;
+
     case 258:
        res = new tableRegNames(regnames_loongarch, ARRAY_SIZE(regnames_loongarch));
        return res;
       break;
   } 
-  return nullptr; 
+  return nullptr;
 }
