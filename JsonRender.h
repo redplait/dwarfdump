@@ -12,4 +12,5 @@ class JsonRender: public TreeBuilder
     std::string GenerateJson(Element &);
     template <class T>
     std::string &put(std::string &, const char *, T);
+    void render_location(std::string &, param_loc &);
 };

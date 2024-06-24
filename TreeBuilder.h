@@ -333,6 +333,7 @@ protected:
   void put_file_hdr();
   void put_file_hdr(struct cu *);
   int merge_dumped();
+  const char *locs_no_ops(param_op_type);
   int can_have_methods(int level);
   int is_signed_ate(unsigned char ate) const;
   void dump_location(std::string &s, param_loc &pl);

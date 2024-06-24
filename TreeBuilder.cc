@@ -141,12 +141,13 @@ void TreeBuilder::dump_location(std::string &s, param_loc &pl)
       if ( idx )
         s += " ; ";
       ++idx;
+      auto op_name = locs_no_ops(l.type);
+      if ( op_name ) {
+        s += op_name;
+        continue;
+      }
       switch(l.type)
       {
-        case deref: s += "OP_deref";
-         break;
-        case call_frame_cfa: s += "OP_call_frame_cfa";
-         break;
         case regval_type: {
           s += "regval_type";
           bool need_reg = true;
@@ -277,53 +278,35 @@ void TreeBuilder::dump_location(std::string &s, param_loc &pl)
           s += "TlsIndex ";
           s += std::to_string(l.offset);
          break;
-        case fneg:
-          s += "neg";
-         break;
-        case fnot:
-          s += "not";
-         break;
-        case fabs:
-          s += "abs";
-         break;
-        case fand:
-          s += "and";
-         break;
-        case fminus:
-          s += "minus";
-         break;
-        case f_or:
-          s += "or";
-         break;
-        case fplus:
-          s += "plus";
-         break;
-        case fshl:
-          s += "shl";
-         break;
-        case fshr:
-          s += "shr";
-         break;
-        case fshra:
-          s += "shra";
-         break;
-        case fxor:
-          s += "xor";
-         break;
-        case fmul:
-          s += "mul";
-         break;
-        case fdiv:
-          s += "div";
-         break;
-        case fmod:
-          s += "mod";
-         break;
-        case fstack:
-          s += "stack_value";
-         break;
+        default:
+         fprintf(stderr, "unknown location op %d\n", l.type);
       }
     }
+}
+
+const char *TreeBuilder::locs_no_ops(param_op_type op)
+{
+  switch(op)
+  {
+    case call_frame_cfa: return "OP_call_frame_cfa";
+    case deref: return "OP_deref";
+    case fneg: return "neg";
+    case fnot: return "not";
+    case fabs: return "abs";
+    case fand: return "and";
+    case fminus: return "minus";
+    case f_or: return "or";
+    case fplus: return "plus";
+    case fshl: return "shl";
+    case fshr: return "shr";
+    case fshra: return "shra";
+    case fxor: return "xor";
+    case fmul: return "mul";
+    case fdiv: return "div";
+    case fmod: return "mod";
+    case fstack: return "stack_value";
+    default: return nullptr;
+  }
 }
 
 bool TreeBuilder::get_replaced_name(uint64_t key, std::string &res, unsigned char *ate)

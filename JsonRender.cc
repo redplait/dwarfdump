@@ -96,6 +96,118 @@ std::string &JsonRender::put(std::string &res, const char *name, const void *v)
   return res;
 }
 
+inline void cut_last_comma(std::string &result) {
+    if (result.back() == '\n')
+      result.pop_back();
+    if (result.back() == ',')
+      result.pop_back();
+}
+
+void JsonRender::render_location(std::string &s, param_loc &pl)
+{
+  int idx = 0;
+  s += "\"loc\":[";
+  for ( auto &l: pl.locs )
+  {
+    if ( idx ) s.push_back(',');
+    idx++;
+    s.push_back('{');
+    auto op_name = locs_no_ops(l.type);
+    if ( op_name ) {
+      put(s, "op", op_name);
+      s.push_back('}');
+      continue;
+    }
+    const char *reg_name = nullptr;
+    switch(l.type)
+    {
+      case regval_type:
+        // op
+        put(s, "op", "OP_breg");
+        // reg idx
+        put(s, "reg", l.idx);
+        if ( m_rnames )
+          reg_name = m_rnames->reg_name(l.idx);
+        if ( reg_name )
+          put(s, "reg_name", reg_name);
+        // offset
+        if ( l.offset )
+          put(s, "offset", l.offset);
+       break;
+      case reg:
+        put(s, "op", "OP_reg");
+        // reg idx
+        put(s, "reg", l.idx);
+        if ( m_rnames )
+          reg_name = m_rnames->reg_name(l.idx);
+        if ( reg_name )
+          put(s, "reg_name", reg_name);
+       break;
+      case breg:
+        put(s, "op", "OP_breg");
+        // reg idx
+        put(s, "reg", l.idx);
+        if ( m_rnames )
+          reg_name = m_rnames->reg_name(l.idx);
+        if ( reg_name )
+          put(s, "reg_name", reg_name);
+        // offset
+        if ( l.offset )
+          put(s, "offset", l.offset);
+       break;
+      case fpiece:
+        put(s, "op", "piece");
+        put(s, "value", l.idx);
+       break;
+      case imp_value:
+        put(s, "op", "implicit_value");
+        put(s, "value", l.idx);
+       break;
+      case svalue:
+        put(s, "op", "svalue");
+        put(s, "value", l.sv);
+       break;
+      case fvalue:
+        put(s, "op", "fvalue");
+        put(s, "value", l.sv);
+       break;
+      case uvalue:
+        put(s, "op", "uvalue");
+        put(s, "value", l.conv);
+       break;
+      case deref_type:
+        put(s, "op", "deref_type");
+        put(s, "size", l.offset);
+        if ( l.conv )
+          put(s, "value", l.conv);
+       break;
+      case convert:
+        put(s, "op", "convert");
+        put(s, "idx", l.conv);
+       break;
+      case deref_size:
+        put(s, "op", "deref_size");
+        put(s, "size", l.idx);
+       break;
+      case fbreg:
+        put(s, "op", "fbreg");
+        put(s, "value", l.offset);
+       break;
+      case plus_uconst:
+        put(s, "op", "plus_uconst");
+        put(s, "value", l.offset);
+       break;
+      case tls_index:
+        put(s, "op", "TlsIndex");
+        put(s, "value", l.offset);
+       break;
+      default: fprintf(stderr, "unknown location op %d\n", l.type);
+    }
+    cut_last_comma(s);
+    s.push_back('}');
+  }
+  s += ']';
+}
 
 void JsonRender::RenderGoAttrs(std::string &res, uint64_t id)
 {
@@ -113,13 +225,6 @@ void JsonRender::RenderGoAttrs(std::string &res, uint64_t id)
     put(res, "go_rt_type", g.rt_type);
   if ( g.dict_index )
     put(res, "go_index", g.dict_index);
-}
-
-inline void cut_last_comma(std::string &result) {
-    if (result.back() == '\n')
-      result.pop_back();
-    if (result.back() == ',')
-      result.pop_back();
 }
 
 std::string JsonRender::GenerateJson(Element &e) {
@@ -241,9 +346,44 @@ std::string JsonRender::GenerateJson(Element &e) {
       put(result, "addr_class", e.addr_class_);
   if ( e.type_ == ElementType::var_type )
   {
+    if ( g_opt_l )
+      put(result, "level", e.level_);
     auto ti = m_tls.find(e.id_);
     if ( ti != m_tls.end() )
       put(result, "tls_index", ti->second);
+    if ( e.locx_ && m_locX )
+    {
+      std::list<LocListXItem> locs;
+      if ( m_locX->get_loclistx(e.locx_, locs, cu.cu_base_addr) )
+      {
+        // dump list of locations
+        result += "\"loc_list\":[";
+        for ( auto &l: locs )
+        {
+          std::string loc;
+          render_location(loc, l.loc);
+          if ( !loc.empty() )
+          {  
+            result += "{";
+            put(result, "start", l.start);
+            put(result, "end", l.end);
+            result += loc;
+            cut_last_comma(result);
+            result += "},";
+          }
+        }
+        cut_last_comma(result);
+        result += "],";
+      }
+    } else if ( e.owner_ && e.owner_->m_comp ) {
+      auto liter = e.owner_->m_comp->lvar_locs_.find(&e);
+      if ( liter != e.owner_->m_comp->lvar_locs_.end() )
+      {
+        std::string loc;
+        render_location(loc, liter->second);
+        if ( !loc.empty() ) result += loc;
+      }
+    }
   }
   if ( e.type_ == ElementType::method )
   {
@@ -302,6 +442,12 @@ std::string JsonRender::GenerateJson(Element &e) {
       } else {
         if ( e.m_comp->params_[i].id )
           put(result, "type_id", e.m_comp->params_[i].id);
+      }
+      if ( !e.m_comp->params_[i].loc.empty() )
+      {
+        std::string ploc;
+        render_location(ploc, e.m_comp->params_[i].loc);
+        if ( !ploc.empty() ) result += ploc;
       }
       if (result.back() == ',')
         result.pop_back();
