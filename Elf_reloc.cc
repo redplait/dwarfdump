@@ -41,7 +41,7 @@ ElfFile::get_reloc_type(unsigned int reloc_info)
 }
 
 static bool
-is_32bit_abs_reloc (Elf_Half machine, unsigned int reloc_type, Elf_Half &prev_warn)
+is_32bit_abs_reloc (Elf_Half machine, unsigned int reloc_type, Elf_Half &prev_warn, ErrLog *e_)
 {
   /* Please keep this table alpha-sorted for ease of visual lookup.  */
   switch (machine)
@@ -236,7 +236,7 @@ is_32bit_abs_reloc (Elf_Half machine, unsigned int reloc_type, Elf_Half &prev_wa
 
 	/* Avoid repeating the same warning multiple times.  */
 	if (prev_warn != machine)
-	  fprintf(stderr, "Missing knowledge of 32-bit reloc types used in DWARF sections of machine number %d\n",
+	  e_->error("Missing knowledge of 32-bit reloc types used in DWARF sections of machine number %d\n",
 		 machine);
 	prev_warn = machine;
 	return false;
@@ -874,11 +874,11 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 		if (offset < (size_t)apply_to->size_ )
 		  value = read_leb128 (offset, false, reloc_size, leb_ret);
 		if ( leb_ret != 0 || reloc_size == 0 || reloc_size > 8 )
-		  fprintf(stderr, "LoongArch ULEB128 field at 0x%lx contains invalid "
+		  tree_builder->e_->error("LoongArch ULEB128 field at 0x%lx contains invalid "
 			   "ULEB128 value\n", offset);
 
 		else if (sym_index >= m_symbols.size())
-		  fprintf(stderr, "%s reloc contains invalid symbol index %d\n",
+		  tree_builder->e_->error("%s reloc contains invalid symbol index %d\n",
 			 (reloc_type == 107
 			  ? "R_LARCH_ADD_ULEB128"
 			  : "R_LARCH_SUB_ULEB128"),
@@ -924,7 +924,7 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 	  case 23: /* R_MSP430X_GNU_SUB_ULEB128 */
 	    /* PR 21139.  */
 	    if (sym_index >= m_symbols.size())
-	      fprintf(stderr, "%s reloc contains invalid symbol index "
+	      tree_builder->e_->error("%s reloc contains invalid symbol index "
 		       "%d\n", "MSP430 SYM_DIFF", sym_index);
 	    else
 	      saved_sym = &m_symbols[sym_index];
@@ -967,10 +967,10 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 		  }
 
 		if (leb_ret != 0 || reloc_size == 0 || reloc_size > 8)
-		  fprintf(stderr, "MSP430 ULEB128 field at %lX contains invalid ULEB128 value\n",
+		  tree_builder->e_->error("MSP430 ULEB128 field at %lX contains invalid ULEB128 value\n",
 			 offset);
 		else if (sym_index >= m_symbols.size())
-		  fprintf(stderr, "%s reloc contains invalid symbol index "
+		  tree_builder->e_->error("%s reloc contains invalid symbol index "
 			   "%d \n", "MSP430", sym_index);
 		else
 		  {
@@ -980,7 +980,7 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 		      byte_put (apply_to->s_ + offset, value, reloc_size);
 		    else
 		      /* PR 21137 */
-		      fprintf(stderr, "MSP430 sym diff reloc contains invalid offset: "
+		      tree_builder->e_->error("MSP430 sym diff reloc contains invalid offset: "
 			       "%lX\n", offset);
 		  }
 
@@ -991,7 +991,7 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 
 	  default:
 	    if (saved_sym != NULL)
-	      fprintf(stderr, "Unhandled MSP430 reloc type found after SYM_DIFF reloc\n");
+	      tree_builder->e_->error("Unhandled MSP430 reloc type found after SYM_DIFF reloc\n");
 	    break;
 	  }
 	break;
@@ -1007,7 +1007,7 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 	    return true;
 	  case 33: /* R_MN10300_SYM_DIFF */
 	    if (sym_index >= m_symbols.size())
-	      fprintf(stderr, "%s reloc contains invalid symbol index "
+	      tree_builder->e_->error("%s reloc contains invalid symbol index "
 		       "%d\n", "MN10300_SYM_DIFF", sym_index);
 	    else
 	      saved_sym = &m_symbols[sym_index];
@@ -1020,7 +1020,7 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 		reloc_size = reloc_type == 1 ? 4 : 2;
 
 		if (sym_index >= m_symbols.size())
-		  fprintf(stderr, "%s reloc contains invalid symbol index "
+		  tree_builder->e_->error("%s reloc contains invalid symbol index "
 			   "%d\n", "MN10300", sym_index);
 		else
 		  {
@@ -1029,7 +1029,7 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 		    if ( apply_to->in_section(offset, reloc_size))
 		      byte_put (apply_to->s_ + offset, value, reloc_size);
 		    else
-		      fprintf(stderr, "MN10300 sym diff reloc contains invalid offset:"
+		      tree_builder->e_->error("MN10300 sym diff reloc contains invalid offset:"
 			       " %lX\n", offset);
 		  }
 
@@ -1039,7 +1039,7 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 	    break;
 	  default:
 	    if (saved_sym != NULL)
-	      fprintf(stderr, "Unhandled MN10300 reloc type found after SYM_DIFF reloc\n");
+	      tree_builder->e_->error("Unhandled MN10300 reloc type %d found after SYM_DIFF reloc\n", reloc_type);
 	    break;
 	  }
 	break;
@@ -1053,8 +1053,7 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 	  case 0x80: /* R_RL78_SYM.  */
 	    saved_sym1 = saved_sym2;
 	    if (sym_index >= m_symbols.size())
-	      fprintf(stderr, "%s reloc contains invalid symbol index "
-		       "%d\n", "RL78_SYM", sym_index);
+	      tree_builder->e_->error("%s reloc contains invalid symbol index %d\n", "RL78_SYM", sym_index);
 	    else
 	      {
 		saved_sym2 = m_symbols[sym_index].addr;
@@ -1072,8 +1071,7 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 	    if ( apply_to->in_section(offset, 4))
 	      byte_put (apply_to->s_ + offset, value, 4);
 	    else
-	      fprintf(stderr, "RL78 sym diff reloc contains invalid offset: "
-		       "%lX\n", offset);
+	      tree_builder->e_->error("RL78 sym diff reloc contains invalid offset: %lX\n", offset);
 	    value = 0;
 	    return true;
 
@@ -1081,7 +1079,7 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 	    if ( apply_to->in_section (offset, 2))
 	      byte_put (apply_to->s_ + offset, value, 2);
 	    else
-	      fprintf(stderr, "RL78 sym diff reloc contains invalid offset: "
+	      tree_builder->e_->error("RL78 sym diff reloc contains invalid offset: "
 		       "%lX\n", offset);
 	    value = 0;
 	    return true;
@@ -1099,7 +1097,7 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
 void ElfFile::byte_put(const unsigned char *c, uint64_t value, unsigned int size)
 {
   if ( size > sizeof(uint64_t)) {
-    fprintf(stderr, "byte_put: bad size %d\n", size);
+    tree_builder->e_->error("byte_put: bad size %d\n", size);
     return;
   }
   unsigned char *field = (unsigned char *)c;
@@ -1160,7 +1158,7 @@ bool ElfFile::try_apply_debug_relocs()
  }
  if ( rs.empty() ) return true;
  if ( !sym_sec ) {
-   fprintf(stderr, "Cannot find symtab\n");
+   tree_builder->e_->error("Cannot find symtab\n");
    return false;
  }
  had_relocs = true;
@@ -1171,7 +1169,7 @@ bool ElfFile::try_apply_debug_relocs()
  symbol_section_accessor symbols( reader, sym_sec );
  Elf_Xword sym_no = symbols.get_symbols_num();
  if ( !sym_no ) {
-   fprintf(stderr, "no symbols\n");
+   tree_builder->e_->error("no symbols\n");
    return false;
  } else {
     m_symbols.resize(sym_no);
@@ -1215,7 +1213,7 @@ bool ElfFile::try_apply_debug_relocs()
        continue;
 	   else if (is_none_reloc (machine, reloc_type))
 	    continue;
-	   else if (is_32bit_abs_reloc (machine, reloc_type, prev_warn)
+	   else if (is_32bit_abs_reloc (machine, reloc_type, prev_warn, tree_builder->e_)
 		   || is_32bit_pcrel_reloc (machine, reloc_type))
 	    reloc_size = 4;
 	   else if (is_64bit_abs_reloc (machine, reloc_type)
@@ -1261,7 +1259,7 @@ bool ElfFile::try_apply_debug_relocs()
 	  else
 	    {
 	      if (reloc_type != prev_reloc)
-	        fprintf(stderr, "unable to apply unsupported reloc idx %d type %d to section %s\n",
+	        tree_builder->e_->error("unable to apply unsupported reloc idx %d type %d to section %s\n",
 		      reloc_type, i, reader.sections[inf]->get_name().c_str());
 	      prev_reloc = reloc_type;
 	      continue;
@@ -1269,14 +1267,14 @@ bool ElfFile::try_apply_debug_relocs()
     const unsigned char *rloc = apply_to->s_ + offset;
 	  if ( !apply_to->in_section(offset, reloc_size) )
 	    {
-	      fprintf(stderr, "skipping invalid relocation offset %lX in section %s\n",
+	      tree_builder->e_->error("skipping invalid relocation offset %lX in section %s\n",
 		      offset, reader.sections[inf]->get_name().c_str());
 	      continue;
 	    }
 
 	  if (sym_idx >= sym_no)
 	    {
-	      fprintf(stderr, "skipping invalid relocation symbol index %d in section %s\n",
+	      tree_builder->e_->error("skipping invalid relocation symbol index %d in section %s\n",
 		      sym_idx, reader.sections[inf]->get_name().c_str());
 	      continue;
 	    }
@@ -1284,7 +1282,7 @@ bool ElfFile::try_apply_debug_relocs()
          m_symbols[sym_idx].type > STT_SECTION
        )
       {
-        fprintf(stderr, "skipping unexpected symbol type %d in section %s relocation %d\n",
+        tree_builder->e_->error("skipping unexpected symbol type %d in section %s relocation %d\n",
           m_symbols[sym_idx].type, reader.sections[inf]->get_name().c_str(), i);
         continue;
       }

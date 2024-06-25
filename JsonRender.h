@@ -4,6 +4,8 @@
 class JsonRender: public TreeBuilder
 {
   public:
+    JsonRender(ErrLog *e): TreeBuilder(e)
+    { }
     std::string GenerateJson();
   protected:
     virtual void RenderUnit(int last);

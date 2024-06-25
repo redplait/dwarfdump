@@ -27,7 +27,7 @@ struct named
 class PlainRender: public TreeBuilder
 {
   public:
-    PlainRender(): TreeBuilder()
+    PlainRender(ErrLog *e): TreeBuilder(e)
     {}
     virtual ~PlainRender()
     {}

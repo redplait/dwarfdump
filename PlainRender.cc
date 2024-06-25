@@ -74,7 +74,7 @@ void PlainRender::prepare(std::list<Element> &els)
       if ( f == m_els.end() )
       {
         if ( g_opt_v )
-          fprintf(stderr, "cannot find origin with type %lX for %lX\n", e.abs_, e.id_);
+          e_->warning("cannot find origin with type %lX for %lX\n", e.abs_, e.id_);
         continue;
       }
       if ( !f->second->spec_ )
@@ -909,14 +909,14 @@ void PlainRender::dump_const_expr(Element *e)
           el = m_els.find(et->type_id_);
           break;
         default:
-          fprintf(stderr, "unknown type %s for const_expr id %lX\n", et->TypeName(), e->id_);
+          e_->error("unknown type %s for const_expr id %lX\n", et->TypeName(), e->id_);
           return;
       }
       if ( el == m_els.end() )
       {
         if ( !get_replaced_name(et->type_id_, name, &ate) )
         {
-          fprintf(stderr, "cannot find type_id %lX for const_expr id %lX\n", et->type_id_, e->id_);
+          e_->error("cannot find type_id %lX for const_expr id %lX\n", et->type_id_, e->id_);
           return;
         } else
          break;

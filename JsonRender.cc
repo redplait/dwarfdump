@@ -201,7 +201,7 @@ void JsonRender::render_location(std::string &s, param_loc &pl)
         put(s, "op", "TlsIndex");
         put(s, "value", l.offset);
        break;
-      default: fprintf(stderr, "unknown location op %d\n", l.type);
+      default: e_->error("unknown location op %d\n", l.type);
     }
     cut_last_comma(s);
     s.push_back('}');

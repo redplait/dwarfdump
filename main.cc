@@ -90,11 +90,12 @@ int main(int argc, char* argv[])
   if (optind == argc )
     usage(argv[0]);
 
+  FLog ferr(stderr);
   TreeBuilder *render = nullptr;
   if ( use_json )
-    render = new JsonRender();
+    render = new JsonRender(&ferr);
   else
-    render = new PlainRender();
+    render = new PlainRender(&ferr);
   bool success;
   std::string binary_path = std::string(argv[optind]);
   {

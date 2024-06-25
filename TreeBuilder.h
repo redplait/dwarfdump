@@ -4,6 +4,7 @@
 #include <list>
 #include <vector>
 #include <stack>
+#include "Err.h"
 #include "regnames.h"
 #include "GoTypes.h"
 
@@ -185,7 +186,7 @@ struct cu
 
 class TreeBuilder {
 public:
-  TreeBuilder();
+  TreeBuilder(ErrLog *e);
   virtual ~TreeBuilder();
 
   enum ElementType {
@@ -309,6 +310,8 @@ public:
   // renderer methods
   bool get_replaced_name(uint64_t, std::string &);
   bool get_replaced_name(uint64_t, std::string &, unsigned char *ate);
+  // error logger
+  ErrLog *e_;
   // compilation unit data
   struct cu cu;
   bool is_go() const;
