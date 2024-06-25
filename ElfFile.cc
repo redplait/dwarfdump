@@ -284,14 +284,6 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
   if ( g_opt_f ) parse_frames();
 }
 
-void ElfFile::free_section(const unsigned char *&s, bool f)
-{
-  if ( f && s != nullptr ) {
-    free((void *)s);
-    s = nullptr;
-  }
-}
-
 ElfFile::~ElfFile()
 {
 }

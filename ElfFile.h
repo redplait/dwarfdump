@@ -110,10 +110,9 @@ private:
   bool RegisterNewTag(Dwarf32::Tag tag);
   template <typename T>
   bool ProcessFlags(Dwarf32::Form form, const unsigned char* &info, size_t& info_bytes, T ptr);
-  bool LogDwarfInfo(Dwarf32::Attribute attribute, 
-    Dwarf32::Form form, const unsigned char* &info, 
+  bool LogDwarfInfo(Dwarf32::Attribute attribute,
+    Dwarf32::Form form, const unsigned char* &info,
     size_t& info_bytes, const void* unit_base);
-  void free_section(const unsigned char *&s, bool);
   bool read_debug_lines();
   bool read_delayed_lines();
   unsigned const char *read_formatted_table(bool);
