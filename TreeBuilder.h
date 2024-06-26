@@ -358,6 +358,11 @@ protected:
       return false;
     }
   };
+  struct CSComparator {
+   bool operator()(const char *a, const char *b) const
+    { return 0 < strcmp(a, b); }
+  };
+
   struct dumped_type {
     ElementType type_;
     const char *name_;
@@ -400,12 +405,13 @@ protected:
   };
 
   struct Compound;
+  struct NSpace;
 
   struct Element {
     void move(Element &e)
     {
-      owner_ = e.owner_;
-      e.owner_ = nullptr;
+      owner_ = e.owner_; e.owner_ = nullptr;
+      ns_ = e.ns_; e.ns_ = nullptr;
       type_ = e.type_;
       id_ = e.id_;
       level_ = e.level_;
@@ -428,8 +434,7 @@ protected:
       bit_size_ = e.bit_size_;
       bit_offset_ = e.bit_offset_;
       addr_class_ = e.addr_class_;
-      m_comp = e.m_comp;
-      e.m_comp = nullptr;
+      m_comp = e.m_comp; e.m_comp = nullptr;
       ate_ = e.ate_;
       noret_ = e.noret_;
       decl_ = e.decl_;
@@ -455,14 +460,16 @@ protected:
         m_comp = nullptr;
       }
     }
-    Element(ElementType type, uint64_t id, int level, Element *o) :
+    Element(ElementType type, uint64_t id, int level, Element *o, NSpace *n) :
       owner_(o),
+      ns_(n),
       type_(type),
       id_(id),
       level_(level)
     {}
-    const char* TypeName();
+    const char* TypeName() const;
     Element *owner_;
+    NSpace *ns_;
     ElementType type_;
     uint64_t id_;
     int level_;
@@ -536,8 +543,8 @@ protected:
 
   struct Method: public Element
   {
-    Method(uint64_t id, int level, Element *o)
-     : Element(method, id, level, o)
+    Method(uint64_t id, int level, Element *o, NSpace *n)
+     : Element(method, id, level, o, n)
     {}
     void cpy(Method &e)
     {
@@ -596,6 +603,7 @@ protected:
   Element *last_var_ = nullptr;
   Element *recent_ = nullptr;
   std::stack<Element *> m_stack;
+  std::stack<NSpace *> ns_stack;
   std::list<Element> elements_;
   std::map<uint64_t, dumped_type> m_replaced;
   // values for const_expr - cleared for each compilation unit if option -g not used
@@ -614,9 +622,27 @@ protected:
   std::map<uint64_t, buggy_rng> m_rng;
   bool lookup_range(uint64_t, std::list<std::pair<uint64_t, uint64_t> > &);
 
-  // already dumped types
-  std::map<UniqName, std::pair<uint64_t, size_t> > m_dumped_db;
-  std::map<UniqName2, std::pair<uint64_t, size_t>, Uniq2Comparator> m_dumped_db2;
+  struct NSpace {
+   Element *ns_parent_ = nullptr; // for root - null
+   std::map<const char *, NSpace *, CSComparator> nested;
+   // already dumped types
+   std::map<UniqName, std::pair<uint64_t, size_t> > m_dumped_db;
+   std::map<UniqName2, std::pair<uint64_t, size_t>, Uniq2Comparator> m_dumped_db2;
+  };
+  NSpace ns_root;
+  void clear_namespaces(std::map<const char *, NSpace *, CSComparator> &m)
+  {
+    for ( auto mi: m )
+    {
+      clear_namespaces(mi.second->nested);
+      delete mi.second;
+    }
+  }
+  inline NSpace *top_ns()
+  {
+    if ( ns_stack.empty() ) return &ns_root;
+    return ns_stack.top();
+  }
   // go names - actually this is only for backward refs, for forward use -g option
   std::map<uint64_t, const char *> m_go_types;
   std::map<uint64_t, go_ext_attr>  m_go_attrs;

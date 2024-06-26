@@ -12,6 +12,7 @@ TreeBuilder::~TreeBuilder()
 {
   if ( m_rnames != nullptr )
     delete m_rnames;
+  clear_namespaces(ns_root.nested);
 }
 
 void TreeBuilder::collect_go_types()
@@ -32,7 +33,8 @@ int TreeBuilder::exclude_types(ElementType et, Element &e)
 {
   if ( et == TreeBuilder::ElementType::formal_param ||
        et == TreeBuilder::ElementType::enumerator ||
-       et == TreeBuilder::ElementType::member )
+       et == TreeBuilder::ElementType::member ||
+       et == TreeBuilder::ElementType::ns_end )
     return 0;
   // skip local vars
   if ( et == TreeBuilder::ElementType::var_type && nullptr != e.owner_ )
@@ -62,25 +64,26 @@ int TreeBuilder::merge_dumped()
     if ( e.level_ > 1 )
       continue; // we heed only high-level types definitions
     size_t rank = e.get_rank();
+    auto ns = e.ns_;
     if ( in_string_pool(e.name_) )
     {
       UniqName key { e.type_, e.name_};
-      auto added = m_dumped_db.find(key);
-      if ( added != m_dumped_db.end() )
+      auto added = ns->m_dumped_db.find(key);
+      if ( added != ns->m_dumped_db.end() )
       {
         if ( e.dumped_ && rank <= added->second.second )
           continue; // this type already in m_dumped_db
       }
-      m_dumped_db[key] = { e.id_, rank };
+      ns->m_dumped_db[key] = { e.id_, rank };
     } else {
       UniqName2 key { e.type_, e.name_};
-      auto added = m_dumped_db2.find(key);
-      if ( added != m_dumped_db2.end() )
+      auto added = ns->m_dumped_db2.find(key);
+      if ( added != ns->m_dumped_db2.end() )
       {
         if ( e.dumped_ && rank <= added->second.second )
           continue; // this type already in m_dumped_db2
       }
-      m_dumped_db2[key] = { e.id_, rank };
+      ns->m_dumped_db2[key] = { e.id_, rank };
     }
     res++; 
   }
@@ -383,19 +386,20 @@ int TreeBuilder::should_keep(Element *e)
   if ( !e->dumped_ )
     return 1;
   size_t old_rank = 0;
+  auto ns = e->ns_;
   if ( in_string_pool(e->name_) )
   {
     UniqName key { e->type_, e->name_ };
-    const auto ci = m_dumped_db.find(key);
-    if ( ci == m_dumped_db.cend() )
+    const auto ci = ns->m_dumped_db.find(key);
+    if ( ci == ns->m_dumped_db.cend() )
       return 0;
     old_rank = ci->second.second;
   } else {
     if ( !e->name_ )
       return 0;
     UniqName2 key { e->type_, e->name_ };
-    const auto ci = m_dumped_db2.find(key);
-    if ( ci == m_dumped_db2.cend() )
+    const auto ci = ns->m_dumped_db2.find(key);
+    if ( ci == ns->m_dumped_db2.cend() )
       return 0;
     old_rank = ci->second.second;
   }
@@ -406,20 +410,23 @@ int TreeBuilder::check_dumped_type(const char *name)
 {
   if ( !name )
     return 0;
-  if ( !exclude_types(current_element_type_, elements_.back()) ) return 0;
+  auto &e = elements_.back();
+  if ( !exclude_types(current_element_type_, e) ) return 0;
   uint64_t rep_id;
+  auto ns = e.ns_;
+  if ( !ns ) return 0;
   if ( in_string_pool(name) )
   {
     UniqName key { current_element_type_, name };
-    const auto ci = m_dumped_db.find(key);
-    if ( ci == m_dumped_db.cend() )
+    const auto ci = ns->m_dumped_db.find(key);
+    if ( ci == ns->m_dumped_db.cend() )
       return 0;
     rep_id = ci->second.first;
   } else {
  // fprintf(stderr, "check_dumped_type %p\n", name);   
     UniqName2 key { current_element_type_, name };
-    const auto ci = m_dumped_db2.find(key);
-    if ( ci == m_dumped_db2.cend() )
+    const auto ci = ns->m_dumped_db2.find(key);
+    if ( ci == ns->m_dumped_db2.cend() )
       return 0;
     rep_id = ci->second.first;
   }
@@ -667,8 +674,12 @@ void TreeBuilder::pop_stack(uint64_t off)
   if ( last->type_ == ns_start )
   {
     ns_count--;
-    elements_.push_back(Element(ns_end, last->type_id_, last->level_, get_owner()));
+    elements_.push_back(Element(ns_end, last->type_id_, last->level_, get_owner(), nullptr));
     elements_.back().name_ = last->name_;
+    if ( ns_stack.empty() )
+      e_->error("ns stack is empty, off %lX\n", off);
+    else
+      ns_stack.pop();
     if ( g_opt_v )
       fprintf(g_outf, "// ns_end %s %d off %lX\n", last->name_, ns_count, off);
   } else if ( last->type_ == lexical_block )
@@ -783,13 +794,13 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         auto &top = m_stack.top();
         if ( !top->m_comp )
           top->m_comp = new Compound();
-        top->m_comp->members_.push_back(Element(element_type, tag_id, level, get_owner()));
+        top->m_comp->members_.push_back(Element(element_type, tag_id, level, get_owner(), nullptr));
       }
       if ( element_type == ElementType::variant_type )
       {
         auto &top = m_stack.top();
         top->m_comp->members_.back().type_id_ = tag_id;
-        elements_.push_back(Element(element_type, tag_id, level, get_owner()));
+        elements_.push_back(Element(element_type, tag_id, level, get_owner(), top_ns()));
         recent_ = nullptr;
       }
       break;
@@ -854,7 +865,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
             return;
           }
         }
-        elements_.push_back(Element(element_type, tag_id, level, owner));
+        elements_.push_back(Element(element_type, tag_id, level, owner, top_ns()));
         last_var_ = &elements_.back();
         if ( !owner->m_comp )
           owner->m_comp = new Compound(); // valgring points here as leak 
@@ -870,7 +881,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
           current_element_type_ = ElementType::none;
           return;
         }
-        elements_.push_back(Element(element_type, tag_id, level, owner));
+        elements_.push_back(Element(element_type, tag_id, level, owner, top_ns()));
         last_var_ = &elements_.back();
       }
       break;
@@ -882,7 +893,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         auto &top = m_stack.top();
         if ( !top->m_comp )
           top->m_comp = new Compound();
-        top->m_comp->methods_.push_back(Method(tag_id, level, get_owner()));
+        top->m_comp->methods_.push_back(Method(tag_id, level, get_owner(), nullptr));
         // fprintf(g_outf, "add method to %s parent tid %lX type %d tid %lX\n", top->name_, top->id_, top->type_, tag_id);
         current_element_type_ = ElementType::method;
         recent_ = &top->m_comp->methods_.back();
@@ -890,7 +901,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       }
       // fall to default
     default:
-      elements_.push_back(Element(element_type, tag_id, level, get_owner()));
+      elements_.push_back(Element(element_type, tag_id, level, get_owner(), top_ns()));
       if ( element_type == ElementType::subroutine ||
            element_type == ElementType::subroutine_type
          )
@@ -1116,6 +1127,22 @@ void TreeBuilder::SetElementName(const char* name, uint64_t off)
     recent_->name_ = name;
   else
     elements_.back().name_ = name;
+  // namespace
+  if ( current_element_type_ == ElementType::ns_start )
+  {
+    auto ns = top_ns();
+    auto np = ns->nested.find(name);
+    if ( np == ns->nested.end() )
+    { // some new namespace
+      NSpace *cur = new NSpace();
+      cur->ns_parent_ = &elements_.back();
+      ns->nested.insert(std::pair{name, cur});
+      ns_stack.push(cur);
+    } else {
+      // push existing namespace to ns_stack
+      ns_stack.push(np->second);
+    }
+  }
 }
 
 void TreeBuilder::SetElementSize(uint64_t size) {
@@ -1714,7 +1741,7 @@ int TreeBuilder::is_signed_ate(unsigned char ate) const
   return true;
 }
 
-const char* TreeBuilder::Element::TypeName() {
+const char* TreeBuilder::Element::TypeName() const {
   switch (type_) {
     case ElementType::none: return "none";
     case ElementType::array_type: return "array";
