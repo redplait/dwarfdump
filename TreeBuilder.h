@@ -346,7 +346,18 @@ protected:
   int ns_count = 0;
 
   typedef std::pair<ElementType, const char*> UniqName;
-  typedef std::pair<ElementType, std::string> UniqName2;
+  // string_view is not very effective - it holds 8 bytes for ptr + 8 bytes for length
+  typedef std::pair<ElementType, const char *> UniqName2;
+
+  struct Uniq2Comparator {
+    bool operator()(const UniqName2 &a, const UniqName2 &b) const {
+      if ( a.first < b.first ) return true;
+      if ( a.first == b.first ) {
+        return 0 < strcmp(a.second, b.second);
+      }
+      return false;
+    }
+  };
   struct dumped_type {
     ElementType type_;
     const char *name_;
@@ -605,7 +616,7 @@ protected:
 
   // already dumped types
   std::map<UniqName, std::pair<uint64_t, size_t> > m_dumped_db;
-  std::map<UniqName2, std::pair<uint64_t, size_t> > m_dumped_db2;
+  std::map<UniqName2, std::pair<uint64_t, size_t>, Uniq2Comparator> m_dumped_db2;
   // go names - actually this is only for backward refs, for forward use -g option
   std::map<uint64_t, const char *> m_go_types;
   std::map<uint64_t, go_ext_attr>  m_go_attrs;
