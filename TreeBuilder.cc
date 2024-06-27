@@ -65,9 +65,10 @@ int TreeBuilder::merge_dumped()
       continue; // we heed only high-level types definitions
     size_t rank = e.get_rank();
     auto ns = e.ns_;
-    if ( in_string_pool(e.name_) )
+    auto ename = e.mangled();
+    if ( in_string_pool(ename) )
     {
-      UniqName key { e.type_, e.name_};
+      UniqName key { e.type_, ename };
       auto added = ns->m_dumped_db.find(key);
       if ( added != ns->m_dumped_db.end() )
       {
@@ -76,7 +77,7 @@ int TreeBuilder::merge_dumped()
       }
       ns->m_dumped_db[key] = { e.id_, rank };
     } else {
-      UniqName2 key { e.type_, e.name_};
+      UniqName2 key { e.type_, ename };
       auto added = ns->m_dumped_db2.find(key);
       if ( added != ns->m_dumped_db2.end() )
       {
@@ -387,17 +388,18 @@ int TreeBuilder::should_keep(Element *e)
     return 1;
   size_t old_rank = 0;
   auto ns = e->ns_;
-  if ( in_string_pool(e->name_) )
+  auto ename = e->mangled();
+  if ( in_string_pool(ename) )
   {
-    UniqName key { e->type_, e->name_ };
+    UniqName key { e->type_, ename };
     const auto ci = ns->m_dumped_db.find(key);
     if ( ci == ns->m_dumped_db.cend() )
       return 0;
     old_rank = ci->second.second;
   } else {
-    if ( !e->name_ )
+    if ( !ename )
       return 0;
-    UniqName2 key { e->type_, e->name_ };
+    UniqName2 key { e->type_, ename };
     const auto ci = ns->m_dumped_db2.find(key);
     if ( ci == ns->m_dumped_db2.cend() )
       return 0;
@@ -406,15 +408,42 @@ int TreeBuilder::should_keep(Element *e)
   return e->get_rank() > old_rank;
 }
 
-int TreeBuilder::check_dumped_type(const char *name)
+bool TreeBuilder::PostProcessTag()
 {
-  if ( !name )
-    return 0;
   auto &e = elements_.back();
+  // namespace
+  if ( current_element_type_ == ElementType::ns_start )
+  {
+    auto ns = top_ns();
+    auto name = e.name_;
+    if ( !name )
+    {
+      e_->warning("namespace without name, tag %lX\n", e.id_);
+      name = "";
+    }
+    auto np = ns->nested.find(name);
+    if ( np == ns->nested.end() )
+    { // some new namespace
+      NSpace *cur = new NSpace();
+      cur->ns_parent_ = &e;
+      ns->nested.insert(std::pair{name, cur});
+      ns_stack.push(cur);
+    } else {
+      // push existing namespace to ns_stack
+      ns_stack.push(np->second);
+    }
+    return true;
+  }
+  return 0 == check_dumped_type(e);
+}
+
+int TreeBuilder::check_dumped_type(Element &e)
+{
   if ( !exclude_types(current_element_type_, e) ) return 0;
   uint64_t rep_id;
   auto ns = e.ns_;
   if ( !ns ) return 0;
+  auto name = e.mangled();
   if ( in_string_pool(name) )
   {
     UniqName key { current_element_type_, name };
@@ -1127,22 +1156,6 @@ void TreeBuilder::SetElementName(const char* name, uint64_t off)
     recent_->name_ = name;
   else
     elements_.back().name_ = name;
-  // namespace
-  if ( current_element_type_ == ElementType::ns_start )
-  {
-    auto ns = top_ns();
-    auto np = ns->nested.find(name);
-    if ( np == ns->nested.end() )
-    { // some new namespace
-      NSpace *cur = new NSpace();
-      cur->ns_parent_ = &elements_.back();
-      ns->nested.insert(std::pair{name, cur});
-      ns_stack.push(cur);
-    } else {
-      // push existing namespace to ns_stack
-      ns_stack.push(np->second);
-    }
-  }
 }
 
 void TreeBuilder::SetElementSize(uint64_t size) {

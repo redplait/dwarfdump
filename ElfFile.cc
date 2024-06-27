@@ -2201,7 +2201,7 @@ const char* ElfFile::get_indexed_str(uint32_t str_pos)
 {
   if ( !debug_str_offsets_.size_ || !offsets_base )
     return nullptr;
-  uint64_t index_offset = str_pos * 4;
+  uint64_t index_offset = str_pos * 4; // offset size
   if ( index_offset + offsets_base > debug_str_offsets_.size_ )
     return nullptr;
   uint32_t str_offset = endc(*(uint32_t *)(debug_str_offsets_.s_ + index_offset + offsets_base));
@@ -2681,11 +2681,6 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case Dwarf32::Attribute::DW_AT_MIPS_linkage_name:
     case Dwarf32::Attribute::DW_AT_linkage_name: {
       const char* name = FormStringValue(form, info, info_bytes);
-      if ( tree_builder->check_dumped_type(name) )
-      {
-        m_regged = false;
-        return true;
-      }
       if ( Dwarf32::Attribute::DW_AT_name != attribute )
         tree_builder->SetLinkageName(name);
       else
@@ -3099,6 +3094,10 @@ bool ElfFile::GetAllClasses()
           ElfFile::PassData(abbrev_form, info, info_bytes);
         }
       }
+      // now tag has fully readed names so we can check if it really not filtered
+      if ( m_regged ) 
+        m_regged = tree_builder->PostProcessTag();
+        
       if ( !m_regged /* && m_level */ && m_next )
       {
         const unsigned char* info2 = cu_start + m_next;

@@ -251,6 +251,7 @@ public:
   }
   bool is_local_var() const;
   void ProcessUnit(int last = 0);
+  bool PostProcessTag();
   int add2stack();
   void pop_stack(uint64_t);
   void AddNone();
@@ -305,7 +306,6 @@ public:
   void SetGoRType(uint64_t, const void *);
 
   uint64_t get_replaced_type(uint64_t) const;
-  int check_dumped_type(const char *);
   void collect_go_types();
   // renderer methods
   bool get_replaced_name(uint64_t, std::string &);
@@ -475,7 +475,7 @@ protected:
     int level_;
     const char *fname_ = nullptr,
      *name_ = nullptr,
-     *link_name_ = nullptr;
+     *link_name_ = nullptr; // set in SetLinkageName
     std::string fullname_; // when -F option was used
     size_t size_ = 0;
     uint64_t type_id_ = 0,
@@ -503,6 +503,10 @@ protected:
     inline bool is_abs() const
     {
       return (abs_) && (addr_);
+    }
+    inline const char *mangled() const
+    {
+      return link_name_ ? link_name_ : name_;
     }
     inline bool can_have_decl() const
     {
@@ -593,6 +597,7 @@ protected:
     std::map<Element *, param_loc> lvar_locs_; // from DecodeAddrLocation when -x option was used
   };
 
+  int check_dumped_type(Element&);
   Element *get_owner();
   Element *get_top_func() const;
   int should_keep(Element *);
