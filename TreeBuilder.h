@@ -633,6 +633,7 @@ protected:
    // already dumped types
    std::map<UniqName, std::pair<uint64_t, size_t> > m_dumped_db;
    std::map<UniqName2, std::pair<uint64_t, size_t>, Uniq2Comparator> m_dumped_db2;
+   bool empty = true;
   };
   NSpace ns_root;
   void clear_namespaces(std::map<const char *, NSpace *, CSComparator> &m)

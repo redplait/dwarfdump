@@ -973,11 +973,15 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
     }
     if ( ElementType::ns_end == e.type_ )
     {
+      // check if namespace is empty
+      if ( e.ns_ && e.ns_->empty ) continue;
       fprintf(g_outf, "}; // namespace %s\n", e.name_);
       continue;
     }
     if ( ElementType::ns_start == e.type_ )
     {
+      // check if namespace is empty
+      if ( e.ns_ && e.ns_->empty ) continue;
       put_file_hdr(rcu);
       fprintf(g_outf, "namespace %s {\n", e.name_);
       continue;

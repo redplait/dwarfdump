@@ -428,9 +428,11 @@ bool TreeBuilder::PostProcessTag()
       cur->ns_parent_ = &e;
       ns->nested.insert(std::pair{name, cur});
       ns_stack.push(cur);
+      e.ns_ = cur;
     } else {
       // push existing namespace to ns_stack
       ns_stack.push(np->second);
+      e.ns_ = np->second;
     }
     return true;
   }
@@ -604,7 +606,7 @@ void TreeBuilder::ProcessUnit(int last)
 {
   if ( !m_stack.empty() )
   {
-    // fprintf(stderr, "ProcessUnit: stack is not empty\n");
+    e_->warning("ProcessUnit: stack is not empty\n");
     m_stack = {};
   }
   m_hdr_dumped = false;
@@ -702,7 +704,7 @@ void TreeBuilder::pop_stack(uint64_t off)
   if ( last->type_ == ns_start )
   {
     ns_count--;
-    elements_.push_back(Element(ns_end, last->type_id_, last->level_, get_owner(), nullptr));
+    elements_.push_back(Element(ns_end, last->type_id_, last->level_, get_owner(), top_ns()));
     elements_.back().name_ = last->name_;
     if ( ns_stack.empty() )
       e_->error("ns stack is empty, off %lX\n", off);
@@ -805,6 +807,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
   level -= ns_count;
   // fprintf(g_outf, "AddElement %d id %lX level %d ns_count %d last_var %p\n", element_type, tag_id, level, ns_count, last_var_);
   last_var_ = nullptr;
+  auto ns = top_ns();
   switch(element_type) {
     case ElementType::variant_type:
     case ElementType::member:       // Member
@@ -828,7 +831,8 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       {
         auto &top = m_stack.top();
         top->m_comp->members_.back().type_id_ = tag_id;
-        elements_.push_back(Element(element_type, tag_id, level, get_owner(), top_ns()));
+        elements_.push_back(Element(element_type, tag_id, level, get_owner(), ns));
+        ns->empty = false;
         recent_ = nullptr;
       }
       break;
@@ -893,7 +897,8 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
             return;
           }
         }
-        elements_.push_back(Element(element_type, tag_id, level, owner, top_ns()));
+        elements_.push_back(Element(element_type, tag_id, level, owner, ns));
+        ns->empty = false;
         last_var_ = &elements_.back();
         if ( !owner->m_comp )
           owner->m_comp = new Compound(); // valgring points here as leak 
@@ -909,7 +914,8 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
           current_element_type_ = ElementType::none;
           return;
         }
-        elements_.push_back(Element(element_type, tag_id, level, owner, top_ns()));
+        elements_.push_back(Element(element_type, tag_id, level, owner, ns));
+        ns->empty = false;
         last_var_ = &elements_.back();
       }
       break;
@@ -929,7 +935,8 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       }
       // fall to default
     default:
-      elements_.push_back(Element(element_type, tag_id, level, get_owner(), top_ns()));
+      elements_.push_back(Element(element_type, tag_id, level, get_owner(), ns));
+      ns->empty = false;
       if ( element_type == ElementType::subroutine ||
            element_type == ElementType::subroutine_type
          )
