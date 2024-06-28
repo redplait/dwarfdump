@@ -452,7 +452,7 @@ int TreeBuilder::check_dumped_type(Element &e)
       return 0;
     rep_id = ci->second.first;
   } else {
- // fprintf(stderr, "check_dumped_type %p\n", name);   
+ // fprintf(stderr, "check_dumped_type %p\n", name);
     UniqName2 key { current_element_type_, name };
     const auto ci = ns->m_dumped_db2.find(key);
     if ( ci == ns->m_dumped_db2.cend() )
@@ -478,13 +478,12 @@ int TreeBuilder::check_dumped_type(Element &e)
   {
     dumped_type dt { current_element_type_, name, elements_.back().ate_, rep_id };
     m_replaced[elements_.back().id_] = dt;
+  } else {
+   // mark current function as dumped
+   elements_.back().dumped_ = true;
+   AddNone();
+   sub_filtered = true;
   }
-  // remove current function
-  // Warning! in m_stack we now have dangling ptr to removed top from elements_
-  // to indicate this set sub_filtered
-  elements_.pop_back();
-  AddNone();
-  sub_filtered = true;
   return 1;
 }
 
@@ -1101,7 +1100,7 @@ void TreeBuilder::SetElementName(const char* name, uint64_t off)
     // check that top is subroutine or method
     if ( top->type_ != ElementType::subroutine && top->type_ != ElementType::method )
     {
-      e_->error("Can't set the formal param name if the top element is not function, offset %lX\n", off);
+      e_->error("Can't set the formal param name if the top element is %s, offset %lX\n", top->TypeName(), off);
       return;
     }
     if ( !top->m_comp || top->m_comp->params_.empty()) {

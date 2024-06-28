@@ -790,8 +790,10 @@ void PlainRender::dump_one_var(Element *e, int local)
   {
     auto el = m_els.find(e->spec_);
     if ( el == m_els.end() )
+    {
+      e_->warning("cannot find var with spec %lX\n", e->spec_);
       fprintf(g_outf, "// cannot find var with spec %lX\n", e->spec_);
-    else
+    } else
       dump_var(el->second, local);
   } else if ( e->abs_ )
   {
@@ -800,8 +802,10 @@ void PlainRender::dump_one_var(Element *e, int local)
       fprintf(g_outf, "// cannot find var with abs %lX\n", e->abs_);
     else
       dump_var(el->second, local);
-  } else
+  } else if ( !local) {
+    e_->warning("unknown var id %lX\n", e->id_);
     fprintf(g_outf, "// unknown var id %lX\n", e->id_);
+  }
 }
 
 void PlainRender::dump_vars()

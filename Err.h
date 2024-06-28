@@ -21,6 +21,7 @@ class FLog: public ErrLog
    {
      va_list argp;
      va_start(argp, fmt);
+     fprintf(m_fp, "Error: ");
      vfprintf(m_fp, fmt, argp);
      va_end(argp);
    }
@@ -28,6 +29,7 @@ class FLog: public ErrLog
    {
      va_list argp;
      va_start(argp, fmt);
+     fprintf(m_fp, "Warning: ");
      vfprintf(m_fp, fmt, argp);
      va_end(argp);
    }
