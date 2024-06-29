@@ -508,6 +508,13 @@ protected:
     {
       return link_name_ ? link_name_ : name_;
     }
+    inline bool can_have_static_vars() const
+    {
+      return (type_ == ElementType::class_type) ||
+             (type_ == ElementType::interface_type)  ||
+             (type_ == ElementType::structure_type)
+      ;
+    }
     inline bool can_have_decl() const
     {
       return (type_ == ElementType::class_type) ||

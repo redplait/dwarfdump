@@ -890,9 +890,12 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         if ( !owner )
         {
           owner = m_stack.top();
-          if ( !owner || owner->type_ != ElementType::structure_type )
+          if ( !owner || !owner->can_have_static_vars() )
           {
-            e_->error("Can't add a local var tag %lX when there is no top function\n", tag_id);
+            if ( !owner )
+              e_->error("Can't add a local var tag %lX when there is no top function\n", tag_id);
+            else
+              e_->error("Can't add a local var tag %lX when there is no top function, owner %s\n", tag_id, owner->TypeName());
             current_element_type_ = ElementType::var_type;
             return;
           }
@@ -903,7 +906,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         if ( !owner->m_comp )
           owner->m_comp = new Compound(); // valgring points here as leak 
         if ( owner->type_ == ElementType::method )
-          fprintf(g_outf, "add var %lX to method %lX\n", tag_id, owner->id_);
+          e_->warning("add var %lX to method %lX\n", tag_id, owner->id_);
         owner->m_comp->lvars_.push_back(last_var_); // valgring points here as leak
       } else {
         // some top-level var

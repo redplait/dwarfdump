@@ -642,13 +642,15 @@ void PlainRender::dump_lvars(Element *e)
   {
     int latch = 0;
     int idx = 0;
+    int lvar = 1;
+    if ( e->can_have_static_vars() ) lvar = 0;
     for ( auto lv: e->m_comp->lvars_ )
     {
       if ( need_add_var(*lv) )
         continue; // this var will be dumped in dump_vars
       if ( !latch )
       {
-        if ( e->type_ == ElementType::structure_type )
+        if ( !lvar )
           fprintf(g_outf, "// StaticVars:\n");
         else
           fprintf(g_outf, "// LocalVars:\n");
@@ -656,7 +658,7 @@ void PlainRender::dump_lvars(Element *e)
       }
       fprintf(g_outf, "//  LVar%d, tag %lX\n", idx, lv->id_);
       ++idx;
-      dump_one_var(lv, 1);
+      dump_one_var(lv, lvar);
       if ( lv->locx_ )
       {
         fprintf(g_outf, "//   locx %lx\n", lv->locx_);
@@ -791,7 +793,7 @@ void PlainRender::dump_one_var(Element *e, int local)
     auto el = m_els.find(e->spec_);
     if ( el == m_els.end() )
     {
-      e_->warning("cannot find var with spec %lX\n", e->spec_);
+      e_->warning("cannot find var id %lX with spec %lX\n", e->id_, e->spec_);
       fprintf(g_outf, "// cannot find var with spec %lX\n", e->spec_);
     } else
       dump_var(el->second, local);
@@ -799,8 +801,10 @@ void PlainRender::dump_one_var(Element *e, int local)
   {
     auto el = m_els.find(e->abs_);
     if ( el == m_els.end() )
+    {
+      e_->warning("cannot find var id %lX with abs %lX\n", e->id_, e->abs_);
       fprintf(g_outf, "// cannot find var with abs %lX\n", e->abs_);
-    else
+    } else
       dump_var(el->second, local);
   } else if ( !local) {
     e_->warning("unknown var id %lX\n", e->id_);
@@ -841,6 +845,7 @@ void PlainRender::dump_complex_type(Element &e)
   fprintf(g_outf, " {\n");
   dump_fields(&e);
   dump_methods(&e);
+  dump_lvars(&e);
   fprintf(g_outf, "}");
 }
 
@@ -967,8 +972,13 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
       continue;
     if ( ElementType::var_type == e.type_ )
     {
-      if ( !add_var(e) && e.const_expr_ )
-        dump_const_expr(&e);
+      if ( !add_var(e) )
+      {
+        if ( e.const_expr_ )
+          dump_const_expr(&e);
+        else if ( e.spec_ )
+          dump_one_var(&e, 0);
+      }
       continue;
     }
     if ( ElementType::ns_end == e.type_ )
@@ -1129,6 +1139,7 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
           break;
         }
       default:
+        e_->error("unknown type %d tag %lX\n", e.type_, e.id_);
         fprintf(g_outf, "// unknown type %d name %s\n", e.type_, e.name_);
         {
           std::string tname;
