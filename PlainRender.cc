@@ -743,6 +743,23 @@ void PlainRender::dump_func(Element *e)
 
 const char *lmargin = "   ";
 
+int PlainRender::form_var_fullname(Element *e, std::string &res)
+{
+  int count = 0;
+  if ( !e->owner_ ) return 0;
+  res = e->name_;
+  while( e->owner_ )
+  {
+    e = e->owner_;
+    if ( e->type_ == ElementType::ns_start ) break;
+    if ( !e->name_ ) break;
+    count++;
+    res = "::" + res;
+    res = e->name_ + res;
+  }
+  return count;
+}
+
 void PlainRender::dump_var(Element *e, int local)
 {
   const char *margin = local ? lmargin : "";
@@ -750,8 +767,11 @@ void PlainRender::dump_var(Element *e, int local)
     fprintf(g_outf, "// %sLinkageName: %s\n", margin, e->link_name_);
   if ( !local && !e->fullname_.empty() )
     fprintf(g_outf, "// %sFileName: %s\n", margin, e->fullname_.c_str());
-  std::string tname;
-  named n { e->name_ };
+  std::string tname, var_full_name;
+  int has_full = 0;
+  if ( !local )
+    has_full = form_var_fullname(e, var_full_name);
+  named n { has_full ? var_full_name.c_str() : e->name_ };
   dump_type(e->type_id_, tname, &n);
   auto tn = n.name();
   if ( tn != nullptr )
@@ -759,7 +779,7 @@ void PlainRender::dump_var(Element *e, int local)
     if ( local )
       fprintf(g_outf, "// %s%s %s\n", margin, tname.c_str(), e->name_);
     else
-      fprintf(g_outf, "%s %s;\n", tname.c_str(), e->name_);
+      fprintf(g_outf, "%s %s;\n", tname.c_str(), has_full ? var_full_name.c_str() : e->name_);
   } else {
     if ( local )
       fprintf(g_outf, "// %s%s\n", margin, tname.c_str());
