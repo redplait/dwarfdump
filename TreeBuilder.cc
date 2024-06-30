@@ -58,7 +58,7 @@ int TreeBuilder::merge_dumped()
     // no enum/vars/formal params
     if ( !exclude_types(e.type_, e) ) continue;
     // skip pure forward declarations
-    if ( e.is_pure_decl() )
+    if ( e.is_pure_decl() && e.type_ != structure_type )
       continue;
 //  fprintf(g_outf, "dumped type %d with name %s level %d\n", e.type_, e.name_, e.level_);
     if ( e.level_ > 1 )
