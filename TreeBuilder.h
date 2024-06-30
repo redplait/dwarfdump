@@ -273,7 +273,7 @@ public:
   void SetParamDirection(unsigned char);
   void SetContainingType(uint64_t);
   void SetBitSize(int);
-  void SetAddressClass(int);
+  void SetAddressClass(int, uint64_t off);
   void SetBitOffset(int);
   void SetParentAccess(int);
   void SetVirtuality(int);

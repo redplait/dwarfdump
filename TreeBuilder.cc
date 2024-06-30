@@ -442,6 +442,7 @@ bool TreeBuilder::PostProcessTag()
 int TreeBuilder::check_dumped_type(Element &e)
 {
   if ( !exclude_types(current_element_type_, e) ) return 0;
+  if ( !e.name_ ) return 0;
   uint64_t rep_id;
   auto ns = e.ns_;
   if ( !ns ) return 0;
@@ -905,7 +906,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         last_var_ = &elements_.back();
         if ( !owner->m_comp )
           owner->m_comp = new Compound(); // valgring points here as leak 
-        if ( owner->type_ == ElementType::method )
+        if ( owner->type_ == ElementType::method && g_opt_v )
           e_->warning("add var %lX to method %lX\n", tag_id, owner->id_);
         owner->m_comp->lvars_.push_back(last_var_); // valgring points here as leak
       } else {
@@ -1196,10 +1197,10 @@ void TreeBuilder::SetElementSize(uint64_t size) {
     elements_.back().size_ = size; 
 }
 
-void TreeBuilder::SetAddressClass(int v)
+void TreeBuilder::SetAddressClass(int v, uint64_t off)
 {
   if ( m_stack.empty() ) {
-    e_->error("Can't set the address class when stack is empty\n");
+    e_->error("Can't set the address class when stack is empty, offset %lX\n", off);
     return;
   }
   if (current_element_type_ == ElementType::member )

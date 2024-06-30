@@ -2852,8 +2852,11 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
      }
      return false;
     case Dwarf32::Attribute::DW_AT_address_class: {
+      if ( !m_regged ) return false;
+      // strange rustc behaviour - zerp address class for pointer_type inside section without children 
       int ac = (int)FormDataValue(form, info, info_bytes);
-      tree_builder->SetAddressClass(ac);
+      if ( !ac && m_section->type == Dwarf32::Tag::DW_TAG_pointer_type ) return true;
+      tree_builder->SetAddressClass(ac, info - debug_info_.s_);
       return true;
     }
     // Offset
@@ -3065,9 +3068,9 @@ bool ElfFile::GetAllClasses()
       m_section = &it_section->second;
       const unsigned char* abbrev = m_section->ptr;
       size_t abbrev_bytes = debug_abbrev_.size_ - (abbrev - debug_abbrev_.s_);
-//      if ( m_tag_id >= 0x353d0a ) {
-//  printf("before RegisterNewTag(%X) m_regged %d taf %lX\n", m_section->type, m_regged, m_tag_id);
-//      }
+ //     if ( m_tag_id >= 0x485 ) {
+ // printf("before RegisterNewTag(%X) m_regged %d taf %lX\n", m_section->type, m_regged, m_tag_id);
+ //     }
       m_regged = RegisterNewTag(m_section->type);
       m_next = 0;
 
