@@ -2853,7 +2853,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
      return false;
     case Dwarf32::Attribute::DW_AT_address_class: {
       if ( !m_regged ) return false;
-      // strange rustc behaviour - zerp address class for pointer_type inside section without children 
+      // strange rustc behaviour - zero address class for pointer_type inside section without children
       int ac = (int)FormDataValue(form, info, info_bytes);
       if ( !ac && m_section->type == Dwarf32::Tag::DW_TAG_pointer_type ) return true;
       tree_builder->SetAddressClass(ac, info - debug_info_.s_);

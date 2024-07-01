@@ -425,7 +425,8 @@ bool TreeBuilder::PostProcessTag()
     if ( np == ns->nested.end() )
     { // some new namespace
       NSpace *cur = new NSpace();
-      cur->ns_parent_ = &e;
+      cur->ns_el_ = &e;
+      cur->parent_ = ns;
       ns->nested.insert(std::pair{name, cur});
       ns_stack.push(cur);
       e.ns_ = cur;

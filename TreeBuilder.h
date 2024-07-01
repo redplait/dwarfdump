@@ -635,7 +635,8 @@ protected:
   bool lookup_range(uint64_t, std::list<std::pair<uint64_t, uint64_t> > &);
 
   struct NSpace {
-   Element *ns_parent_ = nullptr; // for root - null
+   Element *ns_el_ = nullptr; // to get name - in ns_el->name_, for root - null
+   NSpace *parent_ = nullptr; // chains of namespaces, for root - null
    std::map<const char *, NSpace *, CSComparator> nested;
    // already dumped types
    std::map<UniqName, std::pair<uint64_t, size_t> > m_dumped_db;
