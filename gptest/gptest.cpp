@@ -35,7 +35,7 @@ const struct pass_data my_PLUGIN_pass_data =
     -fplugin-arg-gptest-password=password for db access
     -fplugin-arg-gptest-asmproto
     -fplugin-arg-gptest-dumprtl
-    -fplugin-arg-gptest-ic to dunp imteger constants, optionally you can peek config filename
+    -fplugin-arg-gptest-ic to dump imteger constants, optionally you can peek config filename
     -fplugin-arg-gptest-verbose
  */
 const char *pname_verbose = "verbose";
@@ -1357,16 +1357,41 @@ void my_PLUGIN::dump_field_decl(const_tree in_t)
     fputc(')', m_outfp);
 }
 
+static void append_name(aux_type_clutch &clutch, const char *name)
+{
+  // check if this is nested struct like struct1.struct2.field
+  if ( clutch.txt.empty() ) {
+    clutch.txt = name;
+    return;
+  }
+  clutch.txt += "::";
+  clutch.txt += name;
+}
+
 // f - field decl
 void my_PLUGIN::try_nameless(const_tree f, aux_type_clutch &clutch)
 {
   if ( !f )
     return;
+  auto code = TREE_CODE(f);
+  if ( code == IDENTIFIER_NODE ) {
+    if ( need_dump() )
+      fprintf(m_outfp, " Name %s", IDENTIFIER_POINTER(f) );
+    clutch.last = f;
+    append_name(clutch, IDENTIFIER_POINTER(f));
+    return;
+  }
   // check that we have field name
   auto fn = DECL_NAME(f);
   if ( !fn ) return;
-  auto code = TREE_CODE(fn);
-  if ( code == IDENTIFIER_NODE ) return;
+  code = TREE_CODE(fn);
+  if ( code == IDENTIFIER_NODE ) {
+    if ( need_dump() )
+      fprintf(m_outfp, " Name %s", IDENTIFIER_POINTER(fn) );
+    clutch.last = f;
+    append_name(clutch, IDENTIFIER_POINTER(fn));
+    return;
+  }
   if ( DECL_NAMELESS(fn) ) return;
   dump_field_decl(f);
 }
@@ -1867,7 +1892,7 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
     if ( need_dump() )
       fprintf(m_outfp, " tree_nameless_code %s uid %d", get_tree_code_name(TREE_CODE(tn)), TYPE_UID(ctx));
     clutch.last = ctx;
-    try_nameless(op1, clutch);
+    try_nameless(tn, clutch);
   }
   if ( field_name )
   {
