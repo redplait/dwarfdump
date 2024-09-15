@@ -12,3 +12,13 @@ PLUGIN_LIBS=-lstdc++
 
 gptest.so: $(PLUGIN_SOURCE_FILES)
 	$(HOST_GCC) -shared $(CXXFLAGS) $^ -o $@ $(PLUGIN_LIBS)
+
+myrtl: gptest.so
+	$(TGCC) -fplugin=./gptest.so -c -o 1.o -shared $(CXXFLAGS) gptest.cpp
+
+rtl: gptest.so
+	$(TGCC) -fdump-rtl-final -c -o 1.o -shared $(CXXFLAGS) gptest.cpp
+
+test: gptest.so
+	-rm 1.db
+	$(TGCC) -fplugin=./gptest.so -fplugin-arg-gptest-db=./1.db -c -o 1.o -shared $(CXXFLAGS) gptest.cpp
