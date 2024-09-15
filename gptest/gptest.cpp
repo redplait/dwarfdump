@@ -1359,6 +1359,7 @@ void my_PLUGIN::dump_field_decl(const_tree in_t)
 
 static void append_name(aux_type_clutch &clutch, const char *name)
 {
+  if ( !name || !*name ) return;
   // check if this is nested struct like struct1.struct2.field
   if ( clutch.txt.empty() ) {
     clutch.txt = name;
@@ -1408,10 +1409,14 @@ void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
   if ( need_dump() )
     fprintf(m_outfp, " %s", name);
   // known types - pointer_type & reference_type
-  if ( POINTER_TYPE_P(t) )
+  if ( ct0 == REFERENCE_TYPE || ct0 == POINTER_TYPE )
   {
-      while( POINTER_TYPE_P(t))
+      if ( ct0 == REFERENCE_TYPE )
         t = TREE_TYPE(t);
+      else {
+        while( POINTER_TYPE_P(t))
+          t = TREE_TYPE(t);
+      }
       if ( t == error_mark_node )
         return;
       ct0 = TREE_CODE(t);
