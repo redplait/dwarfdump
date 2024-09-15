@@ -272,8 +272,20 @@ void my_PLUGIN::margin(int level)
 
 int type_has_name(const_tree rt)
 {
-  auto tn = DECL_NAME(rt);
-  return (TREE_CODE(rt) == TYPE_DECL && tn && !DECL_NAMELESS(tn));
+  if ( TREE_CODE(rt) == TYPE_DECL )
+  {
+    auto tn = DECL_NAME(rt);
+    if ( !tn ) return 0;
+    auto code = TREE_CODE(tn);
+    if ( code == IDENTIFIER_NODE ) return 0;
+    return !DECL_NAMELESS(tn);
+  }
+  if ( TREE_CODE(rt) == SSA_NAME && SSA_NAME_IDENTIFIER(rt) )
+  {
+    auto sn = SSA_NAME_VAR(rt);
+    return sn && !DECL_NAMELESS(sn);
+  }
+  return 0;
 }
 
 const char *my_PLUGIN::is_cliteral(const_rtx in_rtx, int &csize)
@@ -1276,7 +1288,7 @@ const_tree my_PLUGIN::dump_class_rec(const_tree binfo, const_tree igo, int level
 */
 void my_PLUGIN::dump_type_tree(const_tree in_t)
 {
-  if ( !need_dump() || !in_t )
+  if ( !need_dump() || !in_t || !TYPE_P(in_t) )
     return;
   const_tree t;
   bool need_close = false;
@@ -1284,7 +1296,7 @@ void my_PLUGIN::dump_type_tree(const_tree in_t)
   if ( !need_close ) fputc('(', m_outfp);                             \
   need_close = true;                                                  \
   fprintf(m_outfp, "(%s %s", name, get_tree_code_name(TREE_CODE(t))); \
-  if ( TYPE_UID(t) ) fprintf(m_outfp, " uid %d", TYPE_UID(t));        \
+  if ( TYPE_P(t) && TYPE_UID(t) ) fprintf(m_outfp, " uid %d", TYPE_UID(t));        \
   fputc(')', m_outfp); }
 
   t = get_containing_scope(in_t);
@@ -1301,10 +1313,14 @@ void my_PLUGIN::dump_type_tree(const_tree in_t)
   DUMP_NODE("main_variant");
   t = TYPE_CONTEXT(in_t);
   DUMP_NODE("context");
-  t = TYPE_MIN_VALUE(in_t);
-  DUMP_NODE("min_value");
-  t = TYPE_MAX_VALUE(in_t);
-  DUMP_NODE("max_value");
+  auto in_code = TREE_CODE(in_t);
+  if ( in_code == INTEGER_TYPE || in_code == REAL_TYPE || in_code == FIXED_POINT_TYPE )
+  {
+    t = TYPE_MIN_VALUE(in_t);
+    DUMP_NODE("min_value");
+    t = TYPE_MAX_VALUE(in_t);
+    DUMP_NODE("max_value");
+  }
   t = TYPE_LANG_SLOT_1(in_t);
   DUMP_NODE("lang_1");
   if ( need_close )
@@ -1325,7 +1341,7 @@ void my_PLUGIN::dump_type_tree(const_tree in_t)
 */ 
 void my_PLUGIN::dump_field_decl(const_tree in_t)
 {
-  if ( !need_dump() || !in_t )
+  if ( !need_dump() || !in_t || !DECL_P(in_t) )
     return;
   const_tree t;
   bool need_close = false;
@@ -1348,6 +1364,8 @@ void my_PLUGIN::try_nameless(const_tree f, aux_type_clutch &clutch)
     return;
   // check that we have field name
   auto fn = DECL_NAME(f);
+  auto code = TREE_CODE(fn);
+  if ( code == IDENTIFIER_NODE ) return;
   if ( !fn || DECL_NAMELESS(fn) )
     return;
   dump_field_decl(f);
@@ -1383,7 +1401,7 @@ void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
         if ( RECORD_OR_UNION_TYPE_P(t) )
         {
           auto rt = TYPE_NAME(t);
-          if ( rt )
+          if ( rt && DECL_P(rt) )
           {
             if ( type_has_name(rt) )
             {
@@ -1473,8 +1491,15 @@ const char *my_PLUGIN::find_uid(unsigned int uid)
 
 void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
 {
-  auto base = TMR_BASE(expr);
-  auto off = TMR_OFFSET(expr);
+  const_tree base = nullptr, off = nullptr;
+  if ( TREE_CODE(expr) == TARGET_MEM_REF )
+  {
+    base = TMR_BASE(expr);
+    off = TMR_OFFSET(expr);
+  } else {
+    base = TREE_OPERAND(expr, 0);
+    off = TREE_OPERAND(expr, 1);
+  }
   if ( base )
   {
     auto code = TREE_CODE(base);
@@ -2020,7 +2045,7 @@ void my_PLUGIN::dump_func_tree(const_tree t, int level)
       for ( subblock = BLOCK_SUBBLOCKS(t); subblock != NULL_TREE; subblock = BLOCK_CHAIN(subblock) )
          dump_func_tree(subblock, level + 1);
     }
-  } else if ( DECL_HAS_DEBUG_EXPR_P(t) )
+  } else if ( VAR_P(t) && DECL_HAS_DEBUG_EXPR_P(t) )
   {
     auto deb = DECL_DEBUG_EXPR(CONST_CAST_TREE(t));
     if ( deb )
