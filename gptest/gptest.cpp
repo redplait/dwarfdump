@@ -1413,10 +1413,8 @@ void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
   {
       if ( ct0 == REFERENCE_TYPE )
         t = TREE_TYPE(t);
-      else {
-        while( POINTER_TYPE_P(t))
-          t = TREE_TYPE(t);
-      }
+      while( POINTER_TYPE_P(t))
+        t = TREE_TYPE(t);
       if ( t == error_mark_node )
         return;
       ct0 = TREE_CODE(t);
@@ -1459,7 +1457,7 @@ void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
         } else if ( !is_known_ssa_type(t) ) 
         {
           if ( need_dump() )
-            fprintf(m_outfp, " UKNOWN_SSA");
+            fprintf(m_outfp, " UKNOWN_SSA %d", ct0);
           if ( m_db )
             pass_error("UKNOWN_SSA %d", ct0);
         }
