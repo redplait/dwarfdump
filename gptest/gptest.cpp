@@ -1935,6 +1935,7 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
   }
 }
 
+// based on print-rtl.cc method print_rtx
 void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
 {
   int idx = 0;
@@ -1975,6 +1976,13 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
       fputs ("/i", m_outfp);
 
     fprintf(m_outfp, " %d lim %d %s", idx, limit, format_ptr);
+    // print reg_note
+    if ( code == EXPR_LIST )
+    {
+      int mod = (int)GET_MODE(in_rtx);
+      if ( mod < REG_NOTE_MAX )
+        fprintf(m_outfp, ":%s", GET_REG_NOTE_NAME(mod));
+    }
   }
 
   if ( code == VAR_LOCATION )
