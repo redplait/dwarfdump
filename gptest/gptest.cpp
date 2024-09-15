@@ -277,7 +277,7 @@ int type_has_name(const_tree rt)
     auto tn = DECL_NAME(rt);
     if ( !tn ) return 0;
     auto code = TREE_CODE(tn);
-    if ( code == IDENTIFIER_NODE ) return 0;
+    if ( code == IDENTIFIER_NODE ) return 1;
     return !DECL_NAMELESS(tn);
   }
   if ( TREE_CODE(rt) == SSA_NAME && SSA_NAME_IDENTIFIER(rt) )
@@ -978,7 +978,7 @@ void my_PLUGIN::dump_ftype(const_tree expr)
     dump_method(expr);
     return;
   }
-  if ( DECL_VIRTUAL_P(expr) )
+  if ( TREE_CODE(expr) == METHOD_TYPE && DECL_VIRTUAL_P(expr) )
   {
     if ( need_dump() )
       fprintf(m_outfp, " findex" HOST_WIDE_INT_PRINT_DEC, extract_vindex(expr));
@@ -1364,10 +1364,10 @@ void my_PLUGIN::try_nameless(const_tree f, aux_type_clutch &clutch)
     return;
   // check that we have field name
   auto fn = DECL_NAME(f);
+  if ( !fn ) return;
   auto code = TREE_CODE(fn);
   if ( code == IDENTIFIER_NODE ) return;
-  if ( !fn || DECL_NAMELESS(fn) )
-    return;
+  if ( DECL_NAMELESS(fn) ) return;
   dump_field_decl(f);
 }
 
