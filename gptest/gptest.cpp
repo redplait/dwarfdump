@@ -280,11 +280,6 @@ int type_has_name(const_tree rt)
     if ( code == IDENTIFIER_NODE ) return 1;
     return !DECL_NAMELESS(tn);
   }
-  if ( TREE_CODE(rt) == SSA_NAME && SSA_NAME_IDENTIFIER(rt) )
-  {
-    auto sn = SSA_NAME_VAR(rt);
-    return sn && !DECL_NAMELESS(sn);
-  }
   return 0;
 }
 
@@ -1110,10 +1105,11 @@ bool is_known_ssa_type(const_tree t)
 {
   auto code = TREE_CODE(t);  
   return (code == VOID_TYPE) ||
+         (code == NULLPTR_TYPE) ||
          (code == BOOLEAN_TYPE) ||
          (code == INTEGER_TYPE) ||
          (code == ENUMERAL_TYPE) ||
-         (code == REAL_TYPE) ||
+         (code == REAL_TYPE)    ||
          (code == COMPLEX_TYPE) ||
          (code == VECTOR_TYPE)  ||
          (code == ARRAY_TYPE)
@@ -1382,6 +1378,18 @@ void my_PLUGIN::try_nameless(const_tree f, aux_type_clutch &clutch)
     append_name(clutch, IDENTIFIER_POINTER(f));
     return;
   }
+  // check ssa name - ripped from tree-pretty-print.cc
+  if ( TREE_CODE(f) == SSA_NAME && SSA_NAME_IDENTIFIER(f) )
+  {
+    auto sn = SSA_NAME_VAR(f);
+    if ( !sn || DECL_NAMELESS(sn) ) return;
+    auto si = SSA_NAME_IDENTIFIER(f);
+    if ( need_dump() )
+      fprintf(m_outfp, " Name %s", IDENTIFIER_POINTER(si) );
+    clutch.last = f;
+    append_name(clutch, IDENTIFIER_POINTER(si));
+    return;
+  }
   // check that we have field name
   auto fn = DECL_NAME(f);
   if ( !fn ) return;
@@ -1457,9 +1465,9 @@ void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
         } else if ( !is_known_ssa_type(t) ) 
         {
           if ( need_dump() )
-            fprintf(m_outfp, " UKNOWN_SSA %d", ct0);
+            fprintf(m_outfp, " UNKNOWN_SSA %d", ct0);
           if ( m_db )
-            pass_error("UKNOWN_SSA %d", ct0);
+            pass_error("UNKNOWN_SSA %d", ct0);
         }
       }
   }
@@ -1524,7 +1532,7 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
   {
     base = TMR_BASE(expr);
     off = TMR_OFFSET(expr);
-  } else {
+  } else { // see comment about TARGET_MEM_REF in tree.h
     base = TREE_OPERAND(expr, 0);
     off = TREE_OPERAND(expr, 1);
   }
@@ -1959,6 +1967,13 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
     if ( INSN_CHAIN_CODE_P(code) )
       fprintf(m_outfp, "%d ", INSN_UID (in_rtx));
     fprintf(m_outfp, "%s", GET_RTX_NAME(code));
+    // print reg_note
+    if ( code == EXPR_LIST )
+    {
+      int mod = (int)GET_MODE(in_rtx);
+      if ( mod < REG_NOTE_MAX )
+        fprintf(m_outfp, ":%s", GET_REG_NOTE_NAME(mod));
+    }
     // flags
     if (RTX_FLAG (in_rtx, in_struct))
       fputs ("/s", m_outfp);
@@ -1976,13 +1991,6 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
       fputs ("/i", m_outfp);
 
     fprintf(m_outfp, " %d lim %d %s", idx, limit, format_ptr);
-    // print reg_note
-    if ( code == EXPR_LIST )
-    {
-      int mod = (int)GET_MODE(in_rtx);
-      if ( mod < REG_NOTE_MAX )
-        fprintf(m_outfp, ":%s", GET_REG_NOTE_NAME(mod));
-    }
   }
 
   if ( code == VAR_LOCATION )
