@@ -159,6 +159,8 @@ class my_PLUGIN : public rtl_plugin_with_args
     bool m_sb;
   };
   std::list<rtx_item> m_rtexpr;
+  // func args
+  std::map<const_tree, int> m_args;
   // for BB with single in-edge, key is BB index, value is index of parent BB
   std::map<int, int> m_blocks;
   // uid types, key is UID and block index

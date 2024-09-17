@@ -955,6 +955,15 @@ void my_PLUGIN::dump_rmem_expr(const_tree expr, const_rtx in_rtx)
     dump_method(expr);
     return;
   }
+  if ( code == PARM_DECL )
+  {
+    if ( need_dump() )
+    {
+      auto ai = m_args.find(expr);
+      if ( ai != m_args.end() ) fprintf(m_outfp, " Arg%d", ai->second);
+    }
+    return;
+  }
 }
 
 // seems DECL_VINDEX returns function_decl.vindex so we can extract it only from FUNCTION_DECL
@@ -1860,16 +1869,24 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
       fprintf(m_outfp, " (l%s%s", str, name);
     if ( SSA_NAME == code )
     {
-      dump_ssa_name(op0, clutch);  
+      dump_ssa_name(op0, clutch);
     } else if ( COMPONENT_REF == code )
     {
-       dump_comp_ref(op0, clutch); 
+       dump_comp_ref(op0, clutch);
     } else if ( code == MEM_REF )
     {
       dump_mem_ref(op0, clutch);
     } else if ( code == ARRAY_REF )
     {
       dump_array_ref(op0, clutch);
+    } else if ( code == PARM_DECL )
+    {
+      if ( need_dump() )
+      {
+        auto ai = m_args.find(op0);
+        if ( ai != m_args.end() ) fprintf(m_outfp, " Arg%d", ai->second);
+        else fprintf(m_outfp, " uid %d", TYPE_UID(op0));
+      }
     }
     if ( need_dump() )
       fprintf(m_outfp, ")");
@@ -2268,7 +2285,15 @@ unsigned int my_PLUGIN::execute(function *fun)
     for (tree arg = DECL_ARGUMENTS (fdecl); arg; arg = DECL_CHAIN (arg))
       print_param (m_outfp, w, arg);
   }
-
+  // store args of functions
+  m_args.clear();
+  int idx = 1;
+  for (tree arg = DECL_ARGUMENTS (fdecl); arg; ++idx, arg = DECL_CHAIN (arg))
+  {
+    auto a = DECL_RTL_IF_SET (arg);
+    if ( a && REG_EXPR(a) )
+      m_args[REG_EXPR(a)] = idx;
+  }
   // try find table datas
   rtx_insn* insn;
   for ( insn = get_insns(); insn; insn = NEXT_INSN(insn) )
