@@ -43,7 +43,7 @@ class rtl_plugin_with_args: public rtl_opt_pass
 {
   public:
     rtl_plugin_with_args(gcc::context *ctxt, const struct pass_data &pd, struct plugin_argument *arguments, int argcounter);
-  protected:  
+  protected:
     FILE *m_outfp;
     int argc;
     struct plugin_argument *args;
@@ -93,6 +93,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   void try_nameless(const_tree expr, aux_type_clutch &);
   void dump_array_ref(const_tree expr, aux_type_clutch &);
   void claim_unknown(tree_code, const char *);
+  void report_fref(const char *);
   void dump_mem_ref(const_tree expr, aux_type_clutch &);
   void dump_mem_expr(const_tree expr, const_rtx);
   void dump_rmem_expr(const_tree expr, const_rtx);

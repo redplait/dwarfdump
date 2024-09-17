@@ -270,6 +270,14 @@ void my_PLUGIN::margin(int level)
     fputc(' ', m_outfp);
 }
 
+// for hard-debugging of where fields are added
+void my_PLUGIN::report_fref(const char *where)
+{
+  if ( !need_dump() )
+    return;
+  fprintf(m_outfp, " addfield(%s)", where);
+}
+
 int type_has_name(const_tree rt)
 {
   if ( TREE_CODE(rt) == TYPE_DECL )
@@ -1560,13 +1568,12 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
             fprintf(m_outfp, " uid %x: %s", uid, uid_name);
           clutch.completed = true;
           clutch.txt = uid_name;
+          xref_kind ref_ = field;
+          if ( is_call() )
+            ref_ = xcall;
           if ( m_db )
-          {
-            xref_kind ref_ = field;
-            if ( is_call() )
-              ref_ = xcall;
             m_db->add_xref(ref_, clutch.txt.c_str());
-          }
+          if ( ref_ == field ) report_fref("dump_mem_ref");
         }
       }
       // probably we can use TMR_OFFSET
@@ -1619,6 +1626,7 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
           }
           if ( m_db )
             m_db->add_xref(field, clutch.txt.c_str());
+          report_fref("dump_mem_ref clutch");
         }
       }
     } else if ( code == ADDR_EXPR )
@@ -1940,6 +1948,7 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
     clutch.completed = true;
     if ( m_db )
       m_db->add_xref(field, clutch.txt.c_str());
+    report_fref("dump_comp_ref");
   }
 }
 
@@ -2011,7 +2020,8 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
         }
         dump_rtx (loc, level + 1);
         expr_pop();
-      }
+      } else if ( need_dump() )
+        fprintf(m_outfp, "\n");
       return;
     }
   } else if ( code == MEM )
@@ -2046,7 +2056,7 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
   }
 
   if ( need_dump() )
-    fputs("\n", m_outfp);  
+    fputs("\n", m_outfp);
   // dump operands
   for (; idx < limit; idx++)
     dump_rtx_operand (in_rtx, format_ptr[idx], idx, level + 1);  
