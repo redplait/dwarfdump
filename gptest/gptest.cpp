@@ -1885,7 +1885,7 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
       {
         auto ai = m_args.find(op0);
         if ( ai != m_args.end() ) fprintf(m_outfp, " Arg%d", ai->second);
-        else fprintf(m_outfp, " uid %d", TYPE_UID(op0));
+        else fprintf(m_outfp, " uid %d", DECL_UID(op0));
       }
     }
     if ( need_dump() )
