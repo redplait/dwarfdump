@@ -27,7 +27,7 @@ class FPersistence
     virtual void bb_start(int idx) {}
     virtual void bb_stop(int idx) {}
     // main method
-    virtual void add_xref(xref_kind, const char *) {}
+    virtual void add_xref(xref_kind, const char *, int arg_no = 0) {}
     virtual void add_literal(const char *, int size) {}
     virtual void add_ic(int) {}
     // put comment

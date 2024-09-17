@@ -54,7 +54,7 @@ class pers_text: public FPersistence
      m_bb_dumped = false;
    }
    // main method
-   virtual void add_xref(xref_kind, const char *) override;
+   virtual void add_xref(xref_kind, const char *, int arg_no = 0) override;
    virtual void add_literal(const char *, int) override;
    virtual void add_ic(int);
    virtual void add_comment(const char *);
@@ -87,7 +87,7 @@ int pers_text::connect(const char *fn, const char *u, const char *p)
   return 0;
 }
 
-void pers_text::add_xref(xref_kind kind, const char *what)
+void pers_text::add_xref(xref_kind kind, const char *what, int arg_no)
 {
   if ( !m_fp )
     return;
@@ -112,7 +112,10 @@ void pers_text::add_xref(xref_kind kind, const char *what)
      break;
     default: return; // wtf?
   }
-  fprintf(m_fp, "  %c %s\n", c, what);
+  if ( kind == field && arg_no )
+    fprintf(m_fp, "  %c arg%d %s\n", c, arg_no, what);
+  else
+    fprintf(m_fp, "  %c %s\n", c, what);
 }
 
 void pers_text::add_literal(const char *what, int len)
