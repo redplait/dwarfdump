@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <time.h>
 #include <string>
 #include "fpers.h"
 
@@ -23,8 +24,16 @@ class pers_text: public FPersistence
    {
      if ( m_fp )
      {
-       // TODO: add timestamp
-       fprintf(m_fp, "# %s\n", cu_name); 
+       char time_str[150];
+       struct tm *tmp;
+       time_t t = time(NULL);
+       auto tm = localtime(&t);
+       if ( !tm )
+         fprintf(m_fp, "# %s\n", cu_name);
+       else {
+         strftime(time_str, sizeof(time_str), "%F %H:%M:%S", tm);
+         fprintf(m_fp, "# %s %s\n", time_str, cu_name);
+       }
      }
    }
    virtual int connect(const char *, const char *, const char *);
@@ -45,12 +54,12 @@ class pers_text: public FPersistence
      m_bb_dumped = false;
    }
    // main method
-   virtual void add_xref(xref_kind, const char *);
-   virtual void add_literal(const char *, int);
+   virtual void add_xref(xref_kind, const char *) override;
+   virtual void add_literal(const char *, int) override;
    virtual void add_ic(int);
    virtual void add_comment(const char *);
    // store errors
-   virtual void report_error(const char *);
+   virtual void report_error(const char *) override;
   protected:
    void check();
 
@@ -59,7 +68,7 @@ class pers_text: public FPersistence
    std::string m_func_proto;
    bool m_func_dunped;
    int m_bb;
-   bool m_bb_dumped;  
+   bool m_bb_dumped;
 };
 
 int pers_text::connect(const char *fn, const char *u, const char *p)
@@ -159,7 +168,7 @@ void pers_text::report_error(const char *err)
 }
 
 void pers_text::check()
-{   
+{
   if ( !m_func_dunped )
   {
     fprintf(m_fp, "func %s\n", m_fn.c_str());
@@ -176,5 +185,5 @@ void pers_text::check()
 
 FPersistence *get_pers()
 {
-  return new pers_text();  
+  return new pers_text();
 }
