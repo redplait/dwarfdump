@@ -522,6 +522,20 @@ int my_PLUGIN::is_set_reg() const
   return r->m_ce == SET;
 }
 
+// set:X mem:X
+int my_PLUGIN::is_set_mem() const
+{
+  if ( m_rtexpr.empty() )
+    return 0;
+  int state = 0;
+  for ( auto r = m_rtexpr.rbegin(); r != m_rtexpr.rend(); ++r )
+  {
+    if ( r->m_ce == MEM && !state ) { state++; continue; }
+    if ( state && r->m_ce == SET ) return 1;
+  }
+  return 0; 
+}
+
 // var_location
 int my_PLUGIN::is_var_loc() const
 {
@@ -949,13 +963,16 @@ void my_PLUGIN::dump_rmem_expr(const_tree expr, const_rtx in_rtx)
   }
   if ( code == PARM_DECL )
   {
-    if ( need_dump() )
+    auto ai = m_args.find(expr);
+    if ( ai != m_args.end() )
     {
-      auto ai = m_args.find(expr);
-      if ( ai != m_args.end() ) fprintf(m_outfp, " Arg%d", ai->second);
+      if ( need_dump() ) fprintf(m_outfp, " Arg%d", ai->second.first);
+      if ( is_set_mem() ) m_arg_no = ai->second.first;
     }
     return;
   }
+  if ( code == RESULT_DECL || code == VAR_DECL ) return;
+  claim_unknown(code, "rmem");
 }
 
 // seems DECL_VINDEX returns function_decl.vindex so we can extract it only from FUNCTION_DECL
@@ -2066,9 +2083,21 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
   {
     if ( MEM_EXPR(in_rtx) )
     {
-      if ( need_dump() )
+      // process next level first. this expr already placed in stack in dump_e_operand
+      if ( need_dump() ) fputs("\n", m_outfp);
+      // save old m_arg_no
+      auto old_arg_no = m_arg_no;
+      for (; idx < limit; idx++)
+        dump_rtx_operand (in_rtx, format_ptr[idx], idx, level + 1);
+      if ( need_dump() ) {
+        margin(level);
         fprintf(m_outfp, " MEM");
+      }
       dump_mem_expr(MEM_EXPR (in_rtx), in_rtx);
+      // restore m_arg_no
+      m_arg_no = old_arg_no;
+      if ( need_dump() ) fputs("\n", m_outfp);
+      return;
     }
     if ( MEM_OFFSET_KNOWN_P(in_rtx) && need_dump() )
     {
