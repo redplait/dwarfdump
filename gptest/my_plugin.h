@@ -93,7 +93,12 @@ class my_PLUGIN : public rtl_plugin_with_args
   void try_nameless(const_tree expr, aux_type_clutch &);
   void dump_array_ref(const_tree expr, aux_type_clutch &);
   void claim_unknown(tree_code, const char *);
-  void report_fref(const char *);
+  // for hard-debugging of where fields are added
+  void report_fref(const char *where) const
+  {
+    if ( need_dump() )
+     fprintf(m_outfp, " addfield(%s)", where);
+  }
   void dump_mem_ref(const_tree expr, aux_type_clutch &);
   void dump_mem_expr(const_tree expr, const_rtx);
   void dump_rmem_expr(const_tree expr, const_rtx);
@@ -106,6 +111,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   void dump_rtx(const_rtx, int level = 0);
   void dump_rtx_hl(const_rtx);
   void dump_func_tree(const_tree, int level = 0);
+  const_tree check_arg(const_tree);
   const_tree try_class_rec(const_tree binfo, const_tree igo, const_tree exp, tree *base, tree *found);
   const_tree dump_class_rec(const_tree, const_tree igo, int level);
   const char *is_cliteral(const_rtx, int &len);
@@ -158,9 +164,11 @@ class my_PLUGIN : public rtl_plugin_with_args
     int m_idx;
     bool m_sb;
   };
+  // stack of expressions
   std::list<rtx_item> m_rtexpr;
-  // func args
-  std::map<const_tree, int> m_args;
+  // func args - index (starting with 1, sorry - 0 in add_xref means no argument) and type of union/record
+  std::map<const_tree, std::pair<int, const_tree> > m_args;
+  int m_arg_no = 0;
   // for BB with single in-edge, key is BB index, value is index of parent BB
   std::map<int, int> m_blocks;
   // uid types, key is UID and block index

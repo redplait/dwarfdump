@@ -270,14 +270,6 @@ void my_PLUGIN::margin(int level)
     fputc(' ', m_outfp);
 }
 
-// for hard-debugging of where fields are added
-void my_PLUGIN::report_fref(const char *where)
-{
-  if ( !need_dump() )
-    return;
-  fprintf(m_outfp, " addfield(%s)", where);
-}
-
 int type_has_name(const_tree rt)
 {
   if ( TREE_CODE(rt) == TYPE_DECL )
@@ -1422,6 +1414,26 @@ void my_PLUGIN::try_nameless(const_tree f, aux_type_clutch &clutch)
   dump_field_decl(f);
 }
 
+const_tree my_PLUGIN::check_arg(const_tree t)
+{
+  if ( !t ) return nullptr;
+  t = TREE_TYPE(t);
+  if ( !t ) return nullptr;
+  auto ct = TREE_CODE(t);
+  if ( ct == REFERENCE_TYPE || ct == POINTER_TYPE )
+  {
+    if ( ct == REFERENCE_TYPE )
+      t = TREE_TYPE(t);
+    while( POINTER_TYPE_P(t))
+      t = TREE_TYPE(t);
+    if ( t == error_mark_node )
+      return nullptr;
+    ct = TREE_CODE(t);
+    if ( RECORD_OR_UNION_TYPE_P(t) ) return t;
+  }
+  return nullptr;
+}
+
 void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
 {
   auto t = TREE_TYPE(op0);
@@ -1794,6 +1806,13 @@ void my_PLUGIN::dump_mem_expr(const_tree expr, const_rtx in_rtx)
         fprintf(m_outfp, " UID %d", DECL_UID(expr));
     }
   }
+  if ( need_dump() && code == PARM_DECL )
+  {
+    auto ai = m_args.find(expr);
+    if ( ai != m_args.end() ) fprintf(m_outfp, " Arg%d", ai->second);
+    else fprintf(m_outfp, " uid %d", DECL_UID(expr));
+    return;
+  }
   aux_type_clutch clutch(in_rtx);  
   if ( code == MEM_REF )
   {
@@ -1881,12 +1900,13 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
       dump_array_ref(op0, clutch);
     } else if ( code == PARM_DECL )
     {
+      auto ai = m_args.find(op0);
       if ( need_dump() )
       {
-        auto ai = m_args.find(op0);
         if ( ai != m_args.end() ) fprintf(m_outfp, " Arg%d", ai->second);
         else fprintf(m_outfp, " uid %d", DECL_UID(op0));
       }
+      if ( ai != m_args.end() ) m_arg_no = ai->second.first;
     }
     if ( need_dump() )
       fprintf(m_outfp, ")");
@@ -1964,7 +1984,8 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
   {
     clutch.completed = true;
     if ( m_db )
-      m_db->add_xref(field, clutch.txt.c_str());
+      m_db->add_xref(field, clutch.txt.c_str(), m_arg_no);
+    m_arg_no = 0;
     report_fref("dump_comp_ref");
   }
 }
@@ -2292,7 +2313,11 @@ unsigned int my_PLUGIN::execute(function *fun)
   {
     auto a = DECL_RTL_IF_SET (arg);
     if ( a && REG_EXPR(a) )
-      m_args[REG_EXPR(a)] = idx;
+    {
+      auto rec_type = check_arg(REG_EXPR(a));
+      if ( rec_type )
+        m_args[REG_EXPR(a)] = { idx, rec_type };
+    }
   }
   // try find table datas
   rtx_insn* insn;
