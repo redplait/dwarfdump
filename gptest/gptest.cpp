@@ -538,6 +538,15 @@ int my_PLUGIN::is_set_mem() const
   return 0; 
 }
 
+int my_PLUGIN::is_plus() const
+{
+  if ( m_rtexpr.empty() )
+    return 0;
+  for ( auto r = m_rtexpr.rbegin(); r != m_rtexpr.rend(); ++r )
+    if ( r->m_ce == PLUS ) return 1;
+  return 0;
+}
+
 // var_location
 int my_PLUGIN::is_var_loc() const
 {
@@ -863,6 +872,8 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
         fprintf (m_outfp, " " HOST_WIDE_INT_PRINT_HEX,
                    (unsigned HOST_WIDE_INT) XWINT (in_rtx, idx));
       }
+      if ( m_requal && m_rbase && GET_CODE (in_rtx) == CONST_INT && is_plus() )
+        add_fref_from_equal(XWINT(in_rtx, idx));
       if ( m_dump_ic && !in_pe && GET_CODE (in_rtx) == CONST_INT )
       {
         if ( !inside_if() && !is_sb() && !is_eh_num() && XWINT(in_rtx, idx) && ic_filter() )
@@ -1597,6 +1608,35 @@ const char *my_PLUGIN::find_uid(unsigned int uid)
   return nullptr;
 }
 
+int my_PLUGIN::add_fref_from_equal(int off)
+{
+  for ( tree f = TYPE_FIELDS(m_rbase); f; f = TREE_CHAIN(f) )
+  {
+    if ( TREE_CODE(f) != FIELD_DECL )
+      continue;
+    if ( DECL_VIRTUAL_P(f) )
+      continue;
+    if ( DECL_FIELD_OFFSET(f) && int_byte_position(f) == off )
+    {  
+      if ( DECL_NAME(f) )
+      {
+        if ( need_dump() )
+          fprintf(m_outfp, " field_off %s", IDENTIFIER_POINTER(DECL_NAME(f)));
+        if ( m_db ) {
+          std::string fname = IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(m_rbase)));
+          fname += ".";
+          fname += IDENTIFIER_POINTER(DECL_NAME(f));
+          m_db->add_xref(field, fname.c_str(), m_arg_no);
+        }
+        m_arg_no = 0;
+        return 1;
+      }
+      return 0;
+    }
+  }
+  return 0;
+}
+
 void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
 {
   const_tree base = nullptr, off = nullptr;
@@ -1849,11 +1889,18 @@ void my_PLUGIN::dump_mem_expr(const_tree expr, const_rtx in_rtx)
         fprintf(m_outfp, " UID %d", DECL_UID(expr));
     }
   }
-  if ( need_dump() && code == PARM_DECL )
+  if ( code == PARM_DECL )
   {
     auto ai = m_args.find(expr);
-    if ( ai != m_args.end() ) fprintf(m_outfp, " Arg%d", ai->second);
-    else fprintf(m_outfp, " uid %d", DECL_UID(expr));
+    if ( need_dump() ) {
+      if ( ai != m_args.end() ) fprintf(m_outfp, " Arg%d", ai->second.first);
+      else fprintf(m_outfp, " uid %d", DECL_UID(expr));
+    }
+    if ( ai != m_args.end() && m_requal ) {
+      m_arg_no = ai->second.first;
+      m_rbase = ai->second.second;
+      if ( need_dump() ) printf(" rbase");
+    }
     return;
   }
   aux_type_clutch clutch(in_rtx);  
@@ -2052,6 +2099,12 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
     idx = 5;
 
   const char *format_ptr = GET_RTX_FORMAT(code);
+  // check expr_list with REG_EQUAL
+  if ( code == EXPR_LIST )
+  {
+    int mod = (int)GET_MODE(in_rtx);
+    m_requal = mod == REG_EQUAL;
+  }
   if ( need_dump() )
   {
     if ( INSN_CHAIN_CODE_P(code) )
@@ -2121,7 +2174,8 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
       }
       dump_mem_expr(MEM_EXPR (in_rtx), in_rtx);
       // restore m_arg_no
-      m_arg_no = old_arg_no;
+      if ( !m_requal )
+        m_arg_no = old_arg_no;
       if ( need_dump() ) fputs("\n", m_outfp);
       return;
     }
@@ -2410,7 +2464,10 @@ unsigned int my_PLUGIN::execute(function *fun)
         m_db->bb_start(bb_index);
       FOR_BB_INSNS(bb, insn)
       {
+        // reset state
         m_arg_no = 0;
+        m_requal = false;
+        m_rbase = nullptr;
         if ( NONDEBUG_INSN_P(insn) || LABEL_P(insn) )
           dump_rtx_hl(insn);
         else if ( NOTE_P(insn) )

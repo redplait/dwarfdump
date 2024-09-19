@@ -87,6 +87,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   int ic_filter();
   void margin(int);
   int is_vptr(const_tree);
+  int add_fref_from_equal(int);
   void store_aux(aux_type_clutch &);
   void dump_type_tree(const_tree expr);
   void dump_field_decl(const_tree expr);
@@ -136,6 +137,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   int is_set_reg() const;
   int is_set_mem() const;
   int is_var_loc() const;
+  int is_plus() const;
   // expr stack
   void expr_push(const_rtx, int idx);
   void expr_pop()
@@ -170,6 +172,8 @@ class my_PLUGIN : public rtl_plugin_with_args
   // func args - index (starting with 1, sorry - 0 in add_xref means no argument) and type of union/record
   std::map<const_tree, std::pair<int, const_tree> > m_args;
   int m_arg_no = 0;
+  bool m_requal; // if currently processing rtx is expr_list with REG_EQUAL
+  const_tree m_rbase; // when m_requal this is base type of referred argument
   // for BB with single in-edge, key is BB index, value is index of parent BB
   std::map<int, int> m_blocks;
   // uid types, key is UID and block index
