@@ -769,7 +769,8 @@ print_poly_int (FILE *file, poly_int64 x)
 
 void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
 {
-  int was_nl = 0;
+  int was_nl = 0, 
+      add_field = 0;
   const char *str;
   margin(level + 2);
   if ( need_dump() )
@@ -873,8 +874,8 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
                    (unsigned HOST_WIDE_INT) XWINT (in_rtx, idx));
       }
       if ( m_requal && m_rbase && GET_CODE (in_rtx) == CONST_INT && is_plus() )
-        add_fref_from_equal(XWINT(in_rtx, idx));
-      if ( m_dump_ic && !in_pe && GET_CODE (in_rtx) == CONST_INT )
+        add_field = add_fref_from_equal(XWINT(in_rtx, idx));
+      if ( !add_field && m_dump_ic && !in_pe && GET_CODE (in_rtx) == CONST_INT )
       {
         if ( !inside_if() && !is_sb() && !is_eh_num() && XWINT(in_rtx, idx) && ic_filter() )
         {
