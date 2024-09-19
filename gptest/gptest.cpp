@@ -2410,6 +2410,7 @@ unsigned int my_PLUGIN::execute(function *fun)
         m_db->bb_start(bb_index);
       FOR_BB_INSNS(bb, insn)
       {
+        m_arg_no = 0;
         if ( NONDEBUG_INSN_P(insn) || LABEL_P(insn) )
           dump_rtx_hl(insn);
         else if ( NOTE_P(insn) )
