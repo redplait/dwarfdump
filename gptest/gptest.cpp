@@ -350,13 +350,15 @@ int my_PLUGIN::dump_0_operand(const_rtx in_rtx, int idx, int level)
          if ( need_dump() )
            fprintf(m_outfp, "EH_REGION_END %d", NOTE_EH_HANDLER(in_rtx));
         break;
-      case NOTE_INSN_VAR_LOCATION:
+      case NOTE_INSN_VAR_LOCATION: {
+          auto vl = NOTE_VAR_LOCATION(in_rtx);
           if ( need_dump() )
             fprintf(m_outfp, "VAR_LOC ");
-          expr_push(NOTE_VAR_LOCATION(in_rtx), idx);
-          dump_rtx(NOTE_VAR_LOCATION(in_rtx), level + 1);
+          expr_push(vl, idx);
+          dump_rtx(vl, level + 1);
           expr_pop();
           return 1;
+         }
         break;
     }
   } else if ( idx == 7 && JUMP_P(in_rtx) )
@@ -971,8 +973,12 @@ void my_PLUGIN::dump_rmem_expr(const_tree expr, const_rtx in_rtx)
     }
     return;
   }
+  // too noisy - for debug only
+#ifdef DEBUG
   if ( code == RESULT_DECL || code == VAR_DECL ) return;
+  if ( is_var_loc() ) return;
   claim_unknown(code, "rmem");
+#endif
 }
 
 // seems DECL_VINDEX returns function_decl.vindex so we can extract it only from FUNCTION_DECL
@@ -1460,6 +1466,26 @@ void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
   auto name = get_tree_code_name(ct0);
   if ( !name )
     return;
+  // ripped from tree-pretty-print.cc function dump_generic_node
+  if ( SSA_NAME_IDENTIFIER(op0) )
+  {
+    auto si = SSA_NAME_IDENTIFIER(op0);
+    if ( need_dump() )
+      fprintf(m_outfp, "(%s", IDENTIFIER_POINTER(si) );
+    auto sv = SSA_NAME_VAR(op0);
+    if ( sv ) {
+      auto sname = get_tree_code_name(TREE_CODE(sv));
+      if ( sname && need_dump() )
+        fprintf(m_outfp, " %s", sname);
+      auto ai = m_args.find(sv);
+      if ( ai != m_args.end() ) {
+        m_arg_no = ai->second.first;
+        if ( need_dump() )
+         fprintf(m_outfp, " Arg%d", m_arg_no);
+      }
+    }
+    if ( need_dump() ) fputc(')', m_outfp);
+  }
   if ( need_dump() )
     fprintf(m_outfp, " %s", name);
   // known types - pointer_type & reference_type
