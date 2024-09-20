@@ -1052,9 +1052,12 @@ void my_PLUGIN::dump_tree_MF(const_tree expr)
 
 void my_PLUGIN::dump_method(const_tree expr)
 {
-  const_tree fdecl = FUNCTION_DECL_CHECK(expr);
-  if ( !fdecl || fdecl == error_mark_node )
+  if ( !TYPE_P(expr) )
     return;
+// Achtung! bcs we have METHOD_TYPE here all DECL_XXX is not work
+//  const_tree fdecl = FUNCTION_DECL_CHECK(expr);
+//  if ( !fdecl || fdecl == error_mark_node )
+//    return;
 /*
   const_tree vi = DECL_VINDEX(fdecl);
   if ( !vi )
@@ -1080,8 +1083,8 @@ void my_PLUGIN::dump_method(const_tree expr)
   auto t = TREE_TYPE(expr);
   if ( t )
   {
- //   if ( DECL_NAME(t) && need_dump() )
- //     fprintf(m_outfp, " MName %s", IDENTIFIER_POINTER(DECL_NAME(t)) );
+    if ( TYPE_NAME(t) && need_dump() )
+      fprintf(m_outfp, " MName %s", IDENTIFIER_POINTER(TYPE_NAME(t)) );
     tree class_type = TYPE_METHOD_BASETYPE(expr);
     if ( class_type )
     {
