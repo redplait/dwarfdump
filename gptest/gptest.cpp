@@ -1659,8 +1659,10 @@ int my_PLUGIN::add_fref_from_equal(int off)
       return 0;
     }
   }
-  if ( need_dump() ) fprintf(m_outfp, " not_found");
-  dump_class_rec(TYPE_BINFO(m_rbase), TYPE_BINFO(m_rbase), 0);
+  if ( need_dump() ) {
+     fprintf(m_outfp, " not_found");
+     dump_class_rec(TYPE_BINFO(m_rbase), TYPE_BINFO(m_rbase), 0);
+  }
   return 0;
 }
 
