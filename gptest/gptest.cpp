@@ -1467,7 +1467,6 @@ const_tree my_PLUGIN::check_arg(const_tree t)
       t = TREE_TYPE(t);
     if ( t == error_mark_node )
       return nullptr;
-    ct = TREE_CODE(t);
     if ( RECORD_OR_UNION_TYPE_P(t) ) return t;
   }
   return nullptr;
@@ -1619,6 +1618,7 @@ const char *my_PLUGIN::find_uid(unsigned int uid)
 
 int my_PLUGIN::add_fref_from_equal(int off)
 {
+  // if ( need_dump() ) fprintf(m_outfp, " add_fref");
   for ( tree f = TYPE_FIELDS(m_rbase); f; f = TREE_CHAIN(f) )
   {
     if ( TREE_CODE(f) != FIELD_DECL )
@@ -1639,10 +1639,28 @@ int my_PLUGIN::add_fref_from_equal(int off)
         }
         m_arg_no = 0;
         return 1;
+      } else {
+        tree t = TREE_TYPE(f);
+        if ( need_dump() )
+          fprintf(m_outfp, " no_name %s (%s)", get_tree_code_name(TREE_CODE(f)), get_tree_code_name(TREE_CODE(t)));
+        if ( TREE_CODE(t) == RECORD_TYPE && TYPE_NAME(t)) {
+          if ( need_dump() )
+            fprintf(m_outfp, " record %s", IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(t))));
+          if ( m_db ) {
+            std::string fname = IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(m_rbase)));
+            fname += "::";
+            fname += IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(t)));
+            m_db->add_xref(field, fname.c_str(), m_arg_no);
+          }
+          m_arg_no = 0;
+          return 1;
+        }
       }
       return 0;
     }
   }
+  if ( need_dump() ) fprintf(m_outfp, " not_found");
+  dump_class_rec(TYPE_BINFO(m_rbase), TYPE_BINFO(m_rbase), 0);
   return 0;
 }
 
