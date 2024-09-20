@@ -20,13 +20,15 @@ struct aux_type_clutch
    : off(0), has_off(false), is_lvar(false),
      level(0),
      completed(false),
-     last(NULL_TREE)
+     last(NULL_TREE),
+     left_name(nullptr)
   { }
   aux_type_clutch(const aux_type_clutch &r)
    : off(r.off), has_off(r.has_off), is_lvar(r.is_lvar),
      level(r.level),
      completed(false),
-     last(NULL_TREE)
+     last(NULL_TREE),
+     left_name(r.left_name)
   { }
   aux_type_clutch(const_rtx);
   // data
@@ -37,6 +39,7 @@ struct aux_type_clutch
   bool has_off;
   bool is_lvar;
   const_tree last;
+  const char *left_name;
 };
 
 class rtl_plugin_with_args: public rtl_opt_pass

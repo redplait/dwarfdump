@@ -460,7 +460,8 @@ void my_PLUGIN::pass_error(const char *fmt, ...)
 aux_type_clutch::aux_type_clutch(const_rtx in_rtx)
  : completed(false),
    level(0),
-   last(NULL_TREE)
+   last(NULL_TREE),
+   left_name(nullptr)
 {
   off = 0;
   has_off = is_lvar = false;
@@ -1526,6 +1527,10 @@ void my_PLUGIN::dump_ssa_name(const_tree op0, aux_type_clutch &clutch)
             if ( type_has_name(rt) )
             {
               clutch.last = t;
+              if ( !clutch.left_name ) {
+                clutch.left_name = IDENTIFIER_POINTER(DECL_NAME(rt));
+                /// printf("left %s\n", clutch.left_name);
+              }
               if ( need_dump() )
                 fprintf(m_outfp, " SSAName %s", IDENTIFIER_POINTER(DECL_NAME(rt)) );
             } else {
@@ -2041,8 +2046,13 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
     clutch.last = ctx;
     try_nameless(tn, clutch);
   }
+  int was_left = clutch.left_name != nullptr;
   if ( field_name )
   {
+    if ( was_left && !tn ) {
+      clutch.txt = clutch.left_name;
+      clutch.left_name = nullptr;
+    }
     // do we at deepest level?
     if ( clutch.txt.empty() )
     {
@@ -2059,11 +2069,14 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
       clutch.txt += IDENTIFIER_POINTER(field_name);
     }
   }
-  if ( !tn )
+  if ( !tn && !was_left )
   {
     if ( need_dump() )
     {
-      fprintf(m_outfp, " no type_name");
+      if ( clutch.last && clutch.last != NULL_TREE )
+        fprintf(m_outfp, " no type_name(%s)", get_tree_code_name(TREE_CODE(clutch.last)) );
+      else
+        fprintf(m_outfp, " no type_name");
       dump_type_tree(ctx);
     }
     if ( m_db )
