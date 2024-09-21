@@ -17,6 +17,9 @@
 // comment this defined to disable profiling
 #define GPPROF
 
+#ifdef GPPROF
+#include "prof.h"
+#endif
 
 struct aux_type_clutch
 {

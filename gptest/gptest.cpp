@@ -74,6 +74,9 @@ my_PLUGIN::my_PLUGIN(gcc::context *ctxt, const char *full_name ,struct plugin_ar
       m_db = get_pers();
     if ( m_db && !m_dump_rtl )
       m_outfp = NULL;
+#ifdef GPPROF
+    profiled = start_prof(full_name, "gptest.so");
+#endif
 }
 
 my_PLUGIN::~my_PLUGIN()
@@ -89,6 +92,9 @@ my_PLUGIN::~my_PLUGIN()
     delete m_db;
     m_db = NULL;
   }
+#ifdef GPPROF
+    if ( profiled ) stop_prof();
+#endif
 }
 
 // return 0 if db connected
