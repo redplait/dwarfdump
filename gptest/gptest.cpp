@@ -40,7 +40,8 @@ const struct pass_data my_PLUGIN_pass_data =
  */
 const char *pname_verbose = "verbose";
 
-rtl_plugin_with_args::rtl_plugin_with_args(gcc::context *ctxt, const struct pass_data &pd, struct plugin_argument *arguments, int argcounter)
+rtl_plugin_with_args::rtl_plugin_with_args(gcc::context *ctxt, const char *full_name, 
+  const struct pass_data &pd, struct plugin_argument *arguments, int argcounter)
  : rtl_opt_pass(pd, ctxt)
 {
   argc = argcounter;   // number of arguments
@@ -49,13 +50,13 @@ rtl_plugin_with_args::rtl_plugin_with_args(gcc::context *ctxt, const struct pass
 }
 
 st_labels::st_labels(gcc::context *ctxt, struct plugin_argument *arguments, int argcounter)
- : rtl_plugin_with_args(ctxt, my_PLUGIN_pass_data, arguments, argcounter)
+ : rtl_plugin_with_args(ctxt, NULL, my_PLUGIN_pass_data, arguments, argcounter)
 {
   m_outfp = m_verbose ? stdout : NULL;
 }
 
-my_PLUGIN::my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int argcounter)
- : rtl_plugin_with_args(ctxt, my_PLUGIN_pass_data, arguments, argcounter),
+my_PLUGIN::my_PLUGIN(gcc::context *ctxt, const char *full_name ,struct plugin_argument *arguments, int argcounter)
+ : rtl_plugin_with_args(ctxt, full_name, my_PLUGIN_pass_data, arguments, argcounter),
    m_db(NULL)
 {
     m_outfp = stdout;
@@ -1642,7 +1643,7 @@ int my_PLUGIN::add_fref_from_equal(int off)
       } else {
         tree t = TREE_TYPE(f);
         if ( need_dump() )
-          fprintf(m_outfp, " no_name %s (%s)", get_tree_code_name(TREE_CODE(f)), get_tree_code_name(TREE_CODE(t)));
+          fprintf(m_outfp, " no_name (%s)", get_tree_code_name(TREE_CODE(t)));
         if ( TREE_CODE(t) == RECORD_TYPE && TYPE_NAME(t)) {
           if ( need_dump() )
             fprintf(m_outfp, " record %s", IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(t))));
@@ -2603,7 +2604,7 @@ int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version
     }
 
     struct register_pass_info pass;
-    my_PLUGIN *mp = new my_PLUGIN(g, plugin_info->argv, plugin_info->argc);
+    my_PLUGIN *mp = new my_PLUGIN(g, plugin_info->full_name, plugin_info->argv, plugin_info->argc);
     int conn_err = mp->connect();
     if ( conn_err )
     {

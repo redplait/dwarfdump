@@ -14,6 +14,10 @@
 
 #include "fpers.h"
 
+// comment this defined to disable profiling
+#define GPPROF
+
+
 struct aux_type_clutch
 {
   aux_type_clutch()
@@ -45,9 +49,12 @@ struct aux_type_clutch
 class rtl_plugin_with_args: public rtl_opt_pass
 {
   public:
-    rtl_plugin_with_args(gcc::context *ctxt, const struct pass_data &pd, struct plugin_argument *arguments, int argcounter);
+    rtl_plugin_with_args(gcc::context *ctxt, const char *fname, const struct pass_data &pd, struct plugin_argument *arguments, int argcounter);
   protected:
     FILE *m_outfp;
+#ifdef GPPROF
+    int profiled;
+#endif
     int argc;
     struct plugin_argument *args;
     bool m_verbose;
@@ -74,7 +81,7 @@ class st_labels: public rtl_plugin_with_args
 class my_PLUGIN : public rtl_plugin_with_args
 {
  public:
-  my_PLUGIN(gcc::context *ctxt, struct plugin_argument *arguments, int argcounter);
+  my_PLUGIN(gcc::context *ctxt, const char *full_name, struct plugin_argument *arguments, int argcounter);
   // inherited from opt_pass
   virtual ~my_PLUGIN();
 //  bool gate(function *fun);
