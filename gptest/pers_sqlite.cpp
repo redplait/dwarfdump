@@ -1,17 +1,72 @@
 #include <stdio.h>
 #include <sqlite3.h>
 #include <string>
-#include <map>
+#include <unordered_map>
+#include <unordered_set>
 #include <string.h>
 #include "fpers.h"
 
 #define CACHE_ALLSYMS
 // #define USE_INDEXES
 
-class pers_sqlite: public FPersistence
+// base classes for cache
+struct map_cache {
+  std::unordered_set<int> m_funcs;
+  std::unordered_map<std::string, int> m_cache;
+  // unified interface
+  template <typename T>
+  bool check(T func, int &id) const {
+   auto cached = m_cache.find(func);
+    if ( cached != m_cache.end() ) {
+     id = cached->second;
+     return true;
+    }
+    return false;
+  }
+  void add(const char *func, int id) {
+    m_cache[func] = id;
+  }
+  // for functions
+  template <typename T>
+  void cache_func(T func, int id)
+  {
+    m_cache[func] = id;
+    m_funcs.insert(id);
+  }
+  bool check_func(const char *f, int &id) {
+   id = 0;
+   auto cached = m_cache.find(f);
+    if ( cached != m_cache.end() ) {
+     id = cached->second;
+     auto fi = m_funcs.find(id);
+     return fi != m_funcs.end();
+    }
+    return false;
+  }
+};
+
+#if 0
+#include "trie.h"
+
+struct trie_cache {
+  Trie t;
+  // unified interface
+  template <typename T>
+  bool check(T func, int &id) const {
+   id = t.contains(func);
+    if ( id ) return true;
+    return false;
+  }
+  void add(const char *func, int id) {
+    t.insert(func, id);
+  }
+};
+#endif
+
+class pers_sqlite: public FPersistence, protected map_cache
 {
   public:
-   pers_sqlite():
+   pers_sqlite(): map_cache(),
     m_db(NULL),
     m_check_sym(NULL),
     m_update_fname(NULL),
@@ -68,8 +123,6 @@ class pers_sqlite: public FPersistence
    int m_func_id;
    int m_bb;
    int max_id;
-   // symbols cache
-   std::map<std::string, int> m_cache;
 };
 
 void pers_sqlite::disconnect()
@@ -166,7 +219,7 @@ int pers_sqlite::create_new_db(const char *dbname)
 }
 
 // various CRUD statements to prepare, params binded by index
-const char *pr_all_sym = "SELECT id, fname FROM symtab;";
+const char *pr_all_sym = "SELECT id, name, fname FROM symtab;";
 const char *pr_check_sym = "SELECT id, fname FROM symtab WHERE name = ?;";
 const char *pr_update_fname = "UPDATE symtab SET fname = ? WHERE id = ?;";
 const char *pr_insert_sym = "INSERT INTO symtab (id, name, fname) VALUES (?, ?, ?);";
@@ -244,6 +297,14 @@ int pers_sqlite::func_start(const char *fn)
 {
   m_func = fn;
   m_has_func_id = false;
+#ifdef CACHE_ALLSYMS
+  bool is_func = check_func(fn, m_func_id);
+  if ( m_func_id ) {
+    m_has_func_id = true;
+    if ( !is_func )
+    {
+      m_funcs.insert(m_func_id);
+#else
   // check if we already have this function
   sqlite3_reset(m_check_sym);
   sqlite3_bind_text(m_check_sym, 1, fn, strlen(fn), SQLITE_STATIC);
@@ -257,11 +318,13 @@ int pers_sqlite::func_start(const char *fn)
     auto fname = sqlite3_column_text(m_check_sym, 1);
     if ( !*fname )
     {
+#endif
       // this function was seen before but not processed yet - push filename for it
+      // from https://www.sqlite.org/c3ref/bind_blob.html: The leftmost SQL parameter has an index of 1
       sqlite3_reset(m_update_fname);
-      sqlite3_bind_int(m_check_sym, 1, m_func_id);
-      sqlite3_bind_text(m_check_sym, 2, m_fn.c_str(), m_fn.size(), SQLITE_STATIC);
-      sqlite3_step(m_check_sym);
+      sqlite3_bind_int(m_update_fname, 2, m_func_id);
+      sqlite3_bind_text(m_update_fname, 1, m_fn.c_str(), m_fn.size(), SQLITE_STATIC);
+      sqlite3_step(m_update_fname);
     } else {
       // we already processed this function - remove xrefs
       sqlite3_reset(m_del_xrefs);
@@ -288,15 +351,14 @@ int pers_sqlite::add_func()
   sqlite3_bind_text(m_insert_sym, 2, m_func.c_str(), m_func.size(), SQLITE_STATIC);
   sqlite3_bind_text(m_insert_sym, 3, m_fn.c_str(), m_fn.size(), SQLITE_STATIC);
   sqlite3_step(m_insert_sym);
-  m_cache[m_func] = m_func_id;
+  cache_func<std::string &>(m_func, m_func_id);
   return 1;
 }
 
 int pers_sqlite::check_literal(std::string &l)
 {
-  auto cached = m_cache.find(l);
-  if ( cached != m_cache.end() )
-    return cached->second;
+  int id = 0;
+  if ( check<std::string &>(l, id) ) return id;
 #ifndef CACHE_ALLSYMS
   // on big codebase this query very quickly becomes tooooo sloooooow
   sqlite3_reset(m_check_sym);
@@ -306,7 +368,7 @@ int pers_sqlite::check_literal(std::string &l)
   {
     // yes, we already have this symbol
     int id = sqlite3_column_int (m_check_sym, 0);
-    m_cache[l] = id;
+    add(l.c_str(), id);
     return id;
   }
 #endif /* !CACHE_ALLSYMS */
@@ -317,15 +379,14 @@ int pers_sqlite::check_literal(std::string &l)
   sqlite3_bind_text(m_insert_sym, 2, l.c_str(), l.size(), SQLITE_STATIC);
   sqlite3_bind_text(m_insert_sym, 3, "", 0, SQLITE_STATIC);
   sqlite3_step(m_insert_sym);
-  m_cache[l] = res;
+  add(l.c_str(), res);
   return res;
 }
 
 int pers_sqlite::check_symbol(const char *sname)
 {
-  auto cached = m_cache.find(sname);
-  if ( cached != m_cache.end() )
-    return cached->second;
+  int id = 0;
+  if ( check(sname, id) ) return id;
 #ifndef CACHE_ALLSYMS
   // on big codebase this query very quickly becomes tooooo sloooooow
   sqlite3_reset(m_check_sym);
@@ -335,7 +396,7 @@ int pers_sqlite::check_symbol(const char *sname)
   {
     // yes, we already have this symbol
     int id = sqlite3_column_int (m_check_sym, 0);
-    m_cache[sname] = id;
+    add(sname, id);
     return id;
   }
 #endif /* !CACHE_ALLSYMS */
@@ -346,7 +407,7 @@ int pers_sqlite::check_symbol(const char *sname)
   sqlite3_bind_text(m_insert_sym, 2, sname, strlen(sname), SQLITE_STATIC);
   sqlite3_bind_text(m_insert_sym, 3, "", 0, SQLITE_STATIC);
   sqlite3_step(m_insert_sym);
-  m_cache[sname] = res;
+  add(sname, res);
   return res;
 }
 
@@ -409,9 +470,13 @@ void pers_sqlite::insert_xref(int id, char what, int arg_no)
 
 int pers_sqlite::connect(const char *dbname, const char *user, const char *pass)
 {
+  int was_new = 0;
+  sqlite3_config(SQLITE_CONFIG_SINGLETHREAD);
   int res = sqlite3_open_v2(dbname, &m_db, SQLITE_OPEN_READWRITE, NULL);
-  if ( res == SQLITE_CANTOPEN )
+  if ( res == SQLITE_CANTOPEN ) {
     res = create_new_db(dbname);
+    was_new = 1;
+  }
   if ( res )
   {
     fprintf(stderr, "sqlite3_open res %d\n", res);
@@ -420,9 +485,15 @@ int pers_sqlite::connect(const char *dbname, const char *user, const char *pass)
   res = prepare();
   if ( res )
     fprintf(stderr, "prepare res %d\n", res);
- #ifdef CACHE_ALLSYMS
-   sqlite3_stmt *stmt;
-   res = sqlite3_prepare_v2(m_db, pr_all_sym, -1, &stmt, NULL);
+  // from https://stackoverflow.com/questions/4210463/how-do-i-get-sqlite-to-run-faster-with-pragma-synchronous-off-by-default
+  char *perr_str = NULL;
+  int perr = sqlite3_exec(m_db, "PRAGMA synchronous=OFF", NULL, NULL, &perr_str);
+  if ( perr && perr_str )
+    fprintf(stderr, "pragma fauled, code %d: %s\n", perr, perr_str);
+  if ( was_new ) return res;
+#ifdef CACHE_ALLSYMS
+  sqlite3_stmt *stmt;
+  res = sqlite3_prepare_v2(m_db, pr_all_sym, -1, &stmt, NULL);
   if (res != SQLITE_OK) {
     fprintf(stderr, "error %d when prepare all_sym\n", res);
     return res;
@@ -431,8 +502,13 @@ int pers_sqlite::connect(const char *dbname, const char *user, const char *pass)
   {
     int id = sqlite3_column_int (stmt, 0);
     const char *sname = (const char *)sqlite3_column_text(stmt, 1);
-    if ( sname )
-      m_cache[sname] = id;
+    const char *fname = (const char *)sqlite3_column_text(stmt, 2);
+    if ( sname ) {
+      if ( *fname )
+        cache_func(sname, id);
+      else
+        add(sname, id);
+    }
   }
   sqlite3_finalize(stmt);
 #endif /* CACHE_ALLSYMS */
