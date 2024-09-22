@@ -8,7 +8,7 @@
 #include <tree.h>
 
 #include <stdio.h>
-#include <list>
+#include <vector>
 #include <map>
 #include <set>
 
@@ -97,8 +97,8 @@ class my_PLUGIN : public rtl_plugin_with_args
   void fill_blocks(function *);
   const char *find_uid(unsigned int);
   void read_ic_config(const char *);
-  int ic_filter();
-  void margin(int);
+  int ic_filter() const;
+  void margin(int) const;
   int is_vptr(const_tree);
   int add_fref_from_equal(int);
   void store_aux(aux_type_clutch &);
@@ -153,13 +153,13 @@ class my_PLUGIN : public rtl_plugin_with_args
   int is_plus() const;
   // expr stack
   void expr_push(const_rtx, int idx);
-  void expr_pop()
+  inline void expr_pop()
   {
     m_rtexpr.pop_back();
   }
-  void dump_exprs();
+  void dump_exprs() const;
   void make_expr_cmt(const_rtx in_rtx, std::string &);
-  void dump_known_uids();
+  void dump_known_uids() const;
   // args
   bool m_dump_rtl;
   bool m_asmproto;
@@ -175,13 +175,15 @@ class my_PLUGIN : public rtl_plugin_with_args
     rtx_item(enum rtx_class c, int i, bool s):
       m_ce(c), m_idx(i), m_sb(s)
     { }
+    rtx_item(rtx_item &&) = default;
+    rtx_item& operator=(rtx_item &&) = default;
     // data
     enum rtx_class m_ce;
     int m_idx;
     bool m_sb;
   };
   // stack of expressions
-  std::list<rtx_item> m_rtexpr;
+  std::vector<rtx_item> m_rtexpr;
   // func args - index (starting with 1, sorry - 0 in add_xref means no argument) and type of union/record
   std::map<const_tree, std::pair<int, const_tree> > m_args;
   int m_arg_no = 0;

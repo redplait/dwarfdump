@@ -268,7 +268,7 @@ print_param (FILE *outfile, rtx_writer &w, tree arg)
   w.finish_directive ();
 }
 
-void my_PLUGIN::margin(int level)
+void my_PLUGIN::margin(int level) const
 {
   if ( !need_dump() )
     return;
@@ -494,7 +494,7 @@ int my_PLUGIN::is_call() const
   if ( m_rtexpr.empty() )
     return 0;
   int idx = -1;
-  for ( auto r = m_rtexpr.rbegin(); r != m_rtexpr.rend(); ++r )
+  for ( auto r = m_rtexpr.crbegin(); r != m_rtexpr.crend(); ++r )
   {
     if ( r->m_ce == CALL )
       return !idx;
@@ -509,7 +509,7 @@ int my_PLUGIN::is_write() const
   if ( m_rtexpr.empty() )
     return 0;
   int idx = -1;
-  for ( auto r = m_rtexpr.rbegin(); r != m_rtexpr.rend(); ++r )
+  for ( auto r = m_rtexpr.crbegin(); r != m_rtexpr.crend(); ++r )
   {
     if ( r->m_ce == SET )
       return !idx;
@@ -523,11 +523,11 @@ int my_PLUGIN::is_set_reg() const
 {
   if ( m_rtexpr.empty() )
     return 0;
-  auto r = m_rtexpr.rbegin();
+  auto r = m_rtexpr.crbegin();
   if ( r->m_ce != REG || r->m_idx )
     return 0;
   ++r;
-  if ( r == m_rtexpr.rend() )
+  if ( r == m_rtexpr.crend() )
     return 0;
   return r->m_ce == SET;
 }
@@ -538,7 +538,7 @@ int my_PLUGIN::is_set_mem() const
   if ( m_rtexpr.empty() )
     return 0;
   int state = 0;
-  for ( auto r = m_rtexpr.rbegin(); r != m_rtexpr.rend(); ++r )
+  for ( auto r = m_rtexpr.crbegin(); r != m_rtexpr.crend(); ++r )
   {
     if ( r->m_ce == MEM && !state ) { state++; continue; }
     if ( state && r->m_ce == SET ) return 1;
@@ -550,7 +550,7 @@ int my_PLUGIN::is_plus() const
 {
   if ( m_rtexpr.empty() )
     return 0;
-  for ( auto r = m_rtexpr.rbegin(); r != m_rtexpr.rend(); ++r )
+  for ( auto r = m_rtexpr.crbegin(); r != m_rtexpr.crend(); ++r )
     if ( r->m_ce == PLUS ) return 1;
   return 0;
 }
@@ -560,7 +560,7 @@ int my_PLUGIN::is_var_loc() const
 {
   if ( m_rtexpr.empty() )
     return 0;
-  for ( auto r = m_rtexpr.rbegin(); r != m_rtexpr.rend(); ++r )
+  for ( auto r = m_rtexpr.crbegin(); r != m_rtexpr.crend(); ++r )
   {
     if ( r->m_ce == VAR_LOCATION )
       return 1;
@@ -572,7 +572,7 @@ int my_PLUGIN::inside_if() const
 {
   if ( m_rtexpr.empty() )
     return 0;
-  for ( auto r = m_rtexpr.rbegin(); r != m_rtexpr.rend(); ++r )
+  for ( auto r = m_rtexpr.crbegin(); r != m_rtexpr.crend(); ++r )
   {
     if ( r->m_ce == IF_THEN_ELSE )
       return 1;
@@ -584,11 +584,11 @@ int my_PLUGIN::is_sb() const
 {
   if ( m_rtexpr.empty() )
     return 0;
-  auto r = m_rtexpr.rbegin();
+  auto r = m_rtexpr.crbegin();
   if ( r->m_ce == CONST_INT )
   {
     r++;
-    if ( r == m_rtexpr.rend() )
+    if ( r == m_rtexpr.crend() )
       return 0;
   }
   return r->m_sb;
@@ -601,11 +601,11 @@ int my_PLUGIN::is_eh_num() const
 {
   if ( m_rtexpr.empty() )
     return 0;
-  auto r = m_rtexpr.rbegin();
+  auto r = m_rtexpr.crbegin();
   if ( r->m_ce == CONST_INT )
   {
     r++;
-    if ( r == m_rtexpr.rend() )
+    if ( r == m_rtexpr.crend() )
       return 0;
   }
   return (r->m_ce == EXPR_LIST) && (r->m_idx == 6);
@@ -624,10 +624,10 @@ int my_PLUGIN::is_symref_call() const
   if ( m_rtexpr.empty() )
     return 0;
   int idx = -1;
-  auto r = m_rtexpr.rbegin();
+  auto r = m_rtexpr.crbegin();
   if ( r->m_ce != SYMBOL_REF )
     return 0;  
-  for ( ++r; r != m_rtexpr.rend(); ++r )
+  for ( ++r; r != m_rtexpr.crend(); ++r )
   {
     if ( r->m_ce == CALL )
       return !idx;
@@ -648,12 +648,12 @@ void my_PLUGIN::expr_push(const_rtx in_rtx, int idx)
   m_rtexpr.push_back( { (enum rtx_class)GET_CODE(in_rtx), idx, is_sb } );  
 }
 
-void my_PLUGIN::dump_known_uids()
+void my_PLUGIN::dump_known_uids() const
 {
   if ( !need_dump() || m_known_uids.empty() )
     return;
   fprintf(m_outfp, "; known uids:\n");
-  for ( auto &u: m_known_uids )
+  for ( const auto &u: m_known_uids )
   {
     fprintf(m_outfp, ";  %x - %s\n", u.first, u.second.c_str());
   }
@@ -677,12 +677,12 @@ void my_PLUGIN::make_expr_cmt(const_rtx in_rtx, std::string &cmt)
   }
 }
 
-void my_PLUGIN::dump_exprs()
+void my_PLUGIN::dump_exprs() const
 {
   if ( !need_dump() || m_rtexpr.empty() )
     return;
   fprintf(m_outfp, "[stack");
-  for ( auto &rt: m_rtexpr )
+  for ( const auto &rt: m_rtexpr )
   {
     fprintf(m_outfp, " %s:%d", GET_RTX_NAME(rt.m_ce), rt.m_idx);
     if ( rt.m_sb )
@@ -2427,6 +2427,7 @@ void my_PLUGIN::fill_blocks(function *fun)
 
 unsigned int my_PLUGIN::execute(function *fun)
 {
+  m_rtexpr.clear();
   // find the name of the function
   char* funName = (char*)IDENTIFIER_POINTER (DECL_NAME (current_function_decl) );
   tree fdecl = fun->decl;
@@ -2645,14 +2646,14 @@ int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version
 }
 
 // return 1 if some integer constant should be recorded
-int my_PLUGIN::ic_filter()
+int my_PLUGIN::ic_filter() const
 {
   if ( ic_allowed.empty() && ic_denied.empty() )
     return 1;
   // first check ic_denied
   if ( !ic_denied.empty() )
   {
-    for ( auto r = m_rtexpr.begin(); r != m_rtexpr.end(); ++r )
+    for ( auto r = m_rtexpr.cbegin(); r != m_rtexpr.cend(); ++r )
     {
       auto den = ic_denied.find(r->m_ce);
       if ( den != ic_denied.end() )
@@ -2661,7 +2662,7 @@ int my_PLUGIN::ic_filter()
   }
   if ( ic_allowed.empty() )
     return 1;
-  for ( auto r = m_rtexpr.begin(); r != m_rtexpr.end(); ++r )  
+  for ( auto r = m_rtexpr.cbegin(); r != m_rtexpr.cend(); ++r )
   {
     auto den = ic_allowed.find(r->m_ce);
     if ( den != ic_allowed.end() )
