@@ -1,6 +1,9 @@
 #!perl -w
 # test script to select functions reffered to some specific fields or vmethods
 # cmd options: path2sqlite.db type pattern1 pattern2 ...
+# before fly install
+#  cpan -i DBI
+#  cpan -i DBD::SQLite
 # 23 sep 2024 (c) redplait
 use strict;
 use warnings;
