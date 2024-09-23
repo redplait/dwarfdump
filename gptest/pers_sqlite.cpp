@@ -91,7 +91,7 @@ class pers_sqlite: public FPersistence, protected map_cache
    {
      m_bb = idx;
    }
-   virtual int func_start(const char *fn);
+   virtual int func_start(const char *fn, int bcount) override;
    virtual void func_stop()
    {
      m_has_func_id = false;
@@ -122,6 +122,7 @@ class pers_sqlite: public FPersistence, protected map_cache
    bool m_has_func_id;
    int m_func_id;
    int m_bb;
+   int m_bcount;
    int max_id;
 };
 
@@ -151,7 +152,8 @@ pers_sqlite::~pers_sqlite()
 const char *cr_symtab = "CREATE TABLE IF NOT EXISTS symtab ("
  "id INTEGER PRIMARY KEY,"
  "name TEXT,"
- "fname TEXT"
+ "fname TEXT,"
+ "bcount INTEGER DEFAULT 0"
  ");"
 ;
 
@@ -221,8 +223,8 @@ int pers_sqlite::create_new_db(const char *dbname)
 // various CRUD statements to prepare, params binded by index
 const char *pr_all_sym = "SELECT id, name, fname FROM symtab;";
 const char *pr_check_sym = "SELECT id, fname FROM symtab WHERE name = ?;";
-const char *pr_update_fname = "UPDATE symtab SET fname = ? WHERE id = ?;";
-const char *pr_insert_sym = "INSERT INTO symtab (id, name, fname) VALUES (?, ?, ?);";
+const char *pr_update_fname = "UPDATE symtab SET fname = ?,bcount =? WHERE id = ?;";
+const char *pr_insert_sym = "INSERT INTO symtab (id, name, fname, bcount) VALUES (?, ?, ?, ?);";
 const char *pr_insert_xref = "INSERT INTO xrefs (id, bb, kind, arg, what) VALUES (?, ?, ?, ?, ?);";
 const char *pr_insert_err  = "INSERT INTO errlog (id, bb, msg) VALUES (?, ?, ?);";
 const char *pr_del_xrefs   = "DELETE FROM xrefs WHERE id = ?;";
@@ -293,9 +295,10 @@ int pers_sqlite::get_max_id()
   return 0;
 }
 
-int pers_sqlite::func_start(const char *fn)
+int pers_sqlite::func_start(const char *fn, int bcount)
 {
   m_func = fn;
+  m_bcount = bcount;
   m_has_func_id = false;
 #ifdef CACHE_ALLSYMS
   bool is_func = check_func(fn, m_func_id);
@@ -322,8 +325,9 @@ int pers_sqlite::func_start(const char *fn)
       // this function was seen before but not processed yet - push filename for it
       // from https://www.sqlite.org/c3ref/bind_blob.html: The leftmost SQL parameter has an index of 1
       sqlite3_reset(m_update_fname);
-      sqlite3_bind_int(m_update_fname, 2, m_func_id);
+      sqlite3_bind_int(m_update_fname, 3, m_func_id); // id in where clause - last
       sqlite3_bind_text(m_update_fname, 1, m_fn.c_str(), m_fn.size(), SQLITE_STATIC);
+      sqlite3_bind_int(m_update_fname, 2, m_bcount);
       sqlite3_step(m_update_fname);
     } else {
       // we already processed this function - remove xrefs
@@ -350,6 +354,7 @@ int pers_sqlite::add_func()
   sqlite3_bind_int(m_insert_sym, 1, m_func_id);
   sqlite3_bind_text(m_insert_sym, 2, m_func.c_str(), m_func.size(), SQLITE_STATIC);
   sqlite3_bind_text(m_insert_sym, 3, m_fn.c_str(), m_fn.size(), SQLITE_STATIC);
+  sqlite3_bind_int(m_insert_sym, 4, m_bcount);
   sqlite3_step(m_insert_sym);
   cache_func<std::string &>(m_func, m_func_id);
   return 1;
@@ -378,6 +383,7 @@ int pers_sqlite::check_literal(std::string &l)
   sqlite3_bind_int(m_insert_sym, 1, res);
   sqlite3_bind_text(m_insert_sym, 2, l.c_str(), l.size(), SQLITE_STATIC);
   sqlite3_bind_text(m_insert_sym, 3, "", 0, SQLITE_STATIC);
+  sqlite3_bind_int(m_insert_sym, 4, 0);
   sqlite3_step(m_insert_sym);
   add(l.c_str(), res);
   return res;
@@ -406,6 +412,7 @@ int pers_sqlite::check_symbol(const char *sname)
   sqlite3_bind_int(m_insert_sym, 1, res);
   sqlite3_bind_text(m_insert_sym, 2, sname, strlen(sname), SQLITE_STATIC);
   sqlite3_bind_text(m_insert_sym, 3, "", 0, SQLITE_STATIC);
+  sqlite3_bind_int(m_insert_sym, 4, 0);
   sqlite3_step(m_insert_sym);
   add(sname, res);
   return res;

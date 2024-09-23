@@ -20,7 +20,7 @@ class FPersistence
     virtual void cu_start(const char *) {}
     virtual void cu_stop() {}
     // process some function, 0 if this function should not be processed (like already stored in some db)
-    virtual int func_start(const char *) { return 1; }
+    virtual int func_start(const char *, int bcount) { return 1; }
     virtual void func_proto(const char *) {}
     virtual void func_stop() {}
     // process some basic block

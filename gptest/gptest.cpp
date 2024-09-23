@@ -69,14 +69,14 @@ my_PLUGIN::my_PLUGIN(gcc::context *ctxt, const char *full_name ,struct plugin_ar
       if ( ic_name )
         read_ic_config(ic_name);
     }
+#ifdef GPPROF
+    profiled = start_prof(full_name, "gptest.so");
+#endif
     m_db_str = findArgumentValue("db");
     if ( m_db_str )
       m_db = get_pers();
     if ( m_db && !m_dump_rtl )
       m_outfp = NULL;
-#ifdef GPPROF
-    profiled = start_prof(full_name, "gptest.so");
-#endif
 }
 
 my_PLUGIN::~my_PLUGIN()
@@ -1592,8 +1592,9 @@ void my_PLUGIN::dump_array_ref(const_tree expr, aux_type_clutch &clutch)
     dump_ssa_name(op1, clutch);
     if ( need_dump() )
       fprintf(m_outfp, ")");
-  } else if ( code != INTEGER_CST )
+  } else if ( code != INTEGER_CST ) {
     claim_unknown(code, "arr_base1");
+  }
 }
 
 void my_PLUGIN::claim_unknown(tree_code code, const char *what)
@@ -2406,15 +2407,30 @@ unsigned int st_labels::execute(function *fun)
   return 0;
 }
 
-void my_PLUGIN::fill_blocks(function *fun)
+int my_PLUGIN::count_blocks(function *fun) const
 {
-  m_blocks.clear();
-  m_known_uids.clear();
   basic_block bb;
+  int res = 0;
   FOR_ALL_BB_FN(bb, fun)
   {
     if ( bb->index == ENTRY_BLOCK || bb->index == EXIT_BLOCK )
       continue;
+    res++;
+  }
+  return res;
+}
+
+int my_PLUGIN::fill_blocks(function *fun)
+{
+  m_blocks.clear();
+  m_known_uids.clear();
+  basic_block bb;
+  int res = 0;
+  FOR_ALL_BB_FN(bb, fun)
+  {
+    if ( bb->index == ENTRY_BLOCK || bb->index == EXIT_BLOCK )
+      continue;
+    res++;
     if ( !single_pred_p(bb) )
       continue;
     auto idx = single_pred(bb)->index;
@@ -2423,6 +2439,7 @@ void my_PLUGIN::fill_blocks(function *fun)
       continue;
     m_blocks[bb->index] = idx;
   }
+  return res;
 }
 
 unsigned int my_PLUGIN::execute(function *fun)
@@ -2436,7 +2453,7 @@ unsigned int my_PLUGIN::execute(function *fun)
     const char *aname = funName;
     if (DECL_ASSEMBLER_NAME_SET_P(fdecl) )
       aname = (IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME (fdecl)));
-    if ( !m_db->func_start(aname) )
+    if ( !m_db->func_start(aname, count_blocks(fun)) )
       return 0;
   }
   if ( m_db )
