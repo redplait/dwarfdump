@@ -1,6 +1,6 @@
 #!perl -w
 # test script to select functions reffered to some specific fields or vmethods
-# cmd options: path2sqlite.db pattern1 pattern2 ...
+# cmd options: path2sqlite.db type pattern1 pattern2 ...
 # 23 sep 2024 (c) redplait
 use strict;
 use warnings;
@@ -13,7 +13,7 @@ my $alen = scalar(@ARGV);
 if ( $alen < 3 ) {
   print STDERR<<EOF;
 Usage: $0 path2sqlite.db type pattern1 ...
- where tyoe is
+ where type is
   c for call
   v for vcall
   f for field
