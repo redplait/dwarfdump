@@ -53,7 +53,7 @@ sub parse
       }
     }
   }
-  close $fh;  
+  close $fh;
 }
 
 sub dump_tags
@@ -62,7 +62,7 @@ sub dump_tags
   foreach my $tag ( sort { $tags->{$b}->[0] <=> $tags->{$a}->[0] } keys %$tags )
   {
     printf("%s: %d\n", $tag, $tags->{$tag}->[0]);
-  }  
+  }
 }
 
 sub dump_forms
@@ -79,7 +79,7 @@ sub dump_forms
       if ( exists $fdb{$form} )
       {
         $fdb{$form}->[0] += $f->{$form};
-        $fdb{$form}->[1]->{$tag} += $f->{$form}; 
+        $fdb{$form}->[1]->{$tag} += $f->{$form};
       } else {
          $fdb{$form} = [ $f->{$form}, { $tag => $f->{$form} } ];
       }

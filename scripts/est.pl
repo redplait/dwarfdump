@@ -74,7 +74,7 @@ sub parse
       {
         my $attr = $1;
         my $rest = $2;
-  #  printf("attr %s $2\n", $attr);    
+  #  printf("attr %s $2\n", $attr);
         # gather line and column
         if ( $attr eq 'decl_line' )
         {

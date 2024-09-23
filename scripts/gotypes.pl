@@ -37,7 +37,7 @@ my @kind_names = qw(
 	kindSlice
 	kindString
 	kindStruct
-	kindUnsafePointer  
+	kindUnsafePointer
 );
 
 sub parse
@@ -96,7 +96,7 @@ sub parse
       }
     }
   }
-  close $fh;  
+  close $fh;
 }
 
 sub dump_kinds
@@ -113,7 +113,7 @@ sub dump_kinds
       if ( exists $fdb{$form} )
       {
         $fdb{$form}->[0] += $f->{$form};
-        $fdb{$form}->[1]->{$tag} += $f->{$form}; 
+        $fdb{$form}->[1]->{$tag} += $f->{$form};
       } else {
          $fdb{$form} = [ $f->{$form}, { $tag => $f->{$form} } ];
       }
@@ -126,7 +126,7 @@ sub dump_kinds
     foreach my $t ( sort { $tdb->{$b} <=> $tdb->{$a} } keys %$tdb )
     {
       printf("  %s: %d\n", $t, $tdb->{$t})
-    } 
+    }
   }
 }
 
