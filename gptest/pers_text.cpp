@@ -37,14 +37,15 @@ class pers_text: public FPersistence
      }
    }
    virtual int connect(const char *, const char *, const char *);
-   virtual int func_start(const char *fn)
+   virtual int func_start(const char *fn, int block_count) override
    {
      m_fn = fn;
+     m_bb_count = block_count;
      m_func_proto.clear();
      m_func_dunped = false;
      return 1;
    }
-   virtual void func_proto(const char *p)
+   virtual void func_proto(const char *p) override
    {
      m_func_proto = p;
    }
@@ -66,9 +67,10 @@ class pers_text: public FPersistence
    FILE *m_fp;
    std::string m_fn;
    std::string m_func_proto;
-   bool m_func_dunped;
+   int m_bb_count;
    int m_bb;
    bool m_bb_dumped;
+   bool m_func_dunped;
 };
 
 int pers_text::connect(const char *fn, const char *u, const char *p)
@@ -176,7 +178,7 @@ void pers_text::check()
   {
     fprintf(m_fp, "func %s\n", m_fn.c_str());
     if ( !m_func_proto.empty() )
-      fprintf(m_fp, "proto %s\n", m_func_proto.c_str());
+      fprintf(m_fp, "proto %s %d blocks\n", m_func_proto.c_str(), m_bb_count);
     m_func_dunped = true;
   }
   if ( !m_bb_dumped )
