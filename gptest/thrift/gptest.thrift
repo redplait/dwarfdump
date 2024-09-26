@@ -30,5 +30,7 @@ service Symref {
   FCheck check_function(1: string funcname),
   i32 check_sym(1: string name),
   void add_func(1: FFunc f),
-  void quit()
+  void quit(),
+  // for tests
+  i32 ping()
 }
