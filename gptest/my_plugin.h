@@ -15,7 +15,7 @@
 #include "fpers.h"
 
 // comment this defined to disable profiling
-#define GPPROF
+// #define GPPROF
 
 #ifdef GPPROF
 #include "prof.h"
@@ -94,7 +94,8 @@ class my_PLUGIN : public rtl_plugin_with_args
   void start_file(const char *);
   void stop_file();
  private:
-  void fill_blocks(function *);
+  int count_blocks(function *) const;
+  int fill_blocks(function *);
   const char *find_uid(unsigned int);
   void read_ic_config(const char *);
   int ic_filter() const;
