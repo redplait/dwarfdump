@@ -3,18 +3,20 @@
 TGCC=/usr/local/bin/gcc
 # see https://gcc.gnu.org/onlinedocs/gccint/Plugins-building.html
 GCC_PLUGIN_INCLUDE_PATH ?= $(shell $(TGCC) -print-file-name=plugin)/include
-CXXFLAGS = -fPIC -shared -fno-rtti -g -std=gnu++14 -w -I $(GCC_PLUGIN_INCLUDE_PATH)
+CXXFLAGS = -Ofast -fPIC -shared -g -std=gnu++14 -w -I $(GCC_PLUGIN_INCLUDE_PATH)
 # for profiler
 PROSRC=eread.cc lditer.cc prof.cc
 PROFLAGS=-pg -I ../../ELFIO/
 
 HOST_GCC=/usr/bin/gcc
 # for sqlite replace pers_text.cpp with pers_sqlite.cpp for PLUGIN_SOURCE_FILES and add -lsqlite3 to PLUGIN_LIBS
-PLUGIN_SOURCE_FILES=gptest.cpp pers_text.cpp
-PLUGIN_LIBS=-lstdc++
+# PLUGIN_SOURCE_FILES=gptest.cpp pers_sqlite.cpp
+# for thrift rpc
+PLUGIN_SOURCE_FILES=gptest.cpp pers_rpc.o thrift/gen-cpp/Symref.o thrift/gen-cpp/gptest_types.o
+PLUGIN_LIBS=-lstdc++ -lsqlite3 -lthrift
 
 gptest.so: $(PLUGIN_SOURCE_FILES) $(PROSRC)
-	$(HOST_GCC) $(PROFLAGS) -shared $(CXXFLAGS) $^ -o $@ $(PLUGIN_LIBS) -lsqlite3
+	$(HOST_GCC) $(PROFLAGS) $(CXXFLAGS) -fno-rtti $^ -o $@ $(PLUGIN_LIBS)
 
 myrtl: gptest.so
 	$(TGCC) -fplugin=./gptest.so -c -o 1.o -shared $(CXXFLAGS) gptest.cpp
@@ -24,4 +26,10 @@ rtl: gptest.so
 
 test: gptest.so
 	-rm 1.db
-	$(TGCC) -fplugin=./gptest.so -fplugin-arg-gptest-db=./1.db -c -o 1.o -shared $(CXXFLAGS) gptest.cpp
+	time $(TGCC) -fplugin=./gptest.so -fplugin-arg-gptest-db=./1.db -c -o 1.o -shared $(CXXFLAGS) gptest.cpp
+
+rpc: gptest.so
+	time $(TGCC) -fplugin=./gptest.so -fplugin-arg-gptest-db=localhost:17321 -c -o 1.o -shared $(CXXFLAGS) gptest.cpp
+
+clear:
+	-rm *.o
