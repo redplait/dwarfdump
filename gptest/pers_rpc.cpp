@@ -124,12 +124,12 @@ int pers_rpc::connect(const char *addr, const char *user, const char *pass)
   auto colon = strrchr(addr, ':');
   if ( !colon ) {
     fprintf(stderr, "invalud address %s\n", addr);
-    return 0;
+    return 1;
   }
   int port = atoi(colon + 1);
   if ( !port ) {
     fprintf(stderr, "bad port %s\n", colon + 1);
-    return 0;
+    return 1;
   }
   // ripped from https://vorbrodt.blog/2019/03/10/thrift-or-how-to-rpc/
   std::string host(addr, colon - addr);
@@ -142,9 +142,9 @@ int pers_rpc::connect(const char *addr, const char *user, const char *pass)
   } catch(apache::thrift::TException& tx)
   {
     fprintf(stderr, "ERROR: %s\n", tx.what());
-    return 0;
+    return 1;
   }
-  return 1;
+  return 0;
 }
 
 FPersistence *get_pers()
