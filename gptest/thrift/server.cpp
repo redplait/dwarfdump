@@ -9,6 +9,7 @@
 #include <condition_variable>
 #include <shared_mutex>
 #include <queue>
+#include <atomic>
 
 class ServiceHandler: public SymrefIf, protected sqlite_cmn
 {
@@ -28,14 +29,14 @@ class ServiceHandler: public SymrefIf, protected sqlite_cmn
       while(1) {
         std::unique_lock lk(m_db_lock);
         m_cv.wait(lk, [&]() { return m_quit || !m_q.empty(); });
-        if ( m_quit ) {
-          close();
-          exit(0);
-        }
         while( !m_q.empty() )
         {
           m_q.front()();
           m_q.pop();
+        }
+        if ( m_quit ) {
+          close();
+          exit(0);
         }
       }
     });
@@ -43,7 +44,7 @@ class ServiceHandler: public SymrefIf, protected sqlite_cmn
     return 0;
   }
   virtual int32_t ping() {
-    printf("this %p pung %d\n", this, m_ping);
+    printf("this %p pung %d\n", this, m_ping.load());
     return m_ping++;
   }
   virtual void quit() {
@@ -99,7 +100,7 @@ class ServiceHandler: public SymrefIf, protected sqlite_cmn
   std::mutex m_db_lock;
   std::queue<std::function<void()> > m_q;
   std::condition_variable m_cv;
-  int m_ping;
+  std::atomic<int> m_ping;
   volatile bool m_quit;
 };
 
@@ -205,9 +206,9 @@ int main(int argc, char **argv)
   }
   int port = 17321;
   if ( argc > 2 ) {
-    port = atoi(argv[1]);
+    port = atoi(argv[2]);
     if ( !port ) {
-      fprintf(stderr, "%s: bad port %s\n", argv[0], argv[1]);
+      fprintf(stderr, "%s: bad port %s\n", argv[0], argv[2]);
       return 0;
     }
   }
