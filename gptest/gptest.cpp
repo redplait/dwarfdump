@@ -1596,6 +1596,11 @@ void my_PLUGIN::dump_array_ref(const_tree expr, aux_type_clutch &clutch)
     auto dname = IDENTIFIER_POINTER(DECL_NAME(op1));
     if ( dname && need_dump() )
       fprintf(m_outfp, " debug(%s)", dname);
+  } else if ( code == DEBUG_EXPR_DECL && TREE_TYPE(op1) ) {
+    if ( need_dump() ) {
+      auto tname = get_tree_code_name(TREE_CODE(TREE_TYPE(op1)));
+      fprintf(m_outfp, " dtype(%s)", tname);
+    }
   } else if ( code != INTEGER_CST ) {
     claim_unknown(code, "arr_base1");
   }
