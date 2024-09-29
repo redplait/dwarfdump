@@ -1592,6 +1592,10 @@ void my_PLUGIN::dump_array_ref(const_tree expr, aux_type_clutch &clutch)
     dump_ssa_name(op1, clutch);
     if ( need_dump() )
       fprintf(m_outfp, ")");
+  } else if ( code == DEBUG_EXPR_DECL && DECL_NAME(op0) ) {
+    auto dname = IDENTIFIER_POINTER(DECL_NAME(op0));
+    if ( dname && need_dump() )
+      fprintf(m_outfp, " debug(%s)", dname);
   } else if ( code != INTEGER_CST ) {
     claim_unknown(code, "arr_base1");
   }
