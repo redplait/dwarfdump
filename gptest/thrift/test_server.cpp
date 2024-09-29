@@ -4,6 +4,7 @@
 #include <thrift/transport/TTransportUtils.h>
 #include <thrift/server/TThreadedServer.h>
 #include "gen-cpp/Symref.h"
+#include "defport.h"
 
 class ServiceHandler : public SymrefIf
 {
@@ -16,7 +17,8 @@ class ServiceHandler : public SymrefIf
     printf("delete ServiceHandler\n");
   }
   virtual int32_t ping() {
-    printf("this %p pung %d\n", this, m_ping);
+    auto tid = gettid();
+    printf("this %p tid %d pung %d\n", this, tid, m_ping);
     return m_ping++;
   }
   virtual void quit() {
@@ -38,7 +40,7 @@ class ServiceHandler : public SymrefIf
 
 int main(int argc, char **argv)
 {
-  int port = 17321;
+  int port = GPROC_DEFAULT_PORT;
   if ( argc > 1 ) {
     port = atoi(argv[1]);
     if ( !port ) {

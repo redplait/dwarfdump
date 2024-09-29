@@ -5,6 +5,7 @@
 #include <thrift/server/TThreadedServer.h>
 #include "gen-cpp/Symref.h"
 #include "../sqlite_cmn.inc"
+#include "defport.h"
 #include <mutex>
 #include <condition_variable>
 #include <shared_mutex>
@@ -204,7 +205,7 @@ int main(int argc, char **argv)
     printf("%s: db_path [port]\n", argv[0]);
     return 6;
   }
-  int port = 17321;
+  int port = GPROC_DEFAULT_PORT;
   if ( argc > 2 ) {
     port = atoi(argv[2]);
     if ( !port ) {

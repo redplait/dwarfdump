@@ -6,11 +6,12 @@
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TTransportUtils.h>
 #include "gen-cpp/Symref.h"
+#include "defport.h"
 
 int main(int argc, char **argv)
 {
   int is_test = 0;
-  int port = 17321;
+  int port = GPROC_DEFAULT_PORT;
   if ( argc > 1 ) {
     port = atoi(argv[1]);
     if ( !port ) {
