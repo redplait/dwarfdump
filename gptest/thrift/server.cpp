@@ -127,10 +127,8 @@ void ServiceHandler::check_function(FCheck&res, const std::string&name)
       res.skip = 1;
       return;
     }
-    // ok, store func
-    res.id = ++max_id;
-    // store in cache
-    add(name.c_str(), res.id);
+    res.id = ++max_id; // store func id
+    add(name.c_str(), res.id); // store in cache
   }
   add_sym(name, res.id);
 }
@@ -150,8 +148,9 @@ void ServiceHandler::add_func(const FFunc& f)
     sqlite3_bind_int(m_update_fname, 2, f.bbcount);
     sqlite3_step(m_update_fname);
   };
+  // in case of empty function don't forget notify db writer thread to update function anyway
+  if ( empty ) { db_push_wakeup(u); return; }
   db_push(u);
-  if ( empty ) return;
   for ( const auto er: f.errors )
   {
     auto ie = [=]() {
