@@ -56,8 +56,8 @@ class ServiceHandler: public SymrefIf, protected sqlite_cmn
   virtual int32_t check_sym(const std::string& name);
   virtual void check_function(FCheck&res, const std::string&name);
  protected:
-  template <typename T, typename W>
-  void add_sym(T s, int res, W push)
+  template <typename T>
+  void add_sym(T s, int res)
   {
     std::string n(s);
     auto func = [=]() {
@@ -68,7 +68,7 @@ class ServiceHandler: public SymrefIf, protected sqlite_cmn
      sqlite3_bind_int(m_insert_sym, 4, 0);
      sqlite3_step(m_insert_sym);
    };
-   push(func);
+   db_push_wakeup(func);
   }
   void clear_func(int id)
   {
@@ -132,7 +132,7 @@ void ServiceHandler::check_function(FCheck&res, const std::string&name)
     // store in cache
     add(name.c_str(), res.id);
   }
-  add_sym(name, res.id, [&](auto &t) { db_push_wakeup(t); });
+  add_sym(name, res.id);
 }
 
 void ServiceHandler::add_func(const FFunc& f)
@@ -195,7 +195,7 @@ int32_t ServiceHandler::check_sym(const std::string& name) {
     // store in cache
     add(name.c_str(), res);
   }
-  add_sym(name, res, [&](auto &t) { db_push_wakeup(t); });
+  add_sym(name, res);
   return res;
 }
 
