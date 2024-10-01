@@ -320,8 +320,12 @@ int my_PLUGIN::dump_0_operand(const_rtx in_rtx, int idx, int level)
     {
       auto code = TREE_CODE(decl);
       auto name = get_tree_code_name(code);
-      if ( name )
-        fprintf(m_outfp, "decl %s %p", name, decl);
+      if ( name ) {
+        if ( !m_requiv && code == VAR_DECL && !DECL_INITIAL(decl) )
+          fprintf(m_outfp, "decl %s %p ", name, decl);
+        else
+          fprintf(m_outfp, "decl %s ", name);
+      }
       if ( code == VAR_DECL )
       {
         if ( DECL_IN_TEXT_SECTION(decl) )
@@ -341,9 +345,11 @@ int my_PLUGIN::dump_0_operand(const_rtx in_rtx, int idx, int level)
           if ( name )
             fprintf(m_outfp, "initial %s ", name);
           dump_tree_MF(v);
-        } 
+        }
       }
     }
+    if ( decl && !m_requiv && TREE_CODE(decl) == VAR_DECL && !DECL_INITIAL(decl) )
+      m_rbase = decl;
     return 0;
   } else if ( idx == 3 && NOTE_P(in_rtx) )
   {
@@ -453,6 +459,10 @@ int my_PLUGIN::dump_i_operand(const_rtx in_rtx, int idx, int level)
 #endif
 #if NUM_UNSPEC_VALUES > 0
   // UNSPEC_XXX contained in insn-constants.h somewhere inside host-build directory
+  // it seems that they are machine-specific so it's hard to find even type of T:S access
+  // for example on test/stest.cc it will be UNSPEC_NTPOFF but with -fPIC option it will be
+  // UNSPEC_TLS_GD + __tls_get_addr call
+  // for or1k see some doc: http://stffrdhrn.github.io/software/toolchain/openrisc/2020/07/21/relocs_tls_impl.html
   else if ( idx == 1 && GET_CODE (in_rtx) == UNSPEC ) {
     auto i = XINT (in_rtx, 1);
     if ( i >= 0 && i < NUM_UNSPEC_VALUES ) {
@@ -2069,7 +2079,19 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
     {
       clutch.is_lvar = true;
       if ( need_dump() )
-        fprintf(m_outfp, "%p)", op0);
+        fprintf(m_outfp, " %p)", op0);
+      if ( op0 == m_rbase ) {
+        auto t = TREE_TYPE(op0);
+        if ( t ) {
+          code = TREE_CODE(t);
+          if ( need_dump() )
+          {
+            name = get_tree_code_name(code);
+            if ( name )
+              fprintf(m_outfp, " var_type %s", name);
+          }
+        }
+      }
       return;
     }
     if ( need_dump() )
@@ -2181,6 +2203,7 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
   {
     int mod = (int)GET_MODE(in_rtx);
     m_requal = mod == REG_EQUAL;
+    m_requiv = mod == REG_EQUIV;
   }
   if ( need_dump() )
   {

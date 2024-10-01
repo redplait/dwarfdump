@@ -189,6 +189,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   std::map<const_tree, std::pair<int, const_tree> > m_args;
   int m_arg_no = 0;
   bool m_requal; // if currently processing rtx is expr_list with REG_EQUAL
+  bool m_requiv; // if currently processing rtx is expr_list with REG_EQUIV
   const_tree m_rbase; // when m_requal this is base type of referred argument
   // for BB with single in-edge, key is BB index, value is index of parent BB
   std::map<int, int> m_blocks;
