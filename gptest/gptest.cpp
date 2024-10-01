@@ -321,7 +321,7 @@ int my_PLUGIN::dump_0_operand(const_rtx in_rtx, int idx, int level)
       auto code = TREE_CODE(decl);
       auto name = get_tree_code_name(code);
       if ( name )
-        fprintf(m_outfp, "decl %s ", name);
+        fprintf(m_outfp, "decl %s %p", name, decl);
       if ( code == VAR_DECL )
       {
         if ( DECL_IN_TEXT_SECTION(decl) )
@@ -440,7 +440,28 @@ int my_PLUGIN::dump_i_operand(const_rtx in_rtx, int idx, int level)
     fprintf (m_outfp, " %s:%i",
         LOCATION_FILE (ASM_INPUT_SOURCE_LOCATION (in_rtx)),
         LOCATION_LINE (ASM_INPUT_SOURCE_LOCATION (in_rtx)));
-  } else {
+  }
+#if NUM_UNSPECV_VALUES > 0
+  // UNSPECV_XXX contained in insn-constants.h somewhere inside host-build directory
+  else if ( idx == 1 && GET_CODE (in_rtx) == UNSPEC_VOLATILE ) {
+    auto i = XINT (in_rtx, 1);
+    if ( i >= 0 && i < NUM_UNSPECV_VALUES ) {
+      if ( need_dump() )
+        fprintf(m_outfp, " %s", unspecv_strings[i]);
+    }
+  }
+#endif
+#if NUM_UNSPEC_VALUES > 0
+  // UNSPEC_XXX contained in insn-constants.h somewhere inside host-build directory
+  else if ( idx == 1 && GET_CODE (in_rtx) == UNSPEC ) {
+    auto i = XINT (in_rtx, 1);
+    if ( i >= 0 && i < NUM_UNSPEC_VALUES ) {
+      if ( need_dump() )
+        fprintf(m_outfp, " %s", unspec_strings[i]);
+    }
+  }
+#endif
+  else {
     const char *name;
     int is_insn = INSN_P (in_rtx);
     if (is_insn && &INSN_CODE (in_rtx) == &XINT (in_rtx, idx)
@@ -2044,13 +2065,15 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
       }
       if ( ai != m_args.end() ) m_arg_no = ai->second.first;
     }
-    if ( need_dump() )
-      fprintf(m_outfp, ")");
     if ( code == VAR_DECL )
     {
       clutch.is_lvar = true;
+      if ( need_dump() )
+        fprintf(m_outfp, "%p)", op0);
       return;
     }
+    if ( need_dump() )
+      fprintf(m_outfp, ")");
   }
   if ( !op1 )
     return;    
