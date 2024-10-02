@@ -2078,25 +2078,31 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
     if ( code == VAR_DECL )
     {
       clutch.is_lvar = true;
+      bool deal_with_var = false;
       if ( need_dump() )
-        fprintf(m_outfp, " %p)", op0);
+        fprintf(m_outfp, " %p", op0);
       if ( op0 == m_rbase ) {
         auto t = TREE_TYPE(op0);
         if ( t ) {
-          code = TREE_CODE(t);
+          deal_with_var = true; // we have m_rbase and it has type
           if ( need_dump() )
           {
-            name = get_tree_code_name(code);
-            if ( name )
-              fprintf(m_outfp, " var_type %s", name);
+            // dump type of var_decl
+            code = TREE_CODE(t);
+            auto tname = get_tree_code_name(code);
+            if ( tname )
+              fprintf(m_outfp, " var_type %s", tname);
           }
         }
       }
-      return;
+      if ( !deal_with_var ) {
+        if ( need_dump() ) fputc(')', m_outfp);
+        return;
+      }
     }
-    if ( need_dump() )
-      fprintf(m_outfp, ")");
+    if ( need_dump() ) fputc(')', m_outfp);
   }
+  // now process right operand in op1
   if ( !op1 )
     return;    
   code = TREE_CODE(op1);
@@ -2583,7 +2589,7 @@ unsigned int my_PLUGIN::execute(function *fun)
       {
         // reset state
         m_arg_no = 0;
-        m_requal = false;
+        m_requal = m_requiv = false;
         m_rbase = nullptr;
         if ( NONDEBUG_INSN_P(insn) || LABEL_P(insn) )
           dump_rtx_hl(insn);
