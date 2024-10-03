@@ -146,6 +146,10 @@ extern tree get_identifier (const char *);
 extern tree gimple_get_virt_method_for_vtable (HOST_WIDE_INT, tree, unsigned HOST_WIDE_INT, bool *can_refer = NULL);
 extern bool vtable_pointer_value_to_vtable (const_tree, tree *, unsigned HOST_WIDE_INT *);
 extern tree get_identifier_with_length(const char *, size_t);
+bool real_iszero (const REAL_VALUE_TYPE *r)
+{
+  return r->cl == rvc_zero;
+}
 
 #include "attribs.h"
 
@@ -2297,14 +2301,15 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
   } else if ( code == CONST_DOUBLE && FLOAT_MODE_P (GET_MODE (in_rtx)))
   {
     char s[60];
-    real_to_decimal (s, CONST_DOUBLE_REAL_VALUE (in_rtx), sizeof (s), 0, 1);
+    auto fv = CONST_DOUBLE_REAL_VALUE (in_rtx);
+    real_to_decimal (s, fv, sizeof (s), 0, 1);
     if ( need_dump() )
     {
       fprintf (m_outfp, " CONST_DOUBLE %s", s);
 //      real_to_hexadecimal (s, CONST_DOUBLE_REAL_VALUE (in_rtx), sizeof (s), 0, 1);
 //      fprintf (m_outfp, " [%s]", s);
     }
-    if ( m_db )
+    if ( !real_iszero(fv) && m_db )
       m_db->add_xref(fconst, s);
   }
 
