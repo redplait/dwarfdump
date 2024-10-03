@@ -39,7 +39,7 @@ struct aux_type_clutch
   { }
   aux_type_clutch(const_rtx);
   xref_kind field_xref() const {
-    return is_lvar ? field: gfield;
+    return is_lvar ? gfield: field;
   }
   // data
   HOST_WIDE_INT off; // in param

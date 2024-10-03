@@ -148,7 +148,7 @@ extern bool vtable_pointer_value_to_vtable (const_tree, tree *, unsigned HOST_WI
 extern tree get_identifier_with_length(const char *, size_t);
 bool real_iszero (const REAL_VALUE_TYPE *r)
 {
-  return r->cl == rvc_zero;
+  return r->cl == rvc_zero || r->cl == rvc_inf;
 }
 
 #include "attribs.h"
@@ -2185,7 +2185,7 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
     if ( m_db )
       m_db->add_xref(clutch.field_xref(), clutch.txt.c_str(), m_arg_no);
     m_arg_no = 0;
-    report_fref("dump_comp_ref");
+    report_fref(clutch.is_lvar ? "lvar" : "dump_comp_ref");
   }
 }
 
