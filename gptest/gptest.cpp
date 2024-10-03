@@ -2179,7 +2179,7 @@ void my_PLUGIN::dump_comp_ref(const_tree expr, aux_type_clutch &clutch)
   {
     clutch.completed = true;
     if ( m_db )
-      m_db->add_xref(field, clutch.txt.c_str(), m_arg_no);
+      m_db->add_xref(clutch.field_xref(), clutch.txt.c_str(), m_arg_no);
     m_arg_no = 0;
     report_fref("dump_comp_ref");
   }

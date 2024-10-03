@@ -38,6 +38,9 @@ struct aux_type_clutch
      left_name(r.left_name)
   { }
   aux_type_clutch(const_rtx);
+  xref_kind field_xref() const {
+    return is_lvar ? field: gfield;
+  }
   // data
   HOST_WIDE_INT off; // in param
   std::string txt;
