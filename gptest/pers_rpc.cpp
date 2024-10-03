@@ -83,25 +83,8 @@ void pers_rpc::add_xref(xref_kind x, const char *s, int arg_no)
   FRefs ref;
   ref.bid = bb_idx;
   ref.arg = arg_no;
-  switch(x)
-  {
-    case xcall:
-     ref.kind = 'c';
-     break;
-    case vcall:
-     ref.kind = 'v';
-     break;
-    case xref:
-     ref.kind = 'r';
-     break;
-    case field:
-     ref.kind = 'f';
-     break;
-    case fconst:
-     ref.kind = 'F';
-     break;
-    default: return; // wtf?
-  }
+  ref.kind = xref_letter(x);
+  if ( !ref.kind ) return; // wtf?
   std::string sym(s);
   ref.what = check_sym(sym);
   m_func.refs.push_back(ref);

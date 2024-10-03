@@ -200,26 +200,8 @@ void pers_sqlite::add_literal(const char *lc, int lc_size)
 void pers_sqlite::add_xref(xref_kind kind, const char *sym, int arg_no)
 {
   add_func();
-  char c;
-  switch(kind)
-  {
-    case xcall:
-     c = 'c';
-     break;
-    case vcall:
-     c = 'v';
-     break;
-    case xref:
-     c = 'r';
-     break;
-    case field:
-     c = 'f';
-     break;
-    case fconst:
-     c = 'F';
-     break;
-    default: return; // wtf?
-  }
+  char c = xref_letter(kind);
+  if ( !c)  return; // wtf?
   insert_xref(check_symbol(sym), c, arg_no);
 }
 

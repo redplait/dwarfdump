@@ -94,26 +94,8 @@ void pers_text::add_xref(xref_kind kind, const char *what, int arg_no)
   if ( !m_fp )
     return;
   check();
-  char c;
-  switch(kind)
-  {
-    case xcall:
-     c = 'c';
-     break;
-    case vcall:
-     c = 'v';
-     break;
-    case xref:
-     c = 'r';
-     break;
-    case field:
-     c = 'f';
-     break;
-    case fconst:
-     c = 'F';
-     break;
-    default: return; // wtf?
-  }
+  char c = xref_letter(kind);
+  if ( !c ) return; // wtf?
   if ( kind == field && arg_no )
     fprintf(m_fp, "  %c arg%d %s\n", c, arg_no, what);
   else

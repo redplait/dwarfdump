@@ -2,10 +2,11 @@
 // interface for gpt plugin results persistence
 
 enum xref_kind {
-  xcall, // just direct call function/method
-  vcall, // virtual method call
-  xref,  // some reference
-  field, // xref to some structure field
+  xcall,  // just direct call function/method
+  vcall,  // virtual method call
+  xref,   // some reference
+  field,  // xref to some structure field
+  gfield, // xref to some global/tls structure field
   fconst, // floating point const
 };
 
@@ -34,6 +35,26 @@ class FPersistence
     virtual void add_comment(const char *) {}
     // report errors
     virtual void report_error(const char *) {}
+  protected:
+  char xref_letter(xref_kind x)
+  {
+    switch(x)
+    {
+     case xcall:
+      return 'c';
+     case vcall:
+      return 'v';
+     case xref:
+      return 'r';
+     case field:
+      return 'f';
+     case gfield:
+      return 'g';
+     case fconst:
+      return 'F';
+     default: return 0; // wtf?
+    }
+  }
 };
 
 // somewhere
