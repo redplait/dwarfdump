@@ -2221,7 +2221,7 @@ void my_PLUGIN::dump_rtx(const_rtx in_rtx, int level)
       fprintf(m_outfp, "%d ", INSN_UID (in_rtx));
     fprintf(m_outfp, "%s", GET_RTX_NAME(code));
     // print reg_note
-    if ( code == EXPR_LIST )
+    if ( code == EXPR_LIST || code == INT_LIST || code == INSN_LIST )
     {
       int mod = (int)GET_MODE(in_rtx);
       if ( mod < REG_NOTE_MAX )
