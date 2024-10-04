@@ -397,6 +397,12 @@ int my_PLUGIN::dump_0_operand(const_rtx in_rtx, int idx, int level)
       dump_rtx(jl, 1 + level);
       return 1;
     } */
+  } else if ( idx == 0 && GET_CODE(in_rtx) == ENTRY_VALUE ) {
+    auto el = ENTRY_VALUE_EXP(in_rtx);
+    expr_push(el, idx);
+    dump_rtx(el, level + 1);
+    expr_pop();
+    return 1;
   }
   return 0; 
 }
