@@ -97,12 +97,18 @@ namespace Dwarf32 {
     DW_TAG_template_alias = 0x43,
 
     // DWARF 5
+    DW_TAG_coarray_type = 0x44,
+    DW_TAG_generic_subrange = 0x45,
     DW_TAG_dynamic_type = 0x46,
     DW_TAG_atomic_type = 0x47,
     DW_TAG_immutable_type = 0x4b,
 
     DW_TAG_lo_user = 0x4080,
-    DW_TAG_hi_user = 0xffff
+    DW_TAG_hi_user = 0xffff,
+    /* GNU extensions.  */
+    DW_TAG_format_label = 0x4101,
+    DW_TAG_function_template = 0x4102,
+    DW_TAG_class_template = 0x4103
   };
 
   enum Attribute {
@@ -221,10 +227,34 @@ namespace Dwarf32 {
     DW_AT_alignment = 0x88,
     DW_AT_export_symbols = 0x89,
     DW_AT_deleted = 0x8a,
+    DW_AT_GNU_deleted = 0x211a,
     DW_AT_defaulted = 0x8b,
     DW_AT_loclists_base = 0x8c,
+    // DWARF 6
+    DW_AT_scale_multiplier = 0x8d, // int constant
+    DW_AT_scale_divisor = 0x8e, // int constant
+    DW_AT_str_offsets = 0x8f, // stroffsetsptr
+    DW_AT_language_name = 0x90,
+    DW_AT_language_version = 0x91,
+    DW_AT_bias = 0x92,
+    DW_AT_tensor = 0x93, // flag
 
     DW_AT_MIPS_linkage_name = 0x2007,
+    DW_AT_GNU_vector = 0x2107, // flag
+    // Apple extensions.
+    DW_AT_APPLE_optimized          = 0x3fe1,
+    DW_AT_APPLE_flags              = 0x3fe2,
+    DW_AT_APPLE_isa                = 0x3fe3,
+    DW_AT_APPLE_block              = 0x3fe4,
+    DW_AT_APPLE_major_runtime_vers = 0x3fe5,
+    DW_AT_APPLE_runtime_class      = 0x3fe6,
+    DW_AT_APPLE_omit_frame_ptr     = 0x3fe7,
+    DW_AT_APPLE_property_name      = 0x3fe8,
+    DW_AT_APPLE_property_getter    = 0x3fe9,
+    DW_AT_APPLE_property_setter    = 0x3fea,
+    DW_AT_APPLE_property_attribute = 0x3feb,
+    DW_AT_APPLE_objc_complete_type = 0x3fec,
+
     DW_AT_lo_user = 0x2000,
     DW_AT_hi_user = 0x3fff
   };
@@ -281,11 +311,17 @@ namespace Dwarf32 {
     DW_ACCESS_protected = 0x02,
     DW_ACCESS_private = 0x03
   };
-
+  // for DW_AT_virtuality
   enum Virtuality {
     DW_VIRTUALITY_none = 0,
     DW_VIRTUALITY_virtual = 1,
     DW_VIRTUALITY_pure_virtual = 2
+  };
+  // for DW_AT_visibility
+  enum Visibility {
+    DW_VIS_local = 1,
+    DW_VIS_exported = 2,
+    DW_VIS_qualified = 3,
   };
 /* Source language names and codes.  */
   enum dwarf_source_language {
