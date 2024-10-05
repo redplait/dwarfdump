@@ -342,6 +342,14 @@ std::string JsonRender::GenerateJson(Element &e) {
   }
   if ( e.inlined_ )
     put(result, "inline", e.inlined_);
+  if ( e.const_expr_ )
+    put(result, "const_expr", e.const_expr_);
+  if ( e.enum_class_ )
+    put(result, "enum_class", e.enum_class_);
+  if ( e.gnu_vector_ )
+    put(result, "gnu_vector", e.gnu_vector_);
+  if ( e.tensor_ )
+    put(result, "tensor", e.tensor_);
   if ( e.addr_class_ )
       put(result, "addr_class", e.addr_class_);
   if ( e.type_ == ElementType::var_type )
@@ -363,7 +371,7 @@ std::string JsonRender::GenerateJson(Element &e) {
           std::string loc;
           render_location(loc, l.loc);
           if ( !loc.empty() )
-          {  
+          {
             result += "{";
             put(result, "start", l.start);
             put(result, "end", l.end);
