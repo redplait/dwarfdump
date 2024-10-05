@@ -2707,6 +2707,12 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
       return ProcessFlags(form, info, info_bytes, &TreeBuilder::SetRef_);
     case Dwarf32::Attribute::DW_AT_const_expr:
       return ProcessFlags(form, info, info_bytes, &TreeBuilder::SetConstExpr);
+    case Dwarf32::Attribute::DW_AT_enum_class:
+      return ProcessFlags(form, info, info_bytes, &TreeBuilder::SetEnumClass);
+    case Dwarf32::Attribute::DW_AT_GNU_vector:
+      return ProcessFlags(form, info, info_bytes, &TreeBuilder::SetGNUVector);
+    case Dwarf32::Attribute::DW_AT_tensor:
+      return ProcessFlags(form, info, info_bytes, &TreeBuilder::SetTensor);
     case Dwarf32::Attribute::DW_AT_explicit:
       return ProcessFlags(form, info, info_bytes, &TreeBuilder::SetExplicit);
     case Dwarf32::Attribute::DW_AT_is_optional:
@@ -3068,9 +3074,9 @@ bool ElfFile::GetAllClasses()
       m_section = &it_section->second;
       const unsigned char* abbrev = m_section->ptr;
       size_t abbrev_bytes = debug_abbrev_.size_ - (abbrev - debug_abbrev_.s_);
- //     if ( m_tag_id >= 0x485 ) {
- // printf("before RegisterNewTag(%X) m_regged %d taf %lX\n", m_section->type, m_regged, m_tag_id);
- //     }
+//      if ( m_tag_id == 0x4671b6 ) {
+//  printf("before RegisterNewTag(%X) m_regged %d taf %lX\n", m_section->type, m_regged, m_tag_id);
+//      }
       m_regged = RegisterNewTag(m_section->type);
       m_next = 0;
 

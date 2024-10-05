@@ -287,6 +287,9 @@ public:
   void SetRef_();
   void SetRValRef_();
   void SetConstExpr();
+  void SetEnumClass();
+  void SetGNUVector();
+  void SetTensor();
   void SetSpec(uint64_t);
   void SetAbs(uint64_t);
   void SetLocX(uint64_t);
@@ -440,6 +443,9 @@ protected:
       decl_ = e.decl_;
       const_expr_ = e.const_expr_;
       has_range_ = e.has_range_;
+      enum_class_ = e.enum_class_;
+      gnu_vector_ = e.gnu_vector_;
+      tensor_ = e.tensor_;
       dumped_ = e.dumped_;
     }
     Element(Element &&e)
@@ -498,6 +504,9 @@ protected:
      decl_ = false,
      const_expr_ = false,
      has_range_ = false,
+     enum_class_ = false,
+     gnu_vector_ = false,
+     tensor_ = false,
      dumped_ = false;
 
     inline bool is_abs() const

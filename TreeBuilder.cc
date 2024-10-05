@@ -1345,6 +1345,42 @@ void TreeBuilder::SetConstExpr()
   last_var_->const_expr_ = true;
 }
 
+void TreeBuilder::SetEnumClass()
+{
+  if ( current_element_type_ != ElementType::enumerator_type )
+    return;
+  if ( !recent_ )
+  {
+    e_->error("Can't set an enum_class attribute when there is no recent\n");
+    return;
+  }
+  recent_->enum_class_ = true;
+}
+
+void TreeBuilder::SetGNUVector()
+{
+  if ( current_element_type_ != ElementType::array_type )
+    return;
+  if ( !recent_ )
+  {
+    e_->error("Can't set an GNU_vector attribute when there is no recent\n");
+    return;
+  }
+  recent_->gnu_vector_ = true;
+}
+
+void TreeBuilder::SetTensor()
+{
+  if ( current_element_type_ != ElementType::array_type )
+    return;
+  if ( !recent_ )
+  {
+    e_->error("Can't set an tensor attribute when there is no recent\n");
+    return;
+  }
+  recent_->tensor_ = true;
+}
+
 void TreeBuilder::SetExplicit()
 {
   if ( !recent_ || current_element_type_ != ElementType::method )
