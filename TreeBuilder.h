@@ -377,7 +377,10 @@ protected:
     uint64_t id;
     size_t offset;
     int access = 0;
+    bool virtual_ = false;
   };
+
+  Parent *get_parent(const char *why);
 
   struct EnumItem {
     const char *name;
@@ -560,6 +563,8 @@ protected:
              m_comp->methods_.size();
     }
   };
+
+  Element *get_member(const char *why);
 
   struct Method: public Element
   {

@@ -709,7 +709,7 @@ void TreeBuilder::pop_stack(uint64_t off)
     elements_.push_back(Element(ns_end, last->type_id_, last->level_, get_owner(), top_ns()));
     elements_.back().name_ = last->name_;
     if ( ns_stack.empty() )
-      e_->error("ns stack is empty, off %lX\n", off);
+      e_->error("ns stack is empty, off %lX, ns_count %d\n", off, ns_count);
     else
       ns_stack.pop();
     if ( g_opt_v )
@@ -787,12 +787,8 @@ void TreeBuilder::SetParentAccess(int a)
   auto top = m_stack.top();
   if ( current_element_type_ == ElementType::member )
   {
-    if ( !top->m_comp || top->m_comp->members_.empty()) {
-      e_->error("Can't set the member access if the members list is empty\n");
-      return;
-    }
-  // fprintf(g_outf, "SetParentAccess %s a %d\n", m_stack.top()->members_.back().name_, a);
-    top->m_comp->members_.back().access_ = a;
+    auto el = get_member("access");
+    if ( el ) el->access_ = a;
     return;
   } else {
     if ( recent_ )
@@ -950,7 +946,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         recent_ = nullptr;
   }
 
-  current_element_type_ = element_type; 
+  current_element_type_ = element_type;
 }
 
 void TreeBuilder::SetFilename(std::string &fn, const char *fname)
@@ -1150,17 +1146,8 @@ void TreeBuilder::SetElementName(const char* name, uint64_t off)
   }
 
   if (current_element_type_ == ElementType::member) {
-    if ( m_stack.empty() ) {
-      e_->error("Can't set the member name when stack is empty\n");
-      return;
-    }
-    auto top = m_stack.top();
-    if (!top->m_comp || top->m_comp->members_.empty()) {
-      e_->error("Can't set the member name if the members list is empty\n");
-      return;
-    }
-
-    top->m_comp->members_.back().name_ = name;
+    auto el = get_member("name");
+    if ( el ) el->name_ = name;
     return;
   }
   if ( recent_ )
@@ -1179,17 +1166,8 @@ void TreeBuilder::SetElementSize(uint64_t size) {
   }
 
   if (current_element_type_ == ElementType::member) {
-    if ( m_stack.empty() ) {
-      e_->error("Can't set an member size when stack is empty\n");
-      return;
-    }
-    auto top = m_stack.top();
-    if (!top->m_comp || top->m_comp->members_.empty()) {
-      e_->error("Can't set the member size if the members list is empty\n");
-      return;
-    }
-
-    top->m_comp->members_.back().size_ = size;
+    auto *el = get_member("size");
+    if ( el ) el->size_ = size;
     return;
   }
   if ( recent_ )
@@ -1206,12 +1184,8 @@ void TreeBuilder::SetAddressClass(int v, uint64_t off)
   }
   if (current_element_type_ == ElementType::member )
   {
-    auto top = m_stack.top();
-    if (!top->m_comp || top->m_comp->members_.empty()) {
-      e_->error("Can't set the address class if the members list is empty\n");
-      return;
-    }
-    top->m_comp->members_.back().addr_class_ = v;
+    auto el = get_member("address class");
+    if ( el ) el->addr_class_ = v;
     return;
   }
   elements_.back().addr_class_ = v;
@@ -1222,16 +1196,8 @@ void TreeBuilder::SetBitSize(int v)
    if (current_element_type_ != ElementType::member) {
     return;
   }
-  if ( m_stack.empty() ) {
-    e_->error("Can't set the bit size when stack is empty\n");
-    return;
-  }
-  auto top = m_stack.top();
-  if (!top->m_comp || top->m_comp->members_.empty()) {
-    e_->error("Can't set the bit size if the members list is empty\n");
-    return;
-  }
-  top->m_comp->members_.back().bit_size_ = v;
+  auto *el = get_member("bit size");
+  if ( el ) el->bit_size_ = v;
 }
 
 void TreeBuilder::SetVtblIndex(uint64_t v)
@@ -1256,6 +1222,13 @@ void TreeBuilder::SetObjPtr(uint64_t v)
 
 void TreeBuilder::SetVirtuality(int v)
 {
+  // parents too can be virtual
+  if ( current_element_type_ == ElementType::inheritance )
+  {
+    auto p = get_parent("virtuality");
+    if ( p ) p->virtual_ = (v != 0);
+    return;
+  }
   if ( !recent_ )
     return;
   if ( ElementType::method != recent_->type_ )
@@ -1432,16 +1405,36 @@ void TreeBuilder::SetBitOffset(int v)
    if (current_element_type_ != ElementType::member) {
     return;
   }
+  auto *el = get_member("bit offset");
+  if ( el ) el->bit_offset_ = v;
+}
+
+TreeBuilder::Element *TreeBuilder::get_member(const char *why)
+{
   if ( m_stack.empty() ) {
-    e_->error("Can't set the bit offset when stack is empty\n");
-    return;
+    e_->error("Can't set the member %s when stack is empty\n", why);
+    return nullptr;
   }
   auto top = m_stack.top();
   if (!top->m_comp || top->m_comp->members_.empty()) {
-    e_->error("Can't set the bit offset if the members list is empty\n");
-    return;
+    e_->error("Can't set the member %s if the members list is empty\n", why);
+    return nullptr;
   }
-  top->m_comp->members_.back().bit_offset_ = v;
+  return &top->m_comp->members_.back();
+}
+
+TreeBuilder::Parent *TreeBuilder::get_parent(const char *why)
+{
+  if ( m_stack.empty() ) {
+    e_->error("Can't set the parent %s when stack is empty\n", why);
+    return nullptr;
+  }
+  auto top = m_stack.top();
+  if (!top->m_comp || top->m_comp->parents_.empty()) {
+    e_->error("Can't set the parent %s if the parents list is empty\n", why);
+    return nullptr;
+  }
+  return &top->m_comp->parents_.back();
 }
 
 void TreeBuilder::SetElementOffset(uint64_t offset) {
@@ -1452,32 +1445,16 @@ void TreeBuilder::SetElementOffset(uint64_t offset) {
     e_->error("Can't set an element offset if the element list is empty\n");
     return;
   }
+  Parent *p;
+  Element *el;
   switch (current_element_type_) {
     case ElementType::member:
-      if ( m_stack.empty() ) {
-        e_->error("Can't set the member offset when stack is empty\n");
-        return;
-      } else {
-        auto top = m_stack.top();
-        if (!top->m_comp || top->m_comp->members_.empty()) {
-          e_->error("Can't set the member offset if the members list is empty\n");
-          break;
-        }
-        top->m_comp->members_.back().offset_ = offset;
-      }
+      el = get_member("offset");
+      if ( el ) el->offset_ = offset;
       break;
     case ElementType::inheritance:
-      if ( m_stack.empty() ) {
-        e_->error("Can't set the parent offset when stack is empty\n");
-        return;
-      } else {
-        auto top = m_stack.top();
-        if (!top->m_comp || top->m_comp->parents_.empty()) {
-          e_->error("Can't set the parent offset if the parents list is empty\n");
-          break;
-        }
-        top->m_comp->parents_.back().offset = offset;
-      }
+      p = get_parent("offset");
+      if ( p ) p->offset = offset;
       break;
     default:
       break;
