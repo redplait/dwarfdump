@@ -1131,8 +1131,12 @@ void my_PLUGIN::dump_method(const_tree expr)
   auto t = TREE_TYPE(expr);
   if ( t )
   {
-    if ( TYPE_NAME(t) && need_dump() )
-      fprintf(m_outfp, " MName %s", IDENTIFIER_POINTER(TYPE_NAME(t)) );
+    if ( need_dump() && TYPE_NAME(t) ) {
+      if ( TREE_CODE(TYPE_NAME(t)) == IDENTIFIER_NODE )
+        fprintf(m_outfp, " MName %s", IDENTIFIER_POINTER(TYPE_NAME(t)) );
+      else if ( TREE_CODE(TYPE_NAME(t)) == TYPE_DECL && DECL_NAME(TYPE_NAME(t)) )
+        fprintf(m_outfp, " MName %s", IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(t))) );
+    }
     tree class_type = TYPE_METHOD_BASETYPE(expr);
     if ( class_type )
     {
