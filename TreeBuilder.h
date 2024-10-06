@@ -410,6 +410,8 @@ protected:
     param_loc loc;
   };
 
+  FormalParam *get_param(const char *why);
+
   struct Compound;
   struct NSpace;
 
