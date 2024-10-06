@@ -232,6 +232,7 @@ bool PlainRender::dump_type(uint64_t key, OUT std::string &res, named *n, int le
   if ( el->second->type_ == ElementType::enumerator_type )
   {
     res = "enum ";
+    if ( el->second->enum_class_ ) res += "class ";
     if ( el->second->name_ )
       res += el->second->name_;
     else if ( el->second->m_comp != nullptr )
@@ -329,6 +330,12 @@ bool PlainRender::dump_type(uint64_t key, OUT std::string &res, named *n, int le
   }
   if ( el->second->type_ == ElementType::array_type )
   {
+    if ( el->second->gnu_vector_ || el->second->tensor_ ) {
+      res += "/*";
+      if ( el->second->gnu_vector_ ) res += " GNU_vector";
+      if ( el->second->tensor_ )     res += " tensor";
+      res += " */";
+    }
     dump_type(el->second->type_id_, res, n);
     res += "[";
     res += std::to_string(el->second->count_);
@@ -788,6 +795,20 @@ void PlainRender::dump_var(Element *e, int local)
   }
 }
 
+TreeBuilder::Element *PlainRender::try_find_in_frames(Element *e)
+{
+  if ( !e || !e->owner_ ) return nullptr;
+  auto saved_abs = e->abs_;
+  for( e = e->owner_; e; e = e->owner_ )
+  {
+    if ( e->type_ == ns_start ) break;
+    if ( !e->m_comp ) continue;
+    for ( auto lv: e->m_comp->lvars_ )
+      if ( lv->id_ == saved_abs ) return lv;
+  }
+  return nullptr;
+}
+
 void PlainRender::dump_one_var(Element *e, int local)
 {
   const char *margin = local ? lmargin : "";
@@ -822,8 +843,13 @@ void PlainRender::dump_one_var(Element *e, int local)
     auto el = m_els.find(e->abs_);
     if ( el == m_els.end() )
     {
-      e_->warning("cannot find var id %lX with abs %lX\n", e->id_, e->abs_);
-      fprintf(g_outf, "// cannot find var with abs %lX\n", e->abs_);
+      auto above = try_find_in_frames(e);
+      if ( !above )
+      {
+        e_->warning("cannot find var id %lX with abs %lX\n", e->id_, e->abs_);
+        fprintf(g_outf, "// cannot find var with abs %lX\n", e->abs_);
+      } else
+       dump_var(above, local);
     } else
       dump_var(el->second, local);
   } else if ( !local) {
@@ -1115,7 +1141,10 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
     switch(e.type_)
     {
       case ElementType::enumerator_type:
-        fprintf(g_outf, "enum %s", e.name_);
+        if ( e.enum_class_ )
+          fprintf(g_outf, "enum class %s", e.name_);
+        else
+          fprintf(g_outf, "enum %s", e.name_);
         if ( e.is_pure_decl() )
           break;
         fprintf(g_outf, " {\n");
@@ -1159,8 +1188,9 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
           break;
         }
       default:
-        e_->error("unknown type %d tag %lX\n", e.type_, e.id_);
-        fprintf(g_outf, "// unknown type %d name %s\n", e.type_, e.name_);
+        if ( e.type_ != ElementType::pointer_type )
+          e_->error("unknown type %d tag %lX\n", e.type_, e.id_);
+        fprintf(g_outf, "// unknown type %d tag %lX name %s\n", e.type_, e.id_, e.name_);
         {
           std::string tname;
           named n { e.name_ };
