@@ -1780,6 +1780,9 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
            bytes_available -= 8;
            data += 8;
           break;
+        case Dwarf32::dwarf_ops::DW_OP_form_tls_address:
+           pl->push_tls();
+          break;
         case Dwarf32::dwarf_ops::DW_OP_GNU_push_tls_address:
            if ( !pl->push_tls() )
              pl->locs.push_back({ tls_index, 0, value});
@@ -2324,6 +2327,12 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
       }
       info++;
       bytes_available--;
+      break;
+    case Dwarf32::Form::DW_FORM_line_strp:
+      str_pos = endc(*reinterpret_cast<const uint32_t*>(info));
+      info += sizeof(str_pos);
+      bytes_available -= sizeof(str_pos);
+      str = check_strp(str_pos);
       break;
     default:
       tree_builder->e_->error("ERR: Unexpected form string 0x%x at %lX\n", form, info - debug_info_.s_);
