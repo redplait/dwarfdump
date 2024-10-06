@@ -57,6 +57,8 @@ class PlainRender: public TreeBuilder
    void dump_complex_type(Element &e);
    int dump_parents(Element &e);
    int form_var_fullname(Element *e, std::string &res);
+   // rustc often puts abstract_origin for vars inside inlined subs for vars in frames somewhere above
+   Element *try_find_in_frames(Element *e);
    std::string &render_one_enum(std::string &s, EnumItem &en, bool);
    std::string &render_field(Element *e, std::string &s, int level, int off = 0);
    std::string &render_fields(Element *e, std::string &s, int level, int off = 0);
