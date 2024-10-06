@@ -1349,36 +1349,36 @@ void TreeBuilder::SetEnumClass()
 {
   if ( current_element_type_ != ElementType::enumerator_type )
     return;
-  if ( !recent_ )
+  if ( elements_.empty() )
   {
-    e_->error("Can't set an enum_class attribute when there is no recent\n");
+    e_->error("Can't set an enum_class attribute when element list is empty\n");
     return;
   }
-  recent_->enum_class_ = true;
+  elements_.back().enum_class_ = true;
 }
 
 void TreeBuilder::SetGNUVector()
 {
   if ( current_element_type_ != ElementType::array_type )
     return;
-  if ( !recent_ )
+  if ( elements_.empty() )
   {
-    e_->error("Can't set an GNU_vector attribute when there is no recent\n");
+    e_->error("Can't set an GNU_vector attribute when element list is empty\n");
     return;
   }
-  recent_->gnu_vector_ = true;
+  elements_.back().gnu_vector_ = true;
 }
 
 void TreeBuilder::SetTensor()
 {
   if ( current_element_type_ != ElementType::array_type )
     return;
-  if ( !recent_ )
+  if ( elements_.empty() )
   {
-    e_->error("Can't set an tensor attribute when there is no recent\n");
+    e_->error("Can't set an tensor attribute when element list is empty\n");
     return;
   }
-  recent_->tensor_ = true;
+  elements_.back().tensor_ = true;
 }
 
 void TreeBuilder::SetExplicit()
