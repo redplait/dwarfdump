@@ -1676,6 +1676,12 @@ const char *my_PLUGIN::find_uid(unsigned int uid)
 
 int my_PLUGIN::add_fref_from_equal(int off)
 {
+  if ( TREE_CODE(m_rbase) == VAR_DECL ) {
+    // check if we have appropriate type from dump_0_operand when processing symbol_ref
+    auto type = check_arg(m_rbase);
+    if ( !type ) return 0;
+    m_rbase = type;
+  }
   // if ( need_dump() ) fprintf(m_outfp, " add_fref");
   for ( tree f = TYPE_FIELDS(m_rbase); f; f = TREE_CHAIN(f) )
   {
