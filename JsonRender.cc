@@ -420,6 +420,8 @@ std::string JsonRender::GenerateJson(Element &e) {
     result += "\"parents\":[";
     for (size_t i = 0; i < e.m_comp->parents_.size(); i++) {
       result += "{\"id\":\""+std::to_string(get_replaced_type(e.m_comp->parents_[i].id))+"\",";
+      if ( e.m_comp->parents_[i].virtual_ )
+        put(result, "virtual", e.m_comp->parents_[i].virtual_);
       if ( e.m_comp->parents_[i].access )
         put(result, "access", e.m_comp->parents_[i].access);
       result += "\"offset\":"+std::to_string(e.m_comp->parents_[i].offset)+"}";

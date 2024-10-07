@@ -875,6 +875,8 @@ int PlainRender::dump_parents(Element &e)
       std::string pname;
       named pn;
       dump_type(e.m_comp->parents_[pi].id, pname, &pn);
+      if ( e.m_comp->parents_[pi].virtual_ )
+        fprintf(g_outf, "virtual ");
       fprintf(g_outf, "%s%s", access_name(e.m_comp->parents_[pi].access), pname.c_str());
       if ( pi != e.m_comp->parents_.size() - 1 )
         fprintf(g_outf, ",\n");
