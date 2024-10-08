@@ -1,5 +1,8 @@
+gcc plugin to collect during compilation cross references on functions/globals/record fields/literals/integer constants/virtual method calls - in other words as much data as it can to make something very similar to [simhash](https://github.com/googleprojectzero/functionsimsearch). Sure you can extract some of this info from disasm (for example with IDA Pro) or from object files via relocs (like I did in my [kotest](https://redplait.blogspot.com/2024/05/kotest.html)). But plugin does slightly more and more reliable - it collects all stuff at RTL final pass - after dead-code eliminations, global & interprocedural optimizations & inlining. 
+So for example you can [fetch](https://redplait.blogspot.com/2024/09/gcc-plugin-to-collect-cross-references.html) all functions which call concrete virtual method or use field of some record. Also plugin [tracks](https://redplait.blogspot.com/2024/09/tracking-arguments-of-functions-in-gcc.html) functions arguments
+
 ## supported versions
-I was able to build plugin for gcc 9, 12 & 14 - probably it will work on earlier versions too
+I was able to build plugin for gcc 9, 12 & 14 - probably it will work on earlier versions too (unlike [llvm](https://chromium.googlesource.com/chromium/src/+/lkgr/docs/writing_clang_plugins.md) gcc RTL is very stable).
 For cross-compiler you must install plugin-dev - for example for gcc-9-cross-base-mipsen you need
 ```sh
 apt-get install gcc-9-plugin-dev-mips-linux-gnu
