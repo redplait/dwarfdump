@@ -81,7 +81,9 @@ my_PLUGIN::my_PLUGIN(gcc::context *ctxt, const char *full_name ,struct plugin_ar
 
 my_PLUGIN::~my_PLUGIN()
 {
-  std::cerr << "~my_PLUGIN\n";  
+#ifndef GP_SILENCE
+  std::cerr << "~my_PLUGIN\n";
+#endif  
   if ( m_outfp != NULL && m_outfp != stdout )
   {
     fclose(m_outfp);
@@ -2648,7 +2650,9 @@ unsigned int my_PLUGIN::execute(function *fun)
 
 static void callback_start_unit(void *gcc_data, void *user_data)
 {
+#ifndef GP_SILENCE
   std::cerr << " *** A translation unit " << main_input_filename << " has been started\n";
+#endif
   my_PLUGIN *mp = (my_PLUGIN *)user_data;
   if ( mp )
     mp->start_file(main_input_filename);
@@ -2656,7 +2660,9 @@ static void callback_start_unit(void *gcc_data, void *user_data)
 
 static void callback_finish_unit(void *gcc_data, void *user_data)
 {
+#ifndef GP_SILENCE
   std::cerr << " *** A translation unit has been finished\n";
+#endif
   my_PLUGIN *mp = (my_PLUGIN *)user_data;
   if ( mp )
     mp->stop_file();
@@ -2739,7 +2745,9 @@ int plugin_init (struct plugin_name_args *plugin_info, struct plugin_gcc_version
     register_callback(plugin_info->base_name, PLUGIN_FINISH_UNIT,
         callback_finish_unit, /* user_data */ mp);
 
+#ifndef GP_SILENCE
     std::cerr << "Plugin " << plugin_info->base_name << " successfully initialized, pid " << getpid() << "\n";
+#endif
 
     return 0;
 }

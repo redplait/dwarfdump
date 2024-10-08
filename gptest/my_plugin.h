@@ -14,8 +14,10 @@
 
 #include "fpers.h"
 
-// comment this defined to disable profiling
+// comment this define to enable profiling
 // #define GPPROF
+// don't produce output to stderr - for gcc testsuite
+#define GP_SILENCE
 
 #ifdef GPPROF
 #include "prof.h"
