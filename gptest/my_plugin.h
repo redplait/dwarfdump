@@ -196,7 +196,8 @@ class my_PLUGIN : public rtl_plugin_with_args
   int m_arg_no = 0;
   bool m_requal; // if currently processing rtx is expr_list with REG_EQUAL
   bool m_requiv; // if currently processing rtx is expr_list with REG_EQUIV
-  const_tree m_rbase; // when m_requal this is base type of referred argument
+  const char *m_scall; // if call symbol_ref already was added for rtx 's'
+  const_tree m_rbase;  // when m_requal this is base type of referred argument
   // for BB with single in-edge, key is BB index, value is index of parent BB
   std::map<int, int> m_blocks;
   // uid types, key is UID and block index

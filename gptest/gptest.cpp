@@ -686,7 +686,10 @@ int my_PLUGIN::is_symref_call() const
   for ( ++r; r != m_rtexpr.crend(); ++r )
   {
     if ( r->m_ce == CALL )
-      return !idx;
+    {
+      // printf("idx %d curr %d\n", idx, r->m_idx);
+      return !idx || r->m_idx;
+    }
     idx = r->m_idx;
   }
   return 0;
@@ -867,13 +870,16 @@ void my_PLUGIN::dump_rtx_operand(const_rtx in_rtx, char f, int idx, int level)
           }
           if ( m_db && is_symref() )
           {
-            xref_kind kind = xref;
-            if ( is_symref_call() )
-              kind = xcall;
             if ( cres )
               m_db->add_literal(cres, len);
-            else
-              m_db->add_xref(kind, str);
+            else {
+              if ( is_symref_call() )
+              {
+                m_scall = str;
+                m_db->add_xref(xcall, str);
+              } else if ( str != m_scall )
+                m_db->add_xref(xref, str);
+            }
           }
         }
       break;
@@ -2625,6 +2631,7 @@ unsigned int my_PLUGIN::execute(function *fun)
       {
         // reset state
         m_arg_no = 0;
+        m_scall = nullptr;
         m_requal = m_requiv = false;
         m_rbase = nullptr;
         if ( NONDEBUG_INSN_P(insn) || LABEL_P(insn) )
