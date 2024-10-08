@@ -1847,8 +1847,9 @@ void my_PLUGIN::dump_mem_ref(const_tree expr, aux_type_clutch &clutch)
             dump_type_tree(clutch.last);
           }
           if ( m_db )
-            m_db->add_xref(field, clutch.txt.c_str());
+            m_db->add_xref(field, clutch.txt.c_str(), m_arg_no);
           report_fref("dump_mem_ref clutch");
+          m_arg_no = 0;
         }
       }
     } else if ( code == ADDR_EXPR )
