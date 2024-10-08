@@ -314,6 +314,19 @@ const char *my_PLUGIN::is_cliteral(const_rtx in_rtx, int &csize)
   return TREE_STRING_POINTER(v);
 }
 
+// called from dump_0_operand to check that this decl can be some global var
+// structs can have initial value too 
+int my_PLUGIN::check_var_initial(const_tree decl)
+{
+  if ( TREE_CODE(decl) != VAR_DECL ) return 0;
+  if ( !DECL_INITIAL(decl) ) return 1;
+  auto vi = DECL_INITIAL(decl);
+  if ( vi == error_mark_node ) return 1;
+  if ( TREE_CODE(vi) == CONSTRUCTOR ) return 1;
+  if ( TREE_CODE(vi) == STRING_CST ) return 0; // skip string literals
+  return 0;
+}
+
 int my_PLUGIN::dump_0_operand(const_rtx in_rtx, int idx, int level)
 {
   if ( 1 == idx && GET_CODE(in_rtx) == SYMBOL_REF )

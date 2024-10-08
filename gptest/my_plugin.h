@@ -131,6 +131,7 @@ class my_PLUGIN : public rtl_plugin_with_args
   void dump_rtx(const_rtx, int level = 0);
   void dump_rtx_hl(const_rtx);
   void dump_func_tree(const_tree, int level = 0);
+  int check_var_initial(const_tree);
   const_tree check_arg(const_tree);
   const_tree try_class_rec(const_tree binfo, const_tree igo, const_tree exp, tree *base, tree *found);
   const_tree dump_class_rec(const_tree, const_tree igo, int level);
