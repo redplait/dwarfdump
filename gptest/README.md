@@ -18,9 +18,9 @@ Also in gcc 14 go & rust are highly experimental and literally unusable
 
 ## plugin options
 * -fplugin-arg-gptest-db=path to file/db connection string
-* -fplugin-arg-gptest-user=db user
+* -fplugin-arg-gptest-user=db user.
   Currently not used (but passed as argument to FPersistence::connect)
-* -fplugin-arg-gptest-password=password for db access
+* -fplugin-arg-gptest-password=password for db access.
   Currently not used (but passed as argument to FPersistence::connect)
 * -fplugin-arg-gptest-asmproto
 * -fplugin-arg-gptest-dumprtl - almost like -fdump-rtl-final
@@ -29,11 +29,11 @@ Also in gcc 14 go & rust are highly experimental and literally unusable
 
 ## Storage backends
 Currently I implemented 3:
-1. plait text files - mostly for debugging. To build add file pers_text.cpp to PLUGIN_SOURCE_FILES.
+1. plain text files - mostly for debugging. To build add file pers_text.cpp to PLUGIN_SOURCE_FILES.
    db is just path to text file
 2. sqlite. To build add file pers_sqlite.cpp to PLUGIN_SOURCE_FILES and library -lsqlite3.
    db is just path to sqlite db file 
-3. rpc client via Apache Thrift. To build add to PLUGIN_SOURCE_FILES files
+3. rpc [client](https://redplait.blogspot.com/2024/09/gcc-plugin-to-collect-cross-references.html) via Apache Thrift. To build add to PLUGIN_SOURCE_FILES files
 ```make
 pers_rpc.o thrift/gen-cpp/Symref.o thrift/gen-cpp/gptest_types.o
 ```
