@@ -226,6 +226,7 @@ private:
   bool m_regged, m_lsb,
   // free sections flags
    is_eh = false;
+  int dversion; // dwarf version
   // data for rnglists
   struct rnglist_ctx {
     short version;

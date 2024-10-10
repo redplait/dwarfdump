@@ -3006,12 +3006,12 @@ bool ElfFile::GetAllClasses()
         reinterpret_cast<const Dwarf32::CompilationUnitHdr*>(info);
     const unsigned char* info_end;
     uint32_t abbrev_offset = endc(unit_hdr->debug_abbrev_offset);
-    auto dversion = endc(unit_hdr->version);
+    dversion = endc(unit_hdr->version);
     if ( dversion < 5 )
     {
       address_size_ = endc(unit_hdr->address_size);
       DBG_PRINTF("unit_length         = 0x%x\n", unit_hdr->unit_length);
-      DBG_PRINTF("version             = %d\n", unit_hdr->version);
+      DBG_PRINTF("version             = %d\n", dversion);
       DBG_PRINTF("debug_abbrev_offset = 0x%x\n", unit_hdr->debug_abbrev_offset);
       DBG_PRINTF("address_size        = %d\n", unit_hdr->address_size);
       info_end = info + endc(unit_hdr->unit_length) + sizeof(uint32_t);
@@ -3020,9 +3020,10 @@ bool ElfFile::GetAllClasses()
     } else {
       const Dwarf32::CompilationUnitHdr5* unit_hdr5 =
         reinterpret_cast<const Dwarf32::CompilationUnitHdr5*>(info);
+      dversion = endc(unit_hdr5->version);
       address_size_ = endc(unit_hdr5->address_size);
       DBG_PRINTF("unit_length         = 0x%x\n", unit_hdr5->unit_length);
-      DBG_PRINTF("version             = %d\n", unit_hdr5->version);
+      DBG_PRINTF("version             = %d\n", dversion);
       DBG_PRINTF("unit_type           = %d\n", unit_hdr5->unit_type);
       DBG_PRINTF("address_size        = %d\n", unit_hdr5->address_size);
       abbrev_offset = endc(unit_hdr5->debug_abbrev_offset);
@@ -3075,8 +3076,7 @@ bool ElfFile::GetAllClasses()
         continue;
       }
 
-      std::map<unsigned int, struct TagSection>::iterator it_section =
-          compilation_unit_.find(info_number);
+      std::map<unsigned int, struct TagSection>::iterator it_section = compilation_unit_.find(info_number);
       if (it_section == compilation_unit_.end()) {
         tree_builder->e_->error("ERR: Can't find tag number %X\n", info_number);
         return false;
@@ -3114,7 +3114,7 @@ bool ElfFile::GetAllClasses()
         }
       }
       // now tag has fully readed names so we can check if it really not filtered
-      if ( m_regged ) 
+      if ( m_regged )
         m_regged = tree_builder->PostProcessTag();
         
       if ( !m_regged /* && m_level */ && m_next )
