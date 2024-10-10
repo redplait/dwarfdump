@@ -1781,7 +1781,8 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
            data += 8;
           break;
         case Dwarf32::dwarf_ops::DW_OP_form_tls_address:
-           pl->push_tls();
+           if ( !pl->push_tls_addr() )
+            tree_builder->e_->warning("cannot add DW_OP_form_tls_address, off %lx\n", doff);
           break;
         case Dwarf32::dwarf_ops::DW_OP_GNU_push_tls_address:
            if ( !pl->push_tls() )

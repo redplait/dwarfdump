@@ -85,6 +85,28 @@ struct param_loc
   {
     return 1 == locs.size() && locs.front().type == tls_index;
   }
+  // for DW_OP_form_tls_address - like push_tls but checks for svalue/uvalue in stack
+  inline bool push_tls_addr()
+  {
+    if ( locs.empty() )
+      return false;
+    auto &last = locs.back();
+    if ( last.type == svalue )
+    {
+      last.type = tls_index;
+      last.offset = (int)last.sv;
+      last.sv = 0;
+      return true;
+    }
+    if ( last.type == uvalue )
+    {
+      last.type = tls_index;
+      last.offset = (int)last.sv;
+      last.sv = 0;
+      return true;
+    }
+    return false;
+  }
   inline bool push_tls()
   {
     if ( locs.empty() )
@@ -100,8 +122,8 @@ struct param_loc
     if ( last.type == svalue )
     {
       last.type = tls_index;
-      last.offset = (int)last.sv;
-      last.sv = 0;
+      last.offset = (int)last.conv;
+      last.conv = 0;
       return true;
     }
     return false;
