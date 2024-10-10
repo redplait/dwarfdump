@@ -762,6 +762,7 @@ bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level, bool ell)
     return false;
   }
   auto top = m_stack.top();
+  if ( !top ) return false;
   // fprintf(g_outf, "f %lX level %d level %d ns_count %d\n", top->id_, top->level_, level, ns_count);
   if ( top->level_ != level - 1 )
     return false;
@@ -889,7 +890,8 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       last_var_ = recent_ = nullptr;
       if ( level > 1 && !m_stack.empty() ) // this is local var
       {
-        if ( sub_filtered ) {
+        auto &top = m_stack.top();
+        if ( !top || sub_filtered ) {
           current_element_type_ = ElementType::none;
           return;
         }
@@ -1725,6 +1727,7 @@ TreeBuilder::Element *TreeBuilder::get_top_func() const
   if ( m_stack.empty() )
     return nullptr;
   auto t = m_stack.top();
+  if ( !t ) return nullptr;
 #if DEBUG
 printf("top %p size %ld type %s owner %p\n", t, m_stack.size(), t->TypeName(), t->owner_); fflush(stdout);
 #endif
