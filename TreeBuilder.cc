@@ -737,6 +737,7 @@ int TreeBuilder::can_have_methods(int level)
   if ( m_stack.empty() )
     return 0;
   auto last = m_stack.top();
+  if ( !last ) return 0;
   if ( last->type_ == ns_start || last->type_ == subroutine_type || last->type_ == subroutine )
     return 0;
   return (level > 1);
@@ -903,7 +904,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
           {
             if ( !owner )
               e_->error("Can't add a local var tag %lX when there is no top function\n", tag_id);
-            else
+            else if ( owner->type_ != ElementType::lexical_block )
               e_->error("Can't add a local var tag %lX when there is no top function, owner %s\n", tag_id, owner->TypeName());
             current_element_type_ = ElementType::var_type;
             return;

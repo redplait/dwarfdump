@@ -3088,6 +3088,7 @@ bool ElfFile::GetAllClasses()
 //  printf("before RegisterNewTag(%X) m_regged %d taf %lX\n", m_section->type, m_regged, m_tag_id);
 //      }
       m_regged = RegisterNewTag(m_section->type);
+      bool added = m_regged;
       m_next = 0;
 
       if ( g_opt_d && g_outf )
@@ -3135,7 +3136,7 @@ bool ElfFile::GetAllClasses()
       if ( m_section->has_children )
       {
         m_level++;
-        tree_builder->add2stack(m_regged);
+        tree_builder->add2stack(added);
       }
 skip_level:
        ;
