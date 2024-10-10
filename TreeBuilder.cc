@@ -22,11 +22,11 @@ void TreeBuilder::collect_go_types()
     if ( !e.name_ )
       continue; // and type must be named
     // no namespaces
-    if ( e.type_ == ns_start || e.type_ == lexical_block )
+    if ( is_ns(e) )
       continue;
     m_go_types[e.id_] = e.name_;
   }
-} 
+}
 
 // return 0 if element should be excluded from dump db/checking
 int TreeBuilder::exclude_types(ElementType et, Element &e)
@@ -53,7 +53,7 @@ int TreeBuilder::merge_dumped()
     if ( !e.name_ )
       continue; // and type must be named
     // no namespaces
-    if ( e.type_ == ns_start || e.type_ == ns_end || e.type_ == lexical_block )
+    if ( is_ns(e) )
       continue;
     // no enum/vars/formal params
     if ( !exclude_types(e.type_, e) ) continue;
@@ -667,8 +667,12 @@ void TreeBuilder::AddNone() {
   current_element_type_ = ElementType::none; 
 }
 
-int TreeBuilder::add2stack()
+int TreeBuilder::add2stack(int regged)
 {
+  if ( !regged ) {
+    m_stack.push(nullptr);
+    return 1;
+  }
   if (!elements_.size()) {
     // fprintf(stderr, "Can't add a member if the element list is empty\n");
     return 0;
@@ -702,6 +706,11 @@ void TreeBuilder::pop_stack(uint64_t off)
     return;
   }
   auto last = m_stack.top();
+  if ( !last ) {
+    m_stack.pop();
+    recent_ = nullptr;
+    return;
+  }
 //  printf( "top %d %lX\n", last->type_, last->id_);
   if ( last->type_ == ns_start )
   {

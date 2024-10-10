@@ -3135,7 +3135,7 @@ bool ElfFile::GetAllClasses()
       if ( m_section->has_children )
       {
         m_level++;
-        tree_builder->add2stack();
+        tree_builder->add2stack(m_regged);
       }
 skip_level:
        ;

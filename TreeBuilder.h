@@ -274,7 +274,7 @@ public:
   bool is_local_var() const;
   void ProcessUnit(int last = 0);
   bool PostProcessTag();
-  int add2stack();
+  int add2stack(int);
   void pop_stack(uint64_t);
   void AddNone();
   void set_range(uint64_t, unsigned char addr_size);
@@ -588,6 +588,9 @@ protected:
     }
   };
 
+  inline int is_ns(const Element &e) const {
+    return e.type_ == ns_start || e.type_ == ns_end || e.type_ == lexical_block;
+  }
   Element *get_member(const char *why);
 
   struct Method: public Element
