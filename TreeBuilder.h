@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <map>
+#include <unordered_map>
 #include <list>
 #include <vector>
 #include <stack>
@@ -642,7 +643,7 @@ protected:
     std::vector<FormalParam> params_;
     std::list<Method> methods_;
     std::list<Element *> lvars_; // local vars with -x option
-    std::map<Element *, param_loc> lvar_locs_; // from DecodeAddrLocation when -x option was used
+    std::unordered_map<Element *, param_loc> lvar_locs_; // from DecodeAddrLocation when -x option was used
   };
 
   int check_dumped_type(Element&);
@@ -658,9 +659,9 @@ protected:
   std::stack<Element *> m_stack;
   std::stack<NSpace *> ns_stack;
   std::list<Element> elements_;
-  std::map<uint64_t, dumped_type> m_replaced;
+  std::unordered_map<uint64_t, dumped_type> m_replaced;
   // values for const_expr - cleared for each compilation unit if option -g not used
-  std::map<Element *, uint64_t> m_lvalues;
+  std::unordered_map<Element *, uint64_t> m_lvalues;
 
   // ranges. 2 maps need bcs there may be 2 sections:
   // debug_rnglists - self-contained and parsed in parse_rnglists
@@ -699,8 +700,8 @@ protected:
     return ns_stack.top();
   }
   // go names - actually this is only for backward refs, for forward use -g option
-  std::map<uint64_t, const char *> m_go_types;
-  std::map<uint64_t, go_ext_attr>  m_go_attrs;
+  std::unordered_map<uint64_t, const char *> m_go_types;
+  std::unordered_map<uint64_t, go_ext_attr>  m_go_attrs;
   // tls indexes
-  std::map<uint64_t, int> m_tls;
+  std::unordered_map<uint64_t, int> m_tls;
 };
