@@ -1,0 +1,8 @@
+Changes
+Makefile.PL
+MANIFEST
+ppport.h
+Reader.xs
+README
+t/Elf-Reader.t
+lib/Elf/Reader.pm

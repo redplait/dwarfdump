@@ -1,0 +1,6 @@
+Revision history for Perl extension Elf::Reader.
+
+0.01  Tue Oct 15 11:25:07 2024
+	- original version; created by h2xs 1.23 with options
+		-cfn Elf::Reader
+
