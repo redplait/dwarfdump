@@ -88,6 +88,18 @@ struct IElfDyns {
  { e->add_ref(); }
 };
 
+struct IElfRels {
+ IElf *e;
+ ELFIO::relocation_section_accessor rsa;
+ ~IElfRels() {
+   e->release();
+ }
+ IElfRels(IElf *_e, ELFIO::section *s):
+  e(_e),
+  rsa(*_e->rdr, s)
+ { e->add_ref(); }
+};
+
 
 static int elf_magic_free(pTHX_ SV* sv, MAGIC* mg) {
     if (mg->mg_ptr) {
@@ -116,10 +128,20 @@ static int dyn_magic_free(pTHX_ SV* sv, MAGIC* mg) {
     return 0; // ignored anyway
 }
 
+static int rel_magic_free(pTHX_ SV* sv, MAGIC* mg) {
+    if (mg->mg_ptr) {
+        IElfRels *e = (IElfRels *)mg->mg_ptr;
+        if ( e ) delete e;
+        mg->mg_ptr= NULL;
+    }
+    return 0; // ignored anyway
+}
+
 static const char *s_seciter = "Elf::Reader::SecIterator",
  *s_segiter = "Elf::Reader::SegIterator",
  *s_symbols = "Elf::Reader::SymIterator",
- *s_dynamics = "Elf::Reader::DynIterator"
+ *s_dynamics = "Elf::Reader::DynIterator",
+ *s_relocs = "Elf::Reader::RelIterator"
 ;
 
 // see https://github.com/Perl/perl5/blob/blead/mg.c
@@ -163,6 +185,17 @@ dyn_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
   if (mg->mg_ptr) {
     IElfDyns *e = (IElfDyns *)mg->mg_ptr;
     res = e->dsa.get_entries_num();
+  }
+  return res;
+}
+
+static U32
+rel_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
+{
+  U32 res = 0;
+  if (mg->mg_ptr) {
+    IElfRels *e = (IElfRels *)mg->mg_ptr;
+    res = e->rsa.get_entries_num();
   }
   return res;
 }
@@ -238,7 +271,31 @@ static MGVTBL Elf_magic_dyn = {
 #endif
 };
 
+// magic table for Elf::Reader::RelIterator
+static MGVTBL Elf_magic_rel = {
+        0, /* get */
+        0, /* write */
+        rel_magic_sizepack, /* length */
+        0, /* clear */
+        rel_magic_free,
+        0, /* copy */
+        0 /* dup */
+#ifdef MGf_LOCAL
+        ,0
+#endif
+};
+
 static int s_rdr_id = 0;
+
+#define ELF_TIE(vtab, what) \
+  fake = newAV(); \
+  objref = newRV_noinc((SV*)fake); \
+  sv_bless(objref, pkg); \
+  magic = sv_magicext((SV*)fake, NULL, PERL_MAGIC_tied, &vtab, (const char *)what, 0); \
+  SvREADONLY_on((SV*)fake); \
+  ST(0) = objref; \
+  XSRETURN(1);
+
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader		
 
@@ -290,15 +347,8 @@ secs(SV *arg)
   if ( !(pkg = gv_stashpv(s_seciter, 0)) ) {
     croak("Package %s does not exists", s_seciter);
   }
-  fake = newAV();
-  objref = newRV_noinc((SV*)fake);
-  sv_bless(objref, pkg);
-  // set PERL_MAGIC_tied for fake av
   e->add_ref();
-  magic = sv_magicext((SV*)fake, NULL, PERL_MAGIC_tied, &Elf_magic_sec, (const char *)e, 0);
-  SvREADONLY_on((SV*)fake);
-  ST(0) = objref;
-  XSRETURN(1);
+  ELF_TIE(Elf_magic_sec, e);
 
 void
 segs(SV *arg)
@@ -312,15 +362,8 @@ segs(SV *arg)
   if ( !(pkg = gv_stashpv(s_segiter, 0)) ) {
     croak("Package %s does not exists", s_segiter);
   }
-  fake = newAV();
-  objref = newRV_noinc((SV*)fake);
-  sv_bless(objref, pkg);
-  // set PERL_MAGIC_tied for fake av
   e->add_ref();
-  magic = sv_magicext((SV*)fake, NULL, PERL_MAGIC_tied, &Elf_magic_seg, (const char *)e, 0);
-  SvREADONLY_on((SV*)fake);
-  ST(0) = objref;
-  XSRETURN(1);
+  ELF_TIE(Elf_magic_seg, e);
 
 void
 syms(SV *arg, int key)
@@ -349,15 +392,7 @@ syms(SV *arg, int key)
     XSRETURN(0);
   }
   es = new IElfSyms(e, s);
-  fake = newAV();
-  objref = newRV_noinc((SV*)fake);
-  sv_bless(objref, pkg);
-  // set PERL_MAGIC_tied for fake av
-  e->add_ref();
-  magic = sv_magicext((SV*)fake, NULL, PERL_MAGIC_tied, &Elf_magic_sym, (const char *)es, 0);
-  SvREADONLY_on((SV*)fake);
-  ST(0) = objref;
-  XSRETURN(1);
+  ELF_TIE(Elf_magic_sym, es);
 
 void
 dyns(SV *arg, int key)
@@ -385,15 +420,7 @@ dyns(SV *arg, int key)
     XSRETURN(0);
   }
   ed = new IElfDyns(e, s);
-  fake = newAV();
-  objref = newRV_noinc((SV*)fake);
-  sv_bless(objref, pkg);
-  // set PERL_MAGIC_tied for fake av
-  e->add_ref();
-  magic = sv_magicext((SV*)fake, NULL, PERL_MAGIC_tied, &Elf_magic_dyn, (const char *)ed, 0);
-  SvREADONLY_on((SV*)fake);
-  ST(0) = objref;
-  XSRETURN(1);
+  ELF_TIE(Elf_magic_dyn, ed);
 
 void
 get_class(SV *arg)
@@ -655,3 +682,5 @@ FETCH(self, key)
     }
   }
   XSRETURN(1);
+
+MODULE = Elf::Reader		PACKAGE = Elf::Reader::RelIterator
