@@ -342,13 +342,38 @@ Elf::Reader - Perl extension for blah blah blah
   # for segments
   my $segs = $er->segs();
   print "segments ", scalar( @$segs );
+  # for symbols
+  foreach ( @$secs ) {
+    if ( $_->[2] == SHT_SYMTAB ) {
+      my $syms = $er->syms($_->[0]);
+      if ( defined($syms) ) {
+        foreach my $s ( @$syms ) {
+          print $s->[0], $s->[1], "\n";
+        }
+      }
+      last;
+    }
+  }
 
 for reloc names use Elf::Relocs;
 
 =head1 DESCRIPTION
 
 Perl binding for ELFIO library (https://github.com/serge1/ELFIO/commits/main/)
-Support array-like iterators for sections and segments
+Support array-like iterators for sections, segments, symbols and relocs
+
+secs items are arrays with indexes
+ 0 - index
+ 1 - name, string
+ 2 - type
+ 3 - flags
+ 4 - info
+ 5 - link
+ 6 - addr_align
+ 7 - entry_size
+ 8 - address, 64bit
+ 9 - size
+ 10 - offset, 64bit
 
 segs items are arrays with indexes
  0 - index
@@ -360,6 +385,15 @@ segs items are arrays with indexes
  6 - file size
  7 - memory size
  8 - offset, 64bit
+
+syms items are arrays with indexes
+ 0 - name
+ 1 - value, 64bit
+ 2 - size
+ 3 - bind
+ 4 - type
+ 5 - section
+ 6 - other
 
 =head2 EXPORT
 
