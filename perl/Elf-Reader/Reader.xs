@@ -64,6 +64,18 @@ struct IElf {
  }
 };
 
+struct IElfSyms {
+ IElf *e;
+ ELFIO::symbol_section_accessor ssa;
+ ~IElfSyms() {
+   e->release();
+ }
+ IElfSyms(IElf *_e, ELFIO::section *s):
+  e(_e),
+  ssa(*_e->rdr, s)
+ { e->add_ref(); }
+};
+
 static int elf_magic_free(pTHX_ SV* sv, MAGIC* mg) {
     if (mg->mg_ptr) {
         IElf *e = (IElf *)mg->mg_ptr;
@@ -73,8 +85,19 @@ static int elf_magic_free(pTHX_ SV* sv, MAGIC* mg) {
     return 0; // ignored anyway
 }
 
+static int syms_magic_free(pTHX_ SV* sv, MAGIC* mg) {
+    if (mg->mg_ptr) {
+        IElfSyms *e = (IElfSyms *)mg->mg_ptr;
+        if ( e ) delete e;
+        mg->mg_ptr= NULL;
+    }
+    return 0; // ignored anyway
+}
+
 static const char *s_seciter = "Elf::Reader::SecIterator",
- *s_segiter = "Elf::Reader::SegIterator";
+ *s_segiter = "Elf::Reader::SegIterator",
+ *s_symbols = "Elf::Reader::SymIterator"
+;
 
 // see https://github.com/Perl/perl5/blob/blead/mg.c
 static U32
@@ -98,6 +121,18 @@ segs_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
   }
   return res;
 }
+
+static U32
+syms_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
+{
+  U32 res = 0;
+  if (mg->mg_ptr) {
+    IElfSyms *e = (IElfSyms *)mg->mg_ptr;
+    res = e->ssa.get_symbols_num();
+  }
+  return res;
+}
+
 
 // magic table for Elf::Reader
 static MGVTBL Elf_magic_vt = {
@@ -134,6 +169,20 @@ static MGVTBL Elf_magic_seg = {
         segs_magic_sizepack, /* length */
         0, /* clear */
         elf_magic_free,
+        0, /* copy */
+        0 /* dup */
+#ifdef MGf_LOCAL
+        ,0
+#endif
+};
+
+// magic table for Elf::Reader::SymIterator
+static MGVTBL Elf_magic_sym = {
+        0, /* get */
+        0, /* write */
+        syms_magic_sizepack, /* length */
+        0, /* clear */
+        syms_magic_free,
         0, /* copy */
         0 /* dup */
 #ifdef MGf_LOCAL
@@ -274,17 +323,59 @@ void
 FETCH(self, key)
   SV *self;
   IV key;
+ PREINIT:
+  U8 gimme = GIMME_V;
  INIT:
   SV *str;
-  struct IElf *e = Elf_get_tmagic<IElf>(self, 1, &Elf_magic_sec);
+  auto *e = Elf_get_tmagic<IElf>(self, 1, &Elf_magic_sec);
  PPCODE:
   if ( key >= e->rdr->sections.size() )
     str = &PL_sv_undef;
   else {
-    auto s = e->rdr->sections[key]->get_name();
-    str = newSVpv(s.c_str(), s.size());
+    auto s = e->rdr->sections[key];
+    auto name = s->get_name();
+    // format of array:
+    // 0 - index
+    // 1 - name, string
+    // 2 - type
+    // 3 - flags
+    // 4 - info
+    // 5 - link
+    // 6 - addr_align
+    // 7 - entry_size
+    // 8 - address, 64bit
+    // 9 - size
+    // 10 - offset, 64bit
+    if ( gimme == G_ARRAY) {
+      EXTEND(SP, 11);
+      mXPUSHi(s->get_index());
+      mXPUSHp(name.c_str(), name.size());
+      mXPUSHi(s->get_type());
+      mXPUSHi(s->get_flags());
+      mXPUSHi(s->get_info());
+      mXPUSHi(s->get_link());
+      mXPUSHi(s->get_addr_align());
+      mXPUSHi(s->get_entry_size());
+      mXPUSHu(s->get_address());
+      mXPUSHi(s->get_size());
+      mXPUSHu(s->get_offset());
+      XSRETURN(11);
+    } else {
+      AV *av = newAV();
+      mXPUSHs(newRV_noinc((SV*)av));
+      av_push(av, newSViv( s->get_index() ));
+      av_push(av, newSVpv(name.c_str(), name.size()) );
+      av_push(av, newSViv( s->get_type() ));
+      av_push(av, newSViv( s->get_flags() ));
+      av_push(av, newSViv( s->get_info() ));
+      av_push(av, newSViv( s->get_link() ));
+      av_push(av, newSViv( s->get_addr_align() ));
+      av_push(av, newSViv( s->get_entry_size() ));
+      av_push(av, newSVuv( s->get_address() ));
+      av_push(av, newSViv( s->get_size() ));
+      av_push(av, newSVuv( s->get_offset() ));
+    }
   }
-  ST(0) = str;
   XSRETURN(1);
 
 
@@ -297,7 +388,7 @@ FETCH(self, key)
  PREINIT:
   U8 gimme = GIMME_V;
  INIT:
-  struct IElf *e = Elf_get_tmagic<IElf>(self, 1, &Elf_magic_seg);
+  auto *e = Elf_get_tmagic<IElf>(self, 1, &Elf_magic_seg);
  PPCODE:
   if ( key >= e->rdr->segments.size() )
     ST(0) = &PL_sv_undef;
@@ -343,3 +434,60 @@ FETCH(self, key)
   }
   XSRETURN(1);
 
+MODULE = Elf::Reader		PACKAGE = Elf::Reader::SymIterator
+
+void
+FETCH(self, key)
+  SV *self;
+  IV key;
+ PREINIT:
+  U8 gimme = GIMME_V;
+ INIT:
+  auto *s = Elf_get_tmagic<IElfSyms>(self, 1, &Elf_magic_sym);
+ PPCODE:
+  if ( key >= s->ssa.get_symbols_num() )
+    ST(0) = &PL_sv_undef;
+  else {
+    std::string name;
+    ELFIO::Elf64_Addr    value   = 0;
+    ELFIO::Elf_Xword     size    = 0;
+    unsigned char bind    = 0;
+    unsigned char type    = 0;
+    ELFIO::Elf_Half      section = 0;
+    unsigned char other   = 0;
+    if ( !s->ssa.get_symbol(key, name, value, size, bind, type, section, other) )
+      ST(0) = &PL_sv_undef;
+    else {
+      // format of array
+      // 0 - name
+      // 1 - value, 64bit
+      // 2 - size
+      // 3 - bind
+      // 4 - type
+      // 5 - section
+      // 6 - other
+      if ( gimme == G_ARRAY) {
+        EXTEND(SP, 7);
+        mXPUSHp(name.c_str(), name.size());
+        mXPUSHu(value);
+        mXPUSHi(size);
+        mXPUSHi(bind);
+        mXPUSHi(type);
+        mXPUSHi(section);
+        mXPUSHi(other);
+        XSRETURN(7);
+      } else {
+        // return ref to array
+        AV *av = newAV();
+        mXPUSHs(newRV_noinc((SV*)av));
+        av_push(av, newSVpv(name.c_str(), name.size()) );
+        av_push(av, newSVuv(value));
+        av_push(av, newSViv(size));
+        av_push(av, newSViv(bind));
+        av_push(av, newSViv(type));
+        av_push(av, newSViv(section));
+        av_push(av, newSViv(other));
+      }
+    }
+  }
+  XSRETURN(1);
