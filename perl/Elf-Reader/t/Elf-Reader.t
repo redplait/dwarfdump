@@ -8,7 +8,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 5;
+use Test::More tests => 13;
 BEGIN { use_ok('Elf::Reader') };
 
 #########################
@@ -20,3 +20,17 @@ ok( $e->get_class() == ELFCLASS64, 'class' );
 ok( $e->type() == ET_DYN, 'type' );
 ok( $e->flags() == 0, 'flags' );
 ok( $e->entry() == 0x67d0, 'entry');
+# sections tests
+my $secs = $e->secs();
+ok( $secs, 'secs' );
+ok( scalar( @$secs ) == 31, 'secs count' );
+# segments tests
+my $segs = $e->segs();
+ok( $segs, 'segs' );
+ok( scalar( @$segs ) == 14, 'segs count' );
+my $phdr = $segs->[0];
+ok( $phdr, 'phdr' );
+ok( $phdr->[1] == PT_PHDR(), 'phdr type' );
+# relocs tests
+use_ok('Elf::Relocs');
+ok( $Elf::Relocs::aarch64_rnames{20} eq 'R_AARCH64_P32_JUMP26' );
