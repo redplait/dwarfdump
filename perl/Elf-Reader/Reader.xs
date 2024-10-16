@@ -100,6 +100,17 @@ struct IElfRels {
  { e->add_ref(); }
 };
 
+struct IElfNotes {
+ IElf *e;
+ ELFIO::note_section_accessor nsa;
+ ~IElfNotes() {
+   e->release();
+ }
+ IElfNotes(IElf *_e, ELFIO::section *s):
+  e(_e),
+  nsa(*_e->rdr, s)
+ { e->add_ref(); }
+};
 
 static int elf_magic_free(pTHX_ SV* sv, MAGIC* mg) {
     if (mg->mg_ptr) {
@@ -110,27 +121,10 @@ static int elf_magic_free(pTHX_ SV* sv, MAGIC* mg) {
     return 0; // ignored anyway
 }
 
-static int syms_magic_free(pTHX_ SV* sv, MAGIC* mg) {
+template <typename T>
+static int xxx_magic_free(pTHX_ SV* sv, MAGIC* mg) {
     if (mg->mg_ptr) {
-        IElfSyms *e = (IElfSyms *)mg->mg_ptr;
-        if ( e ) delete e;
-        mg->mg_ptr= NULL;
-    }
-    return 0; // ignored anyway
-}
-
-static int dyn_magic_free(pTHX_ SV* sv, MAGIC* mg) {
-    if (mg->mg_ptr) {
-        IElfDyns *e = (IElfDyns *)mg->mg_ptr;
-        if ( e ) delete e;
-        mg->mg_ptr= NULL;
-    }
-    return 0; // ignored anyway
-}
-
-static int rel_magic_free(pTHX_ SV* sv, MAGIC* mg) {
-    if (mg->mg_ptr) {
-        IElfRels *e = (IElfRels *)mg->mg_ptr;
+        T *e = (T *)mg->mg_ptr;
         if ( e ) delete e;
         mg->mg_ptr= NULL;
     }
@@ -141,7 +135,8 @@ static const char *s_seciter = "Elf::Reader::SecIterator",
  *s_segiter = "Elf::Reader::SegIterator",
  *s_symbols = "Elf::Reader::SymIterator",
  *s_dynamics = "Elf::Reader::DynIterator",
- *s_relocs = "Elf::Reader::RelIterator"
+ *s_relocs = "Elf::Reader::RelIterator",
+ *s_notes = "Elf::Reader::NotesIterator"
 ;
 
 // see https://github.com/Perl/perl5/blob/blead/mg.c
@@ -200,6 +195,16 @@ rel_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
   return res;
 }
 
+static U32
+notes_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
+{
+  U32 res = 0;
+  if (mg->mg_ptr) {
+    IElfNotes *e = (IElfNotes *)mg->mg_ptr;
+    res = e->nsa.get_notes_num();
+  }
+  return res;
+}
 
 // magic table for Elf::Reader
 static MGVTBL Elf_magic_vt = {
@@ -249,7 +254,7 @@ static MGVTBL Elf_magic_sym = {
         0, /* write */
         syms_magic_sizepack, /* length */
         0, /* clear */
-        syms_magic_free,
+        xxx_magic_free<IElfSyms>,
         0, /* copy */
         0 /* dup */
 #ifdef MGf_LOCAL
@@ -263,7 +268,7 @@ static MGVTBL Elf_magic_dyn = {
         0, /* write */
         dyn_magic_sizepack, /* length */
         0, /* clear */
-        dyn_magic_free,
+        xxx_magic_free<IElfDyns>,
         0, /* copy */
         0 /* dup */
 #ifdef MGf_LOCAL
@@ -277,7 +282,21 @@ static MGVTBL Elf_magic_rel = {
         0, /* write */
         rel_magic_sizepack, /* length */
         0, /* clear */
-        rel_magic_free,
+        xxx_magic_free<IElfRels>,
+        0, /* copy */
+        0 /* dup */
+#ifdef MGf_LOCAL
+        ,0
+#endif
+};
+
+// magic table for Elf::Reader::NotesIterator
+static MGVTBL Elf_magic_notes = {
+        0, /* get */
+        0, /* write */
+        notes_magic_sizepack, /* length */
+        0, /* clear */
+        xxx_magic_free<IElfNotes>,
         0, /* copy */
         0 /* dup */
 #ifdef MGf_LOCAL
