@@ -9,6 +9,19 @@ my @gar;
 
 sub dump_rels
 {
+  print<<'HEAD';
+package Elf::Relocs;
+
+use strict;
+use warnings;
+
+require Exporter;
+use Exporter qw(import);
+use AutoLoader qw(AUTOLOAD);
+
+our @ISA = qw(Exporter);
+
+HEAD
   my( $i1, $i2, @tmp );
   printf("use constant {\n");
   foreach $i1 ( @gar ) {
@@ -18,8 +31,18 @@ sub dump_rels
       push @tmp, $i2->[0];
     }
   }
+  printf("};\n");
+  # map with reloc names
+  foreach $i1 ( @gar ) {
+    my $mname = $i1->[0] . "_rnames";
+    printf("\n# reloc names for %s\nour %%%s = (\n", $i1->[0], $mname);
+    push @tmp, $mname;
+    foreach $i2 ( @{ $i1->[1] } ) {
+      printf("%s() => '%s',\n", $i2->[0], $i2->[0]);
+    }
+    printf(");\n");
+  }
   printf<<'END';
-};
 ###
 #
 # E X P O R T E D   N A M E S
@@ -30,7 +53,7 @@ END
  foreach ( @tmp ) {
    printf("%s\n", $_);
  };
-  printf(");\n");
+  printf(");\n1;\n__END__");
 }
 
 sub parse
