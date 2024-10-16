@@ -376,7 +376,7 @@ syms(SV *arg, int key)
   MAGIC* magic;
  PPCODE:
   if ( !(pkg = gv_stashpv(s_symbols, 0)) ) {
-    croak("Package %s does not exists", s_segiter);
+    croak("Package %s does not exists", s_symbols);
     XSRETURN(0);
   }
   // check that section with key exists
@@ -393,6 +393,35 @@ syms(SV *arg, int key)
   }
   es = new IElfSyms(e, s);
   ELF_TIE(Elf_magic_sym, es);
+
+void
+rels(SV *arg, int key)
+ INIT:
+  HV *pkg = NULL;
+  AV *fake = NULL;
+  struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+  IElfRels *er = NULL;
+  SV *objref= NULL;
+  MAGIC* magic;
+ PPCODE:
+  if ( !(pkg = gv_stashpv(s_relocs, 0)) ) {
+    croak("Package %s does not exists", s_relocs);
+    XSRETURN(0);
+  }
+  // check that section with key exists
+  if ( key >= e->rdr->sections.size() ) {
+    croak("section with index %d does not exists", key);
+    XSRETURN(0);
+  }
+  // and really has type SHT_REL or SHT_RELA
+  auto s = e->rdr->sections[key];
+  if ( s->get_type() != ELFIO::SHT_REL &&
+       s->get_type() != ELFIO::SHT_RELA ) {
+    croak("section with index %d is not reloc section", key);
+    XSRETURN(0);
+  }
+  er = new IElfRels(e, s);
+  ELF_TIE(Elf_magic_rel, er);
 
 void
 dyns(SV *arg, int key)
@@ -684,3 +713,46 @@ FETCH(self, key)
   XSRETURN(1);
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader::RelIterator
+
+void
+FETCH(self, key)
+  SV *self;
+  IV key;
+ PREINIT:
+  U8 gimme = GIMME_V;
+ INIT:
+  auto *s = Elf_get_tmagic<IElfRels>(self, 1, &Elf_magic_rel);
+ PPCODE:
+  if ( key >= s->rsa.get_entries_num() )
+    ST(0) = &PL_sv_undef;
+  else {
+    // format of array
+    // 0 - offset, 64bit
+    // 1 - symbol
+    // 2 - type
+    // 3 - addend
+    ELFIO::Elf64_Addr offset = 0;
+    ELFIO::Elf_Word sym_idx = 0;
+    unsigned rtype = 0;
+    ELFIO::Elf_Sxword add = 0;
+    if ( !s->rsa.get_entry(key, offset, sym_idx, rtype, add) )
+      ST(0) = &PL_sv_undef;
+    else {
+      if ( gimme == G_ARRAY) {
+        EXTEND(SP, 4);
+        mXPUSHu(offset);
+        mXPUSHi(sym_idx);
+        mXPUSHu(rtype);
+        mXPUSHi(add);
+        XSRETURN(4);
+      } else {
+        // return ref to array
+        AV *av = newAV();
+        av_push(av, newSVuv(offset));
+        av_push(av, newSViv(sym_idx));
+        av_push(av, newSVuv(rtype));
+        av_push(av, newSViv(add));
+      }
+    }
+  }
+  XSRETURN(1);
