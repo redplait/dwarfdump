@@ -12,6 +12,7 @@ WriteMakefile(
     #Value must be from legacy list of licenses here
     #http://search.cpan.org/perldoc?Module%3A%3ABuild%3A%3AAPI
     CC                => 'g++',
+    CCFLAGS           => "$Config::Config{ccflags} -gdwarf-4",
     XSOPT             => '-C++',
     LIBS              => ['-lstdc++'], # e.g., '-lm'
     DEFINE            => '', # e.g., '-DHAVE_SOMETHING'
