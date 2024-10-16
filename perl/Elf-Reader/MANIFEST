@@ -6,3 +6,4 @@ Reader.xs
 README
 t/Elf-Reader.t
 lib/Elf/Reader.pm
+lib/Elf/Relocs.pm
