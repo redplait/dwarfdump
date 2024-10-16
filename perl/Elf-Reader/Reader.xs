@@ -76,6 +76,19 @@ struct IElfSyms {
  { e->add_ref(); }
 };
 
+struct IElfDyns {
+ IElf *e;
+ ELFIO::dynamic_section_accessor dsa;
+ ~IElfDyns() {
+   e->release();
+ }
+ IElfDyns(IElf *_e, ELFIO::section *s):
+  e(_e),
+  dsa(*_e->rdr, s)
+ { e->add_ref(); }
+};
+
+
 static int elf_magic_free(pTHX_ SV* sv, MAGIC* mg) {
     if (mg->mg_ptr) {
         IElf *e = (IElf *)mg->mg_ptr;
@@ -94,9 +107,19 @@ static int syms_magic_free(pTHX_ SV* sv, MAGIC* mg) {
     return 0; // ignored anyway
 }
 
+static int dyn_magic_free(pTHX_ SV* sv, MAGIC* mg) {
+    if (mg->mg_ptr) {
+        IElfDyns *e = (IElfDyns *)mg->mg_ptr;
+        if ( e ) delete e;
+        mg->mg_ptr= NULL;
+    }
+    return 0; // ignored anyway
+}
+
 static const char *s_seciter = "Elf::Reader::SecIterator",
  *s_segiter = "Elf::Reader::SegIterator",
- *s_symbols = "Elf::Reader::SymIterator"
+ *s_symbols = "Elf::Reader::SymIterator",
+ *s_dynamics = "Elf::Reader::DynIterator"
 ;
 
 // see https://github.com/Perl/perl5/blob/blead/mg.c
@@ -129,6 +152,17 @@ syms_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
   if (mg->mg_ptr) {
     IElfSyms *e = (IElfSyms *)mg->mg_ptr;
     res = e->ssa.get_symbols_num();
+  }
+  return res;
+}
+
+static U32
+dyn_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
+{
+  U32 res = 0;
+  if (mg->mg_ptr) {
+    IElfDyns *e = (IElfDyns *)mg->mg_ptr;
+    res = e->dsa.get_entries_num();
   }
   return res;
 }
@@ -183,6 +217,20 @@ static MGVTBL Elf_magic_sym = {
         syms_magic_sizepack, /* length */
         0, /* clear */
         syms_magic_free,
+        0, /* copy */
+        0 /* dup */
+#ifdef MGf_LOCAL
+        ,0
+#endif
+};
+
+// magic table for Elf::Reader::DynIterator
+static MGVTBL Elf_magic_dyn = {
+        0, /* get */
+        0, /* write */
+        dyn_magic_sizepack, /* length */
+        0, /* clear */
+        dyn_magic_free,
         0, /* copy */
         0 /* dup */
 #ifdef MGf_LOCAL
@@ -270,6 +318,79 @@ segs(SV *arg)
   // set PERL_MAGIC_tied for fake av
   e->add_ref();
   magic = sv_magicext((SV*)fake, NULL, PERL_MAGIC_tied, &Elf_magic_seg, (const char *)e, 0);
+  SvREADONLY_on((SV*)fake);
+  ST(0) = objref;
+  XSRETURN(1);
+
+void
+syms(SV *arg, int key)
+ INIT:
+  HV *pkg = NULL;
+  AV *fake = NULL;
+  struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+  IElfSyms *es = NULL;
+  SV *objref= NULL;
+  MAGIC* magic;
+ PPCODE:
+  if ( !(pkg = gv_stashpv(s_symbols, 0)) ) {
+    croak("Package %s does not exists", s_segiter);
+    XSRETURN(0);
+  }
+  // check that section with key exists
+  if ( key >= e->rdr->sections.size() ) {
+    croak("section with index %d does not exists", key);
+    XSRETURN(0);
+  }
+  // and really has type SHT_SYMTAB or SHT_DYNSYM
+  auto s = e->rdr->sections[key];
+  if ( s->get_type() != ELFIO::SHT_SYMTAB &&
+       s->get_type() != ELFIO::SHT_DYNSYM ) {
+    croak("section with index %d is not symbol section", key);
+    XSRETURN(0);
+  }
+  es = new IElfSyms(e, s);
+  fake = newAV();
+  objref = newRV_noinc((SV*)fake);
+  sv_bless(objref, pkg);
+  // set PERL_MAGIC_tied for fake av
+  e->add_ref();
+  magic = sv_magicext((SV*)fake, NULL, PERL_MAGIC_tied, &Elf_magic_sym, (const char *)es, 0);
+  SvREADONLY_on((SV*)fake);
+  ST(0) = objref;
+  XSRETURN(1);
+
+void
+dyns(SV *arg, int key)
+ INIT:
+  HV *pkg = NULL;
+  AV *fake = NULL;
+  struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+  IElfDyns *ed = NULL;
+  SV *objref= NULL;
+  MAGIC* magic;
+ PPCODE:
+  if ( !(pkg = gv_stashpv(s_dynamics, 0)) ) {
+    croak("Package %s does not exists", s_dynamics);
+    XSRETURN(0);
+  }
+  // check that section with key exists
+  if ( key >= e->rdr->sections.size() ) {
+    croak("section with index %d does not exists", key);
+    XSRETURN(0);
+  }
+  // and really has type SHT_DYNAMIC
+  auto s = e->rdr->sections[key];
+  if ( s->get_type() != ELFIO::SHT_DYNAMIC ) {
+    croak("section with index %d is not dynamic section", key);
+    XSRETURN(0);
+  }
+  ed = new IElfDyns(e, s);
+  fake = newAV();
+  objref = newRV_noinc((SV*)fake);
+  sv_bless(objref, pkg);
+  // set PERL_MAGIC_tied for fake av
+  e->add_ref();
+  magic = sv_magicext((SV*)fake, NULL, PERL_MAGIC_tied, &Elf_magic_dyn, (const char *)ed, 0);
   SvREADONLY_on((SV*)fake);
   ST(0) = objref;
   XSRETURN(1);
@@ -487,6 +608,49 @@ FETCH(self, key)
         av_push(av, newSViv(type));
         av_push(av, newSViv(section));
         av_push(av, newSViv(other));
+      }
+    }
+  }
+  XSRETURN(1);
+
+
+MODULE = Elf::Reader		PACKAGE = Elf::Reader::DynIterator
+
+void
+FETCH(self, key)
+  SV *self;
+  IV key;
+ PREINIT:
+  U8 gimme = GIMME_V;
+ INIT:
+  auto *s = Elf_get_tmagic<IElfDyns>(self, 1, &Elf_magic_dyn);
+ PPCODE:
+  if ( key >= s->dsa.get_entries_num() )
+    ST(0) = &PL_sv_undef;
+  else {
+    std::string name;
+    ELFIO::Elf_Xword tag = 0,
+      value = 0;
+    if ( !s->dsa.get_entry(key, tag, value, name) )
+      ST(0) = &PL_sv_undef;
+    else {
+      // format of array
+      // 0 - name
+      // 1 - tag
+      // 2 - value
+      if ( gimme == G_ARRAY) {
+        EXTEND(SP, 3);
+        mXPUSHp(name.c_str(), name.size());
+        mXPUSHi(tag);
+        mXPUSHi(value);
+        XSRETURN(3);
+      } else {
+        // return ref to array
+        AV *av = newAV();
+        mXPUSHs(newRV_noinc((SV*)av));
+        av_push(av, newSVpv(name.c_str(), name.size()) );
+        av_push(av, newSViv(tag));
+        av_push(av, newSViv(value));
       }
     }
   }
