@@ -548,6 +548,23 @@ syms items are arrays with indexes
  5 - section
  6 - other
 
+You can extract symbols from section with type == SHT_SYMTAB or SHT_DYNSYM, argument for syms method is section index
+
+relocs items are arrays with indexes
+ 0 - offset, 64bit
+ 1 - symbol
+ 2 - type
+ 3 - addend
+
+You can extract relocations from section with type == SHT_REL or SHT_RELA, argument for rels method is section index
+
+dyns items are arrays with indexes
+ 0 - name
+ 1 - tag
+ 2 - value
+
+You can extract dynamics from section with type == SHT_DYNAMIC, argument for dyns method is section index
+
 =head2 EXPORT
 
 Names of ELF constants
