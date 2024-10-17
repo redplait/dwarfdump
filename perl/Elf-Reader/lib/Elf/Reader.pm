@@ -565,6 +565,16 @@ dyns items are arrays with indexes
 
 You can extract dynamics from section with type == SHT_DYNAMIC, argument for dyns method is section index
 
+notes itetms are array with indexes
+ 0 - name, string
+ 1 - type
+ 2 - desclen
+ 3 - desc, addr
+ 4 - desc, blob
+
+You can extract notes from section with type == SHT_NOTE, argument for dyns method is section index
+
+
 =head2 EXPORT
 
 Names of ELF constants
