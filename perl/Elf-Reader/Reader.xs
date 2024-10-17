@@ -471,6 +471,34 @@ dyns(SV *arg, int key)
   ELF_TIE(Elf_magic_dyn, ed);
 
 void
+notes(SV *arg, int key)
+ INIT:
+  HV *pkg = NULL;
+  AV *fake = NULL;
+  struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+  IElfNotes *en = NULL;
+  SV *objref= NULL;
+  MAGIC* magic;
+ PPCODE:
+  if ( !(pkg = gv_stashpv(s_notes, 0)) ) {
+    croak("Package %s does not exists", s_notes);
+    XSRETURN(0);
+  }
+  // check that section with key exists
+  if ( key >= e->rdr->sections.size() ) {
+    croak("section with index %d does not exists", key);
+    XSRETURN(0);
+  }
+  // and really has type SHT_NOTE
+  auto s = e->rdr->sections[key];
+  if ( s->get_type() != ELFIO::SHT_NOTE ) {
+    croak("section with index %d is not note section", key);
+    XSRETURN(0);
+  }
+  en = new IElfNotes(e, s);
+  ELF_TIE(Elf_magic_notes, en);
+
+void
 get_class(SV *arg)
  INIT:
    struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
@@ -771,6 +799,54 @@ FETCH(self, key)
         av_push(av, newSViv(sym_idx));
         av_push(av, newSVuv(rtype));
         av_push(av, newSViv(add));
+      }
+    }
+  }
+  XSRETURN(1);
+
+MODULE = Elf::Reader		PACKAGE = Elf::Reader::NotesIterator
+
+void
+FETCH(self, key)
+  SV *self;
+  IV key;
+ PREINIT:
+  U8 gimme = GIMME_V;
+ INIT:
+  auto *s = Elf_get_tmagic<IElfNotes>(self, 1, &Elf_magic_notes);
+ PPCODE:
+  if ( key >= s->nsa.get_notes_num() )
+    ST(0) = &PL_sv_undef;
+  else {
+    // format of array
+    // 0 - name, string
+    // 1 - type
+    // 2 - desclen
+    // 3 - desc, addr
+    // 4 - desc, blob
+    ELFIO::Elf_Word type = 0,
+      desclen = 0;
+    std::string name;
+    void*       desc = nullptr;
+    if ( !s->nsa.get_note( key, type, name, desc, desclen) )
+     ST(0) = &PL_sv_undef;
+    else {
+      if ( gimme == G_ARRAY) {
+        EXTEND(SP, 5);
+        mXPUSHp(name.c_str(), name.size());
+        mXPUSHu(type);
+        mXPUSHi(desclen);
+        mXPUSHu((unsigned long)desc);
+        mXPUSHp((const char *)desc, desclen);
+        XSRETURN(5);
+      } else {
+        // return ref to array
+        AV *av = newAV();
+        av_push(av, newSVpv(name.c_str(), name.size()) );
+        av_push(av, newSVuv(type));
+        av_push(av, newSVuv(desclen));
+        av_push(av, newSVuv((unsigned long)desc));
+        av_push(av, newSVpv((const char *)desc, desclen));
       }
     }
   }
