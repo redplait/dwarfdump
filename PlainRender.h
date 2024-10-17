@@ -34,7 +34,7 @@ class PlainRender: public TreeBuilder
   protected:
    std::unordered_map<uint64_t, Element *> m_els;
    std::unordered_map<uint64_t, std::list<Element *> > m_specs;
-   std::list<Element *> m_vars;
+   std::vector<Element *> m_vars;
    std::list<std::pair<struct cu, std::list<Element> > > m_all;
 
    virtual void RenderUnit(int last);

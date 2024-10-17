@@ -946,7 +946,7 @@ void PlainRender::dump_const_expr(Element *e)
   if ( !get_replaced_name(e->type_id_, name, &ate) )
   {
     auto et = e;
-    std::map<uint64_t, Element *>::iterator el = m_els.end();
+    auto el = m_els.end();
     while( name.empty() )
     {
 // fprintf(stderr, "dump_const_expr %lX type %s\n", et->type_id_, et->TypeName());
