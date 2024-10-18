@@ -256,6 +256,18 @@ op(SV *sv)
   XSRETURN(1);
 
 void
+size(SV *sv)
+ INIT:
+   mdis *d = mdis_get(sv);
+ PPCODE:
+   if ( d->empty() )
+    ST(0) = &PL_sv_undef;
+  else
+    ST(0) = sv_2mortal( newSViv( d->inst.size ) );
+  XSRETURN(1);
+
+
+void
 op_class(SV *sv, int idx)
  INIT:
    mdis *d = mdis_get(sv);
