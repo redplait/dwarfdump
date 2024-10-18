@@ -1,5 +1,4 @@
 struct IElf {
- int ref_cnt = 1;
  ELFIO::elfio *rdr;
  void add_ref() {
    ref_cnt++;
@@ -7,9 +6,10 @@ struct IElf {
  void release() {
    if ( !--ref_cnt ) delete this;
  };
- ~IElf() {
-   if ( rdr ) delete rdr;
- }
+ ~IElf();
+protected:
+  int ref_cnt = 1;
 };
 
 IElf *extract(SV *);
+const ELFIO::section *find_section(IElf *e, unsigned long addr);
