@@ -850,9 +850,6 @@ namespace mips
 #endif
 
 
-#ifdef __cplusplus
-	extern "C" {
-#endif
 		//Given a uint32_t instructionValue decopose the instruction
 		//into its components -> instruction
 		uint32_t mips_decompose(
@@ -876,6 +873,5 @@ namespace mips
 		const char* get_flag(enum Flag flag);
 		const char* get_hint(Hint hint);
 #ifdef __cplusplus
-	}
 }//end namespace
 #endif

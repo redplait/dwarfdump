@@ -8,9 +8,10 @@
 use strict;
 use warnings;
 
-use Test::More tests => 6;
-BEGIN { use_ok('Disasm::Mips') };
+use Test::More tests => 14;
 use Elf::Reader;
+
+BEGIN { use_ok('Disasm::Mips') };
 ok( XORI == 423, 'xori');
 
 # load mips kernel
@@ -39,6 +40,22 @@ foreach ( @$syms ) {
   }
 }
 ok( defined($addr), 'symbol found');
+
+# make new disasm object
+my $dis = Disasm::Mips->new($e);
+ok( defined($dis), 'new Disasm::Mips' );
+ok( $dis->setup($addr), 'setup' );
+my $len = $dis->disasm();
+ok( $len == 4, 'disasm' );
+my $op = $dis->op();
+ok ( $op == ADDIU, 'addiu' );
+my $c0 = $dis->op_class(0);
+ok ( $c0 == Disasm::Mips::REG, 'class0' );
+my $c1 = $dis->op_class(1);
+ok ( $c1 == Disasm::Mips::REG, 'class1' );
+my $c2 = $dis->op_class(2);
+ok ( $c2 == Disasm::Mips::IMM, 'class2' );
+ok ( Disasm::Mips::reg_name( $dis->op_reg(0) ) eq '$sp' );
 
 #########################
 

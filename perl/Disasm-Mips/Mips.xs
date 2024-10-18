@@ -8,16 +8,29 @@
 #include "../elf.inc"
 #include "mips.h"
 
+static unsigned char get_host_encoding(void)
+{
+ static const int tmp = 1;
+ if ( 1 == *reinterpret_cast<const char*>( &tmp ) ) return ELFIO::ELFDATA2LSB;
+ return ELFIO::ELFDATA2MSB;
+}
+
+void my_warn(const char * pat, ...) {
+ va_list args;
+ vwarn(pat, &args);
+}
+
 struct mdis {
   const char *psp, *end;
   unsigned long addr;
-  int m_bigend;
+  int m_needswap;
   mips::MipsVersion m_mv;
   mips::Instruction inst;
   char txt[1024];
   IElf *e;
-  mdis(IElf *_e, mips::MipsVersion v, int b): e(_e), m_mv(v), m_bigend(b)
+  mdis(IElf *_e, mips::MipsVersion v, int b): e(_e), m_mv(v), m_needswap(b)
   { addr = 0;
+    psp = end = nullptr;
     memset(&inst, 0, sizeof(inst));
   }
   ~mdis() {
@@ -26,7 +39,10 @@ struct mdis {
   bool inline empty() const {
     return !psp || !inst.size;
   }
-  int is_end() const
+  bool inline setuped() const {
+    return psp;
+  }
+ int is_end() const
  {
    switch(inst.operation)
    {
@@ -37,7 +53,34 @@ struct mdis {
    }
    return 0;
  }
-
+ int setup(unsigned long addr_)
+ {
+   psp = end = nullptr;
+   addr = addr_;
+   auto *s = find_section(e, addr_);
+   if ( !s ) {
+     my_warn("cannot find section for address %lX", addr_);
+     return 0;
+   }
+   size_t diff = addr - s->get_address();
+   psp = s->get_data() + diff;
+   end = s->get_data() + s->get_size();
+   return 1;
+ }
+ int disasm()
+ {
+   if ( psp >= end ) return 0;
+   memset(&inst, 0, sizeof(inst));
+   int rc = mips::mips_decompose((const uint32_t*)psp, end - psp, &inst, m_mv, (uint64_t)psp, m_needswap, 1);
+   if ( rc ) return 0;
+   // update addr & psp
+   psp += inst.size;
+   addr += inst.size;
+   // check for speculative execution
+   if ( is_end() )
+     end = psp + 4;
+   return inst.size;;
+ }
 };
 
 static int mips_magic_free(pTHX_ SV* sv, MAGIC* mg) {
@@ -106,11 +149,14 @@ new(obj_or_pkg, SV *elsv)
   struct IElf *e= extract(elsv);
   ELFIO::Elf_Half machine;
   mips::MipsVersion ver;
+  mdis *res = nullptr;
  PPCODE:
   // check what we have
   machine = e->rdr->get_machine();
   if ( machine != ELFIO::EM_MIPS ) {
-    croak("new: not MIPS elf");
+    my_warn("new: not MIPS elf");
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
   }
   ver = e->rdr->get_class() == ELFIO::ELFCLASS32 ? mips::MIPS_32 : mips::MIPS_64;
   if (SvPOK(obj_or_pkg) && (pkg= gv_stashsv(obj_or_pkg, 0))) {
@@ -121,7 +167,35 @@ new(obj_or_pkg, SV *elsv)
     sv_bless(objref, pkg);
     ST(0)= objref;
   } else
-        croak("new: first arg must be package name or blessed object");
+    croak("new: first arg must be package name or blessed object");
+  // make real disasm object
+  res = new mdis( e, ver, e->rdr->get_encoding() != get_host_encoding() );
+  // attach magic
+  magic = sv_magicext(msv, NULL, PERL_MAGIC_ext, &Mips_magic_vt, (const char*)res, 0);
+#ifdef USE_ITHREADS
+    magic->mg_flags |= MGf_DUP;
+#endif
+  XSRETURN(1);
+
+void
+setup(SV *sv, unsigned long addr)
+ INIT:
+   mdis *d = mdis_get(sv);
+ PPCODE:
+   ST(0) = sv_2mortal( newSVuv( d->setup(addr) ) );
+   XSRETURN(1);
+
+void
+disasm(SV *sv)
+ INIT:
+   mdis *d = mdis_get(sv);
+ PPCODE:
+   if ( !d->setuped() ) {
+     my_warn("disasm on non-setuped Mips::Disasm called");
+     ST(0) = &PL_sv_undef;
+   } else
+    ST(0) = sv_2mortal( newSViv( d->disasm() ) );
+   XSRETURN(1);
 
 void
 op_name(int v)
@@ -167,7 +241,7 @@ addr(SV *sv)
    if ( d->empty() )
     ST(0) = &PL_sv_undef;
   else
-    ST(0) = sv_2mortal( newSVuv( d->addr - d->inst.size ) );
+    ST(0) = sv_2mortal( newSViv( d->addr - d->inst.size ) );
   XSRETURN(1);
 
 void

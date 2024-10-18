@@ -1980,7 +1980,7 @@ uint32_t mips_decompose(
 		const uint32_t* instructionValue,
 		size_t size,
 		Instruction* restrict instruction,
-		uint32_t version,
+		MipsVersion version,
 		uint64_t address,
 		uint32_t endianBig,
 		uint32_t enablePseudoOps)
@@ -2048,6 +2048,6 @@ uint32_t mips_decompose(
 	return result;
 }
 
-#if __cplusplus
-};
+#ifdef __cplusplus
+} // namespace
 #endif
