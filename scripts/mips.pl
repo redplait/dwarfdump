@@ -11,7 +11,7 @@ sub parse
   my @arr;
   my($str, $ename, $fh, $name, $v);
   open($fh, '<', $fname) or die("cannot open $fname, error $!");
-  printf("use constants {\n");
+  printf("use constant {\n");
   while( $str = <$fh> )
   {
     if ( $str =~ /^\s+MIPS_(\w+),?/ ) {
@@ -34,7 +34,7 @@ END
  foreach ( @arr ) {
    printf("%s\n", $_);
  };
-  printf(");\n1;\n__END__");
+  printf(");\n");
 
   return $res;
 }
