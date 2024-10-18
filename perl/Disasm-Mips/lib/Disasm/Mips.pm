@@ -878,6 +878,14 @@ WRPGPR
 WSBH
 XOR
 XORI
+NONE
+REG
+FLAG
+IMM
+LABEL
+MEM_IMM
+MEM_REG
+HINT
 );
 
 our $VERSION = '0.01';
@@ -904,17 +912,21 @@ Disasm::Mips - Perl extension for blah blah blah
 
 =head1 DESCRIPTION
 
-Stub documentation for Disasm::Mips, created by h2xs. It looks like the
-author of the extension was negligent enough to leave the stub
-unedited.
+Wrapper for MIPS disassempler
+
+Methods:
+ new - require Elf::Reader object as argument
+ setup(address)
+ disasm - return length or zero in case of failure
+
+after calling of disasm you can extract some useful stuff like
+ 
 
 Blah blah blah.
 
 =head2 EXPORT
 
 None by default.
-
-
 
 =head1 SEE ALSO
 

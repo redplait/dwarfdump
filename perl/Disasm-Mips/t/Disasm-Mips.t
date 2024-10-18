@@ -50,11 +50,11 @@ ok( $len == 4, 'disasm' );
 my $op = $dis->op();
 ok ( $op == ADDIU, 'addiu' );
 my $c0 = $dis->op_class(0);
-ok ( $c0 == Disasm::Mips::REG, 'class0' );
+ok ( $c0 == REG, 'class0' );
 my $c1 = $dis->op_class(1);
-ok ( $c1 == Disasm::Mips::REG, 'class1' );
+ok ( $c1 == REG, 'class1' );
 my $c2 = $dis->op_class(2);
-ok ( $c2 == Disasm::Mips::IMM, 'class2' );
+ok ( $c2 == IMM, 'class2' );
 ok ( Disasm::Mips::reg_name( $dis->op_reg(0) ) eq '$sp' );
 
 #########################
