@@ -1,0 +1,10 @@
+Changes
+Makefile.PL
+MANIFEST
+Mips.xs
+ppport.h
+README
+dmips.c
+mips.h
+t/Disasm-Mips.t
+lib/Disasm/Mips.pm
