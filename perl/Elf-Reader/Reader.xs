@@ -296,6 +296,39 @@ IElf *extract(SV *sv)
   return Elf_get_magic<IElf>(sv, 1, &Elf_magic_vt);
 }
 
+const ELFIO::section *find_section(IElf *e, unsigned long addr)
+{
+  for ( auto *s: e->rdr->sections ) {
+    if ( s->get_type() != ELFIO::SHT_PROGBITS ) continue;
+    if ( addr >= s->get_address() && addr < s->get_address() + s->get_size() )
+      return s;
+  }
+  return nullptr;
+}
+
+static AV *fill_section(const ELFIO::section *s)
+{
+  auto name = s->get_name();
+  AV *av = newAV();
+  av_push(av, newSViv( s->get_index() ));
+  av_push(av, newSVpv(name.c_str(), name.size()) );
+  av_push(av, newSViv( s->get_type() ));
+  av_push(av, newSViv( s->get_flags() ));
+  av_push(av, newSViv( s->get_info() ));
+  av_push(av, newSViv( s->get_link() ));
+  av_push(av, newSViv( s->get_addr_align() ));
+  av_push(av, newSViv( s->get_entry_size() ));
+  av_push(av, newSVuv( s->get_address() ));
+  av_push(av, newSViv( s->get_size() ));
+  av_push(av, newSVuv( s->get_offset() ));
+  return av;
+}
+
+IElf::~IElf()
+{
+  if ( rdr ) delete rdr;
+}
+
 static int s_rdr_id = 0;
 
 #define ELF_TIE(vtab, what) \
@@ -533,6 +566,19 @@ void entry(SV *arg)
    ST(0)= sv_2mortal( newSVuv( e->rdr->get_entry() ) );
    XSRETURN(1);
 
+void find(SV *arg, unsigned long addr)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+   auto *s = find_section(e, addr);
+ PPCODE:
+   if ( !s )
+     ST(0) = &PL_sv_undef;
+   else {
+     AV *av = fill_section(s);
+     mXPUSHs(newRV_noinc((SV*)av));
+   }
+   XSRETURN(1);
+
 MODULE = Elf::Reader		PACKAGE = Elf::Reader::SecIterator
 
 void
@@ -577,19 +623,8 @@ FETCH(self, key)
       mXPUSHu(s->get_offset());
       XSRETURN(11);
     } else {
-      AV *av = newAV();
+      AV *av = fill_section(s);
       mXPUSHs(newRV_noinc((SV*)av));
-      av_push(av, newSViv( s->get_index() ));
-      av_push(av, newSVpv(name.c_str(), name.size()) );
-      av_push(av, newSViv( s->get_type() ));
-      av_push(av, newSViv( s->get_flags() ));
-      av_push(av, newSViv( s->get_info() ));
-      av_push(av, newSViv( s->get_link() ));
-      av_push(av, newSViv( s->get_addr_align() ));
-      av_push(av, newSViv( s->get_entry_size() ));
-      av_push(av, newSVuv( s->get_address() ));
-      av_push(av, newSViv( s->get_size() ));
-      av_push(av, newSVuv( s->get_offset() ));
     }
   }
   XSRETURN(1);
