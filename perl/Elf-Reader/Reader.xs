@@ -5,6 +5,7 @@
 #include "elfio/elfio.hpp"
 
 #include "ppport.h"
+#include "../elf.inc"
 
 template <typename T>
 static T *Elf_get_magic(SV *obj, int die, MGVTBL *tab)
@@ -49,20 +50,6 @@ static T *Elf_get_tmagic(SV *obj, int die, MGVTBL *tab)
     }
   return NULL;
 }
-
-struct IElf {
- int ref_cnt = 1;
- ELFIO::elfio *rdr;
- void add_ref() {
-   ref_cnt++;
- }
- void release() {
-   if ( !--ref_cnt ) delete this;
- };
- ~IElf() {
-   if ( rdr ) delete rdr;
- }
-};
 
 struct IElfSyms {
  IElf *e;
@@ -303,6 +290,11 @@ static MGVTBL Elf_magic_notes = {
         ,0
 #endif
 };
+
+IElf *extract(SV *sv)
+{
+  return Elf_get_magic<IElf>(sv, 1, &Elf_magic_vt);
+}
 
 static int s_rdr_id = 0;
 

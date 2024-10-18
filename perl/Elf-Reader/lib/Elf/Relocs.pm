@@ -6978,7 +6978,7 @@ R_CRX_SWITCH32() => 'R_CRX_SWITCH32',
 # E X P O R T E D   N A M E S
 #
 ###
-our @EXPORT = qw(
+our @EXPORT_OK = qw(
 R_VISIUM_NONE
 R_VISIUM_8
 R_VISIUM_16
