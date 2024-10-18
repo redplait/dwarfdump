@@ -4,6 +4,8 @@
 #include "XSUB.h"
 
 #include "ppport.h"
+#include "elfio/elfio.hpp"
+#include "../elf.inc"
 #include "mips.h"
 
 #define EXPORT_ENUM(x) newCONSTSUB(stash, #x, new_enum_dualvar(aTHX_ mips::x, newSVpvs_share(#x)));
@@ -16,6 +18,26 @@ static SV * new_enum_dualvar(pTHX_ IV ival, SV *name) {
 }
 
 MODULE = Disasm::Mips		PACKAGE = Disasm::Mips
+
+void
+new(obj_or_pkg, SV *elsv)
+  SV *obj_or_pkg
+ INIT:
+  HV *pkg = NULL;
+  SV *msv;
+  SV *objref= NULL;
+  MAGIC* magic;
+  struct IElf *e= extract(elsv);
+ PPCODE:
+  if (SvPOK(obj_or_pkg) && (pkg= gv_stashsv(obj_or_pkg, 0))) {
+    if (!sv_derived_from(obj_or_pkg, "Disasm::Mips"))
+        croak("Package %s does not derive from Disasm::Mips", SvPV_nolen(obj_or_pkg));
+    msv = newSViv(0);
+    objref= sv_2mortal(newRV_noinc(msv));
+    sv_bless(objref, pkg);
+    ST(0)= objref;
+  } else
+        croak("new: first arg must be package name or blessed object");
 
 void
 op_name(int v)

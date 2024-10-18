@@ -14,9 +14,9 @@ WriteMakefile(
     #http://search.cpan.org/perldoc?Module%3A%3ABuild%3A%3AAPI
     XSOPT             => '-C++',
     CC                => 'g++',
-    LIBS              => ["-L$Config{'sitearch'}/auto/Elf/Reader -l:Reader.so -lstdc++"], # e.g., '-lm'
+    LIBS              => ["-Wl,--as-needed -L$Config{'sitearch'}/auto/Elf/Reader -l:Reader.so -lstdc++"], # e.g., '-lm'
     DEFINE            => '', # e.g., '-DHAVE_SOMETHING'
-    INC               => '-I.', # e.g., '-I. -I/usr/include/other'
+    INC               => '-I/home/redp/disc/ELFIO', # e.g., '-I. -I/usr/include/other'
 	# Un-comment this if you add C files to link with later:
     OBJECT            => '$(O_FILES)', # link all the C files too
 );
