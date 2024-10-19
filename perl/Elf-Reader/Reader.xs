@@ -7,6 +7,15 @@
 #include "ppport.h"
 #include "../elf.inc"
 
+static unsigned char get_host_encoding(void)
+{
+ static const int tmp = 1;
+ if ( 1 == *reinterpret_cast<const char*>( &tmp ) ) return ELFIO::ELFDATA2LSB;
+ return ELFIO::ELFDATA2MSB;
+}
+
+static unsigned char s_host_encoding = 0;
+
 template <typename T>
 static T *Elf_get_magic(SV *obj, int die, MGVTBL *tab)
 {
@@ -372,6 +381,7 @@ new(obj_or_pkg, const char *fname)
     // attach magic to msv
     e = new IElf();
     e->rdr = rde;
+    e->needswap = rde->get_encoding() != s_host_encoding;
     magic = sv_magicext(msv, NULL, PERL_MAGIC_ext, &Elf_magic_vt, (const char*)e, 0);
 #ifdef USE_ITHREADS
     magic->mg_flags |= MGf_DUP;
@@ -878,3 +888,6 @@ FETCH(self, key)
     }
   }
   XSRETURN(1);
+
+BOOT:
+ s_host_encoding = get_host_encoding();

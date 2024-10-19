@@ -7,6 +7,7 @@ struct IElf {
    if ( !--ref_cnt ) delete this;
  };
  ~IElf();
+  int needswap;
 protected:
   int ref_cnt = 1;
 };
