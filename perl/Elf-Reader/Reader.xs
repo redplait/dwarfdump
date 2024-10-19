@@ -589,6 +589,79 @@ void find(SV *arg, unsigned long addr)
    }
    XSRETURN(1);
 
+void byte(SV *arg, unsigned long addr)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+   auto *s = find_section(e, addr);
+ PPCODE:
+   if ( !s )
+     ST(0) = &PL_sv_undef;
+   else {
+     auto *body = s->get_data() + addr - s->get_address();
+     ST(0)= sv_2mortal( newSVuv( *body ) );
+   }
+   XSRETURN(1);
+
+void word(SV *arg, unsigned long addr)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+   auto *s = find_section(e, addr);
+ PPCODE:
+   if ( !s )
+     ST(0) = &PL_sv_undef;
+   else {
+     auto *body = s->get_data() + addr - s->get_address();
+     // check if we have size to read word
+     if ( body + 2 >= s->get_data() + s->get_size() )
+       ST(0) = &PL_sv_undef;
+     else {
+       uint16_t val = *(uint16_t *)body;
+       if ( e->needswap ) val = __builtin_bswap16(val);
+       ST(0)= sv_2mortal( newSVuv( val ) );
+     }
+   }
+   XSRETURN(1);
+
+void dword(SV *arg, unsigned long addr)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+   auto *s = find_section(e, addr);
+ PPCODE:
+   if ( !s )
+     ST(0) = &PL_sv_undef;
+   else {
+     auto *body = s->get_data() + addr - s->get_address();
+     // check if we have size to read word
+     if ( body + 4 >= s->get_data() + s->get_size() )
+       ST(0) = &PL_sv_undef;
+     else {
+       uint32_t val = *(uint32_t *)body;
+       if ( e->needswap ) val = __builtin_bswap32(val);
+       ST(0)= sv_2mortal( newSVuv( val ) );
+     }
+   }
+   XSRETURN(1);
+
+void qword(SV *arg, unsigned long addr)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+   auto *s = find_section(e, addr);
+ PPCODE:
+   if ( !s )
+     ST(0) = &PL_sv_undef;
+   else {
+     auto *body = s->get_data() + addr - s->get_address();
+     // check if we have size to read word
+     if ( body + 8 >= s->get_data() + s->get_size() )
+       ST(0) = &PL_sv_undef;
+     else {
+       uint64_t val = *(uint64_t *)body;
+       if ( e->needswap ) val = __builtin_bswap64(val);
+       ST(0)= sv_2mortal( newSVuv( val ) );
+     }
+   }
+   XSRETURN(1);
+
 MODULE = Elf::Reader		PACKAGE = Elf::Reader::SecIterator
 
 void
