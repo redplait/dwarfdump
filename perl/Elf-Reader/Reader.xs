@@ -567,6 +567,7 @@ notes(SV *arg, int key)
   auto s = e->rdr->sections[key];
   if ( s->get_type() != ELFIO::SHT_NOTE ) {
     croak("section with index %d is not note section", key);
+    XSRETURN(0);
   }
   en = new IElfNotes(e, s);
   ELF_TIE(Elf_magic_notes, en);

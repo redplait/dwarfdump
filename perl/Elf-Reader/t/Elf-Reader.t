@@ -8,7 +8,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 13;
+use Test::More tests => 16;
 BEGIN { use_ok('Elf::Reader') };
 
 #########################
@@ -34,3 +34,8 @@ ok( $phdr->[1] == PT_PHDR(), 'phdr type' );
 # relocs tests
 use_ok('Elf::Relocs');
 ok( $Elf::Relocs::aarch64_rnames{20} eq 'R_AARCH64_P32_JUMP26' );
+# versyms
+my $vs = $e->versyms();
+ok ( defined($vs), 'versyms');
+ok ( scalar( @$vs ) == 2, 'versyms count');
+ok ( $vs->[0]->[1] eq 'libc.so.6', 'veryms name' );
