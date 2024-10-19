@@ -1177,6 +1177,7 @@ FETCH(self, key)
         EXTEND(SP, 2);
         mXPUSHp(name.c_str(), name.size());
         mXPUSHp(value.c_str(), value.size());
+        XSRETURN(2);
       } else {
         AV *av = newAV();
         mXPUSHs(newRV_noinc((SV*)av));
