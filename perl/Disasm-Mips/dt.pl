@@ -10,6 +10,9 @@ use Disasm::Mips;
 # key - name, value - [ address, size ]
 my %g_syms;
 
+# key - addr, value - [ name, type ]
+my %g_addr;
+
 sub disasm_func
 {
   my($d, $ar) = @_;
@@ -17,7 +20,12 @@ sub disasm_func
   while ( my $len = $d->disasm() )
   {
     my $adr = $d->addr();
-    printf("%X: %s\n", $adr, $d->text());
+    printf("%X: %s", $adr, $d->text());
+    my $ja = $d->is_jal();
+    if ( $ja && exists($g_addr{ $ja }) ) {
+      printf(" ; %s", $g_addr{ $ja }->[0] );
+    }
+    printf("\n");
     last if ( $adr >= $ar->[0] + $ar->[1] );
   }
 }
@@ -41,9 +49,9 @@ die("cannot find symbols") if ( !defined($sec) ) ;
 my $syms = $e->syms($sec);
 foreach ( @$syms ) {
   last if ( !defined $_ );
-  if ( $_->[0] ne '' && $_->[4] == STT_FUNC ) {
-    $g_syms{ $_->[0] } = [ $_->[1], $_->[2] ];
-  }
+  next if ( $_->[0] eq '' );
+  $g_addr{ $_->[1] } = [ $_->[0], $_->[4] ] if ( $_->[1] );
+  $g_syms{ $_->[0] } = [ $_->[1], $_->[2] ] if ( $_->[4] == STT_FUNC );
 }
 
 # make disasm

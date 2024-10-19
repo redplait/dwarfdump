@@ -8,13 +8,6 @@
 #include "../elf.inc"
 #include "mips.h"
 
-static unsigned char get_host_encoding(void)
-{
- static const int tmp = 1;
- if ( 1 == *reinterpret_cast<const char*>( &tmp ) ) return ELFIO::ELFDATA2LSB;
- return ELFIO::ELFDATA2MSB;
-}
-
 void my_warn(const char * pat, ...) {
  va_list args;
  vwarn(pat, &args);
@@ -23,12 +16,11 @@ void my_warn(const char * pat, ...) {
 struct mdis {
   const char *psp, *end;
   unsigned long addr, start;
-  int m_needswap;
   mips::MipsVersion m_mv;
   mips::Instruction inst;
   char txt[1024];
   IElf *e;
-  mdis(IElf *_e, mips::MipsVersion v, int b): e(_e), m_mv(v), m_needswap(b)
+  mdis(IElf *_e, mips::MipsVersion v): e(_e), m_mv(v)
   { addr = 0;
     psp = end = nullptr;
     memset(&inst, 0, sizeof(inst));
@@ -72,7 +64,7 @@ struct mdis {
  {
    if ( psp >= end ) return 0;
    memset(&inst, 0, sizeof(inst));
-   int rc = mips::mips_decompose((const uint32_t*)psp, end - psp, &inst, m_mv, (uint64_t)psp, m_needswap, 1);
+   int rc = mips::mips_decompose((const uint32_t*)psp, end - psp, &inst, m_mv, (uint64_t)psp, e->needswap, 1);
    if ( rc ) return 0;
    // update addr & psp
    psp += inst.size;
@@ -178,7 +170,7 @@ new(obj_or_pkg, SV *elsv)
   } else
     croak("new: first arg must be package name or blessed object");
   // make real disasm object
-  res = new mdis( e, ver, e->rdr->get_encoding() != get_host_encoding() );
+  res = new mdis( e, ver );
   // attach magic
   magic = sv_magicext(msv, NULL, PERL_MAGIC_ext, &Mips_magic_vt, (const char*)res, 0);
 #ifdef USE_ITHREADS
