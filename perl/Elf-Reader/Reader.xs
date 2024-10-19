@@ -108,6 +108,19 @@ struct IElfNotes {
  { e->add_ref(); }
 };
 
+struct IElfVersyms {
+ IElf *e;
+ ELFIO::versym_r_section_accessor vsa;
+ ~IElfVersyms() {
+   e->release();
+ }
+ IElfVersyms(IElf *_e, ELFIO::section *s):
+  e(_e),
+  vsa(*_e->rdr, s)
+ { e->add_ref(); }
+};
+
+
 static int elf_magic_free(pTHX_ SV* sv, MAGIC* mg) {
     if (mg->mg_ptr) {
         IElf *e = (IElf *)mg->mg_ptr;
@@ -132,7 +145,8 @@ static const char *s_seciter = "Elf::Reader::SecIterator",
  *s_symbols = "Elf::Reader::SymIterator",
  *s_dynamics = "Elf::Reader::DynIterator",
  *s_relocs = "Elf::Reader::RelIterator",
- *s_notes = "Elf::Reader::NotesIterator"
+ *s_notes = "Elf::Reader::NotesIterator",
+ *s_versyms = "Elf::Reader::VersymsIterator"
 ;
 
 // see https://github.com/Perl/perl5/blob/blead/mg.c
@@ -198,6 +212,17 @@ notes_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
   if (mg->mg_ptr) {
     IElfNotes *e = (IElfNotes *)mg->mg_ptr;
     res = e->nsa.get_notes_num();
+  }
+  return res;
+}
+
+static U32
+versyms_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
+{
+  U32 res = 0;
+  if (mg->mg_ptr) {
+    IElfVersyms *e = (IElfVersyms *)mg->mg_ptr;
+    res = e->vsa.get_entries_num();
   }
   return res;
 }
@@ -293,6 +318,20 @@ static MGVTBL Elf_magic_notes = {
         notes_magic_sizepack, /* length */
         0, /* clear */
         xxx_magic_free<IElfNotes>,
+        0, /* copy */
+        0 /* dup */
+#ifdef MGf_LOCAL
+        ,0
+#endif
+};
+
+// magic table for Elf::Reader::VersymsIterator
+static MGVTBL Elf_magic_versyms = {
+        0, /* get */
+        0, /* write */
+        versyms_magic_sizepack, /* length */
+        0, /* clear */
+        xxx_magic_free<IElfVersyms>,
         0, /* copy */
         0 /* dup */
 #ifdef MGf_LOCAL
@@ -528,10 +567,40 @@ notes(SV *arg, int key)
   auto s = e->rdr->sections[key];
   if ( s->get_type() != ELFIO::SHT_NOTE ) {
     croak("section with index %d is not note section", key);
-    XSRETURN(0);
   }
   en = new IElfNotes(e, s);
   ELF_TIE(Elf_magic_notes, en);
+
+void
+versyms(SV *arg)
+ INIT:
+  HV *pkg = NULL;
+  AV *fake = NULL;
+  struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+  IElfVersyms *vn = NULL;
+  SV *objref= NULL;
+  MAGIC* magic;
+  ELFIO::section *vs = NULL;
+ PPCODE:
+  if ( !(pkg = gv_stashpv(s_versyms, 0)) ) {
+    croak("Package %s does not exists", s_versyms);
+    XSRETURN(0);
+  }
+  // try tp find section with type SHT_GNU_verneed
+  // see details https://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/symversion.html
+  for ( auto *s: e->rdr->sections ) {
+    if ( s->get_type() == ELFIO::SHT_GNU_verneed ) {
+      vs = s;
+      break;
+    }
+  }
+  if ( !vs ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  } else {
+    vn = new IElfVersyms(e, vs);
+    ELF_TIE(Elf_magic_versyms, vn);
+  }
 
 void
 get_class(SV *arg)
@@ -905,6 +974,7 @@ FETCH(self, key)
       } else {
         // return ref to array
         AV *av = newAV();
+        mXPUSHs(newRV_noinc((SV*)av));
         av_push(av, newSVuv(offset));
         av_push(av, newSViv(sym_idx));
         av_push(av, newSVuv(rtype));
@@ -952,6 +1022,7 @@ FETCH(self, key)
       } else {
         // return ref to array
         AV *av = newAV();
+        mXPUSHs(newRV_noinc((SV*)av));
         av_push(av, newSVpv(name.c_str(), name.size()) );
         av_push(av, newSVuv(type));
         av_push(av, newSVuv(desclen));
@@ -961,6 +1032,60 @@ FETCH(self, key)
     }
   }
   XSRETURN(1);
+
+MODULE = Elf::Reader		PACKAGE = Elf::Reader::VersymsIterator
+
+void
+FETCH(self, key)
+  SV *self;
+  IV key;
+ PREINIT:
+  U8 gimme = GIMME_V;
+ INIT:
+  auto *s = Elf_get_tmagic<IElfVersyms>(self, 1, &Elf_magic_versyms);
+ PPCODE:
+  if ( key >= s->vsa.get_entries_num() )
+    ST(0) = &PL_sv_undef;
+  else {
+    // format of array
+    // 0 - version
+    // 1 - filename, string
+    // 2 - hash
+    // 3 - flags
+    // 4 - other
+    // 5 - dep_name, string
+    ELFIO::Elf_Word hash = 0;
+    ELFIO::Elf_Half version = 0,
+     flags = 0,
+     other = 0;
+    std::string name, dep_name;
+    if ( !s->vsa.get_entry( key, version, name, hash, flags, other, dep_name ) )
+     ST(0) = &PL_sv_undef;
+    else {
+      if ( gimme == G_ARRAY) {
+        EXTEND(SP, 6);
+        mXPUSHu(version);
+        mXPUSHp(name.c_str(), name.size());
+        mXPUSHu(hash);
+        mXPUSHu(flags);
+        mXPUSHu(other);
+        mXPUSHp(dep_name.c_str(), dep_name.size());
+        XSRETURN(6);
+      } else {
+        // return ref to array
+        AV *av = newAV();
+        mXPUSHs(newRV_noinc((SV*)av));
+        av_push(av, newSVuv(version));
+        av_push(av, newSVpv(name.c_str(), name.size()) );
+        av_push(av, newSVuv(hash));
+        av_push(av, newSVuv(flags));
+        av_push(av, newSVuv(other));
+        av_push(av, newSVpv(dep_name.c_str(), dep_name.size()));
+      }
+    }
+  }
+  XSRETURN(1);
+
 
 BOOT:
  s_host_encoding = get_host_encoding();
