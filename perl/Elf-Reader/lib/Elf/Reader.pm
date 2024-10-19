@@ -574,6 +574,13 @@ notes itetms are array with indexes
 
 You can extract notes from section with type == SHT_NOTE, argument for dyns method is section index
 
+versyms items are arrays with indexes
+ 0 - version
+ 1 - filename, string
+ 2 - hash
+ 3 - flags
+ 4 - other
+ 5 - dep_name, string
 
 =head2 EXPORT
 
