@@ -22,7 +22,7 @@ void my_warn(const char * pat, ...) {
 
 struct mdis {
   const char *psp, *end;
-  unsigned long addr;
+  unsigned long addr, start;
   int m_needswap;
   mips::MipsVersion m_mv;
   mips::Instruction inst;
@@ -56,7 +56,7 @@ struct mdis {
  int setup(unsigned long addr_)
  {
    psp = end = nullptr;
-   addr = addr_;
+   start = addr = addr_;
    auto *s = find_section(e, addr_);
    if ( !s ) {
      my_warn("cannot find section for address %lX", addr_);
@@ -65,6 +65,7 @@ struct mdis {
    size_t diff = addr - s->get_address();
    psp = s->get_data() + diff;
    end = s->get_data() + s->get_size();
+   inst.size = 0; // empty after setup
    return 1;
  }
  int disasm()
@@ -79,7 +80,15 @@ struct mdis {
    // check for speculative execution
    if ( is_end() )
      end = psp + 4;
-   return inst.size;;
+   return inst.size;
+ }
+ // some shortcuts to avoid multiple methods invocation
+ unsigned long is_jal() const
+ {
+   if ( empty() ) return 0;
+   if ( inst.operation == mips::MIPS_JAL && inst.operands[0].operandClass == mips::LABEL )
+     return inst.operands[0].immediate;
+   return 0;
  }
 };
 
@@ -305,6 +314,15 @@ op_imm(SV *sv, int idx)
   else
     ST(0) = sv_2mortal( newSVuv( d->inst.operands[idx].immediate ) );
   XSRETURN(1);
+
+unsigned long
+is_jal(SV *sv)
+ INIT:
+  mdis *d = mdis_get(sv);
+ CODE:
+  RETVAL = d->is_jal();
+ OUTPUT:
+  RETVAL
 
 BOOT:
  HV *stash= gv_stashpvn("Disasm::Mips", 12, 1);
