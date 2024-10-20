@@ -6,6 +6,7 @@ use warnings;
 
 use Elf::Reader;
 use Disasm::Mips;
+use Interval::Tree;
 
 # key - name, value - [ address, size ]
 my %g_syms;
@@ -16,17 +17,37 @@ my %g_addr;
 sub disasm_func
 {
   my($d, $ar) = @_;
-  $d->setup( $ar->[0] );
-  while ( my $len = $d->disasm() )
+  # queue of addresses to process
+  my @Q;
+  my $tree = Interval::Tree->new();
+  push @Q, $ar->[0];
+  while ( @Q )
   {
-    my $adr = $d->addr();
-    printf("%X: %s", $adr, $d->text());
-    my $ja = $d->is_jal();
-    if ( $ja && exists($g_addr{ $ja }) ) {
-      printf(" ; %s", $g_addr{ $ja }->[0] );
+    my $adr = shift @Q;
+    next if ( $tree->in_tree($adr) );
+    my $next = $tree->next($adr);
+    if ( $next ) {
+      $d->setup2( $adr, $next - $adr );
+    } else {
+      $d->setup( $adr );
     }
-    printf("\n");
-    last if ( $adr >= $ar->[0] + $ar->[1] );
+    while ( my $len = $d->disasm() )
+    {
+      my $adr = $d->addr();
+      printf("%X: %s", $adr, $d->text());
+      my $ja = $d->is_jal();
+      if ( $ja && exists($g_addr{ $ja }) ) {
+        printf(" ; %s", $g_addr{ $ja }->[0] );
+      }
+      printf("\n");
+      # find jxx
+      my $j = $d->is_jxx();
+      push(@Q, $j) if $j;
+      # last if ( $adr >= $ar->[0] + $ar->[1] );
+    }
+    # add to tree
+    $tree->insert( $adr, $d->addr() - $adr );
+    printf("--\n");
   }
 }
 
