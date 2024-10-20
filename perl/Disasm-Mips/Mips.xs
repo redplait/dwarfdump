@@ -101,6 +101,63 @@ struct mdis {
      return inst.operands[0].immediate;
    return 0;
  }
+ // bxx label
+ unsigned long is_jxx() const
+ {
+   if ( empty() ) return 0;
+using namespace mips;
+   // https://www.cs.cmu.edu/afs/cs/academic/class/15740-f97/public/doc/mips-isa.pdf
+   switch(inst.operation) {
+     case MIPS_B:
+     case MIPS_J:
+      if ( inst.operands[0].operandClass == mips::LABEL )
+        return inst.operands[0].immediate;
+      break;
+
+     // REG/LABEL
+     case MIPS_BEQZ: // Branch on Equal Zero
+     case MIPS_BGEZ:  // Branch on Greater Than Equal Zero
+     case MIPS_BGEZAL:
+     case MIPS_BGEZALL:
+     case MIPS_BGEZL:
+     case MIPS_BLTZL: // Branch on Greater Than or Equal to Zero Likely
+     case MIPS_BLTZAL:
+     case MIPS_BLTZALL:
+     case MIPS_BLTZ:  // Branch on Less Than Zero
+     case MIPS_BGTZ:  // Branch on Greater Than Zero
+     case MIPS_BGTZL: // Branch on Greater Than Zero Likely
+     case MIPS_BLEZ:  // Branch on Less Than or Equal to Zero
+     case MIPS_BLEZL: // Branch on Less Than or Equal to Zero Likely
+      if ( inst.operands[1].operandClass == mips::LABEL )
+        return inst.operands[1].immediate;
+      break;
+
+     // reg/reg/LABEL
+     case MIPS_BEQ:
+     case MIPS_BEQL: // Branch on Equal Likely
+     case MIPS_BNE:
+     case MIPS_BNEL:  // Branch on Not Equal Likely
+      if ( inst.operands[2].operandClass == mips::LABEL )
+        return inst.operands[2].immediate;
+      break;
+
+     // next group can be LABEL or FLAG/LABEL
+     case MIPS_BC1T:
+     case MIPS_BC1F:
+     case MIPS_BC1FL:
+     case MIPS_BC1TL:
+     case MIPS_BC2F:
+     case MIPS_BC2FL:
+     case MIPS_BC2T:
+     case MIPS_BC2TL:
+      if ( inst.operands[0].operandClass == mips::LABEL )
+        return inst.operands[0].immediate;
+      if ( inst.operands[1].operandClass == mips::LABEL )
+        return inst.operands[1].immediate;
+      break;
+   }
+   return 0;
+ }
 };
 
 static int mips_magic_free(pTHX_ SV* sv, MAGIC* mg) {
@@ -340,6 +397,15 @@ is_jal(SV *sv)
   mdis *d = mdis_get(sv);
  CODE:
   RETVAL = d->is_jal();
+ OUTPUT:
+  RETVAL
+
+unsigned long
+is_jxx(SV *sv)
+ INIT:
+  mdis *d = mdis_get(sv);
+ CODE:
+  RETVAL = d->is_jxx();
  OUTPUT:
   RETVAL
 
