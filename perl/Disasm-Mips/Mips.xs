@@ -305,6 +305,17 @@ reg_name(int v)
   XSRETURN(1);
 
 void
+flag_name(int f)
+ INIT:
+  const char *name = mips::get_flag(mips::Flag(f));
+ PPCODE:
+  if ( !name )
+    ST(0) = &PL_sv_undef;
+  else
+    ST(0) = sv_2mortal( newSVpv(name, strlen(name)) );
+  XSRETURN(1);
+
+void
 text(SV *sv)
  INIT:
    mdis *d = mdis_get(sv);
