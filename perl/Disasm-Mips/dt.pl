@@ -14,6 +14,16 @@ my %g_syms;
 # key - addr, value - [ name, type ]
 my %g_addr;
 
+sub is_li
+{
+  my $d = shift;
+  my $op = $d->op();
+  return 0 if ( $op != LI );
+  my $cl = $d->op_class(1);
+  return 0 if ( $cl != IMM );
+  return $d->op_imm(1);
+}
+
 sub disasm_func
 {
   my($d, $ar) = @_;
@@ -36,13 +46,17 @@ sub disasm_func
       my $adr = $d->addr();
       printf("%X: %s", $adr, $d->text());
       my $ja = $d->is_jal();
+      my $li = is_li($d);
       if ( $ja && exists($g_addr{ $ja }) ) {
         printf(" ; %s", $g_addr{ $ja }->[0] );
+      } elsif ( $li && exists($g_addr{ $li }) ) {
+        printf(" ; %s", $g_addr{ $li }->[0] );
       }
       printf("\n");
       # find jxx
       my $j = $d->is_jxx();
-      push(@Q, $j) if $j;
+      # push addr in queue if it was not processed yet
+      push(@Q, $j) if ( $j && !$tree->in_tree($j) );
       # last if ( $adr >= $ar->[0] + $ar->[1] );
     }
     # add to tree
