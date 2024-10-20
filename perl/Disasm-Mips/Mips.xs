@@ -41,6 +41,7 @@ struct mdis {
      case mips::MIPS_BREAK:
      case mips::MIPS_B:
      case mips::MIPS_JR:
+     case mips::MIPS_J:
       return 1;
    }
    return 0;
@@ -60,11 +61,29 @@ struct mdis {
    inst.size = 0; // empty after setup
    return 1;
  }
+ // like setup but also with explicit len, anyway need to check if this len can fit into some section
+ int setup(unsigned long addr_, unsigned long len_)
+ {
+   psp = end = nullptr;
+   start = addr = addr_;
+   auto *s = find_section(e, addr_);
+   if ( !s ) {
+     my_warn("cannot find section for address %lX", addr_);
+     return 0;
+   }
+   size_t diff = addr - s->get_address();
+   unsigned long rem_len = s->get_size() - diff;
+   rem_len = std::min(rem_len, len_);
+   psp = s->get_data() + diff;
+   end = psp + rem_len;
+   inst.size = 0; // empty after setup
+   return 1;
+ }
  int disasm()
  {
    if ( psp >= end ) return 0;
    memset(&inst, 0, sizeof(inst));
-   int rc = mips::mips_decompose((const uint32_t*)psp, end - psp, &inst, m_mv, (uint64_t)psp, e->needswap, 1);
+   int rc = mips::mips_decompose((const uint32_t*)psp, end - psp, &inst, m_mv, (uint64_t)addr, e->needswap, 1);
    if ( rc ) return 0;
    // update addr & psp
    psp += inst.size;
@@ -184,6 +203,14 @@ setup(SV *sv, unsigned long addr)
    mdis *d = mdis_get(sv);
  PPCODE:
    ST(0) = sv_2mortal( newSVuv( d->setup(addr) ) );
+   XSRETURN(1);
+
+void
+setup2(SV *sv, unsigned long addr, unsigned long len)
+ INIT:
+   mdis *d = mdis_get(sv);
+ PPCODE:
+   ST(0) = sv_2mortal( newSVuv( d->setup(addr, len) ) );
    XSRETURN(1);
 
 void
