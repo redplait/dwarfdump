@@ -1,0 +1,6 @@
+Revision history for Perl extension Interval::Tree.
+
+0.01  Sat Oct 19 18:09:14 2024
+	- original version; created by h2xs 1.23 with options
+		-cfn Interval::Tree
+
