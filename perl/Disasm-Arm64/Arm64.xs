@@ -82,6 +82,7 @@ struct adis: public ad_insn {
     // check for end
     if ( instr_id == AD_INSTR_UDF ||
          instr_id == AD_INSTR_BRK ||
+         instr_id == AD_INSTR_RET ||
          (instr_id == AD_INSTR_B && cc == AD_NONE)
        )
     {
@@ -351,6 +352,17 @@ disasm(SV *sv)
    adis *d = adis_get(sv);
  PPCODE:
    ST(0) = sv_2mortal( newSVuv( d->disasm() ) );
+   XSRETURN(1);
+
+void
+addr(SV *sv)
+ INIT:
+   adis *d = adis_get(sv);
+ PPCODE:
+   if ( d->empty() )
+     ST(0) = &PL_sv_undef;
+   else
+     ST(0) = sv_2mortal( newSVuv( d->addr ) );
    XSRETURN(1);
 
 void
