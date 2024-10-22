@@ -524,6 +524,40 @@ op_shift(SV *sv, int idx)
   XSRETURN(1);
 
 void
+op_imm(SV *sv, int idx)
+ INIT:
+   adis *d = adis_get(sv);
+   float *f;
+ PPCODE:
+   if ( d->empty() )
+    ST(0) = &PL_sv_undef;
+   else if ( idx >= d->num_operands ) {
+    warn("op_imm(%d) when only %d operands", idx, d->num_operands);
+    ST(0) = &PL_sv_undef;
+   } else if ( d->operands[idx].type != AD_OP_SHIFT )
+    ST(0) = &PL_sv_undef;
+  else {
+    switch(d->operands[idx].op_imm.type) {
+      case AD_IMM_INT:
+      case AD_IMM_LONG:
+       ST(0) = newSViv((long)d->operands[idx].op_imm.bits);
+       break;
+      case AD_IMM_UINT:
+      case AD_IMM_ULONG:
+       ST(0) = newSVuv(d->operands[idx].op_imm.bits);
+       break;
+      case AD_IMM_FLOAT:
+       f = (float *)&d->operands[idx].op_imm.bits;
+       ST(0) = newSVnv( (double)*f );
+       break;
+      default:
+       warn("op_imm(%d) unknown type %d", idx, d->operands[idx].op_imm.type);
+       ST(0) = &PL_sv_undef;
+    }
+  }
+  XSRETURN(1);
+
+void
 is_jxx(SV *sv)
  INIT:
    adis *d = adis_get(sv);
