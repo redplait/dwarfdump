@@ -1,0 +1,6 @@
+Revision history for Perl extension Disasm::Arm64.
+
+0.01  Mon Oct 21 12:50:51 2024
+	- original version; created by h2xs 1.23 with options
+		-cfn Disasm::Arm64
+
