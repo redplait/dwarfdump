@@ -362,7 +362,7 @@ addr(SV *sv)
    if ( d->empty() )
      ST(0) = &PL_sv_undef;
    else
-     ST(0) = sv_2mortal( newSVuv( d->addr ) );
+     ST(0) = sv_2mortal( newSVuv( d->addr - 4 ) );
    XSRETURN(1);
 
 void
