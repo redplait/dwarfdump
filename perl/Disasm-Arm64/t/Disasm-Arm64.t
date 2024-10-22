@@ -8,7 +8,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 12;
+use Test::More tests => 14;
 use Elf::Reader;
 BEGIN { use_ok('Disasm::Arm64') };
 
@@ -45,10 +45,12 @@ ok( $ad->setup($addr), 'setup' );
 ok( $ad->disasm(), 'disasm' );
 my $op = $ad->op();
 ok ( $op == PACIASP, 'first op' );
+ok ( $ad->idx() == 0, 'no pre on first op' );
 ok( $ad->disasm(), 'disasm 2' );
 $op = $ad->op();
 ok ( $op == STP, 'stp' );
 ok ( $ad->op_num() == 4, 'stp args num' );
+ok ( $ad->idx() == 3, 'stp pre' );
 
 #########################
 
