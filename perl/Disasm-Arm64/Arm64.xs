@@ -83,12 +83,23 @@ struct adis: public ad_insn {
     if ( instr_id == AD_INSTR_UDF ||
          instr_id == AD_INSTR_BRK ||
          instr_id == AD_INSTR_RET ||
+         instr_id == AD_INSTR_BR  || is_braa() ||
          (instr_id == AD_INSTR_B && cc == AD_NONE)
        )
     {
       end = psp;
     }
     return 1;
+  }
+  // Branch to Register, with pointer authentication
+  // details https://developer.arm.com/documentation/dui0801/l/A64-General-Instructions/BRAA--BRAAZ--BRAB--BRABZ--A64-?lang=en
+  int is_braa() const
+  {
+    return (instr_id == AD_INSTR_BRAA) ||
+     (instr_id == AD_INSTR_BRAAZ) ||
+     (instr_id == AD_INSTR_BRAB) ||
+     (instr_id == AD_INSTR_BRABZ)
+    ;
   }
   // boring stuff
   int is_b_jimm(unsigned long &addr) const
