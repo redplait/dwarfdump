@@ -13,6 +13,78 @@ void my_warn(const char * pat, ...) {
  vwarn(pat, &args);
 }
 
+struct arm_reg
+{
+  long val;
+  int ldr; // base register for ldr[bh] reg, [base + xxx]
+
+  arm_reg()
+   : val(0),
+     ldr(-1)
+   { }
+  inline void reset()
+  {
+    val = 0;
+    ldr = -1;
+  }
+};
+
+static const char *s_regpad = "Disasm::Arm64::Regpad";
+
+struct regs_pad {
+   regs_pad() = default;
+   regs_pad(const regs_pad &) = default;
+   void reset()
+   {
+     for ( int i = 0; i < AD_REG_SP; i++ ) m_regs[i].reset();
+   }
+   inline void zero(int reg)
+   {
+     if ( reg >= AD_REG_SP )
+       return;
+     m_regs[reg].reset();
+   }
+   inline long get(int reg)
+   {
+     if ( reg >= AD_REG_SP ) // hm
+       return 0;
+     return m_regs[reg].val;
+   }
+   // http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0802a/ADRP.html
+   long adrp(int reg, long val)
+   {
+     if ( reg >= AD_REG_SP )
+       return 0;
+     m_regs[reg].val = val;
+     return val;
+   }
+   // http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0802a/a64_general_alpha.html
+   long add(int reg1, int reg2, long val)
+   {
+     if ( (reg1 >= AD_REG_SP) || (reg2 >= AD_REG_SP) )
+       return 0;
+     m_regs[reg1].ldr = -1;
+     if ( !m_regs[reg2].val )
+       return 0;
+     m_regs[reg1].val = m_regs[reg2].val + val;
+     if ( reg1 != reg2 )
+       m_regs[reg2].reset();
+     return m_regs[reg1].val;
+   }
+   int mov(int reg1, int reg2)
+   {
+     if ( (reg1 >= AD_REG_SP) || (reg2 >= AD_REG_SP) ) 
+       return 0;
+     m_regs[reg1].ldr = -1;
+     if ( !m_regs[reg2].val )
+       return 0;
+     m_regs[reg1] = m_regs[reg2];
+     return 1;
+   }
+   // data
+   arm_reg m_regs[AD_REG_SP];
+};
+
 struct adis: public ad_insn {
   const char *psp, *end;
   unsigned long addr, start;
@@ -194,7 +266,7 @@ struct adis: public ad_insn {
                && num_operands == 2 && operands[0].type == AD_OP_REG && operands[1].type == AD_OP_REG
              );
   }
-  int s_adr() const
+  int is_adr() const
   {
     return (instr_id == AD_INSTR_ADR) &&
            (num_operands == 2) &&
@@ -338,11 +410,34 @@ struct adis: public ad_insn {
       }
       return 0;
     }
+    inline int get_reg(int idx) const
+    {
+      return operands[idx].op_reg.rn;
+    }
+    unsigned long apply(regs_pad *rp) {
+      if ( is_adr() ) {
+        return rp->adrp(get_reg(0), operands[1].op_imm.bits);
+      }
+      if ( is_adrp() ) {
+        return rp->adrp(get_reg(0), operands[1].op_imm.bits);
+      }
+      if ( is_add() ) {
+        return rp->add(get_reg(0), get_reg(1), operands[2].op_imm.bits);
+      }
+      if ( is_mov_rr() ) {
+        rp->mov(get_reg(0), get_reg(1));
+        return 0;
+      }
+      // must be last
+      if ( (num_operands > 1) && is_dst_reg() ) rp->zero(get_reg(0));
+      return 0;
+    }
 };
 
+template <typename T>
 static int arm64_magic_free(pTHX_ SV* sv, MAGIC* mg) {
     if (mg->mg_ptr) {
-        auto *m = (adis *)mg->mg_ptr;
+        auto *m = (T *)mg->mg_ptr;
         delete m;
         mg->mg_ptr= NULL;
     }
@@ -355,7 +450,31 @@ static MGVTBL Arm64_magic_vt = {
         0, /* write */
         0, /* length */
         0, /* clear */
-        arm64_magic_free,
+        arm64_magic_free<adis>,
+        0, /* copy */
+        0 /* dup */
+#ifdef MGf_LOCAL
+        ,0
+#endif
+};
+
+static U32
+rpad_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
+{
+  U32 res = 0;
+  if (mg->mg_ptr) {
+    res = AD_REG_SP;
+  }
+  return res;
+}
+
+// magic table for Disasm::Arm64::Regpad
+static MGVTBL regpad_magic_vt = {
+        0, /* get */
+        0, /* write */
+        rpad_magic_sizepack, /* length */
+        0, /* clear */
+        arm64_magic_free<regs_pad>,
         0, /* copy */
         0 /* dup */
 #ifdef MGf_LOCAL
@@ -383,6 +502,28 @@ adis *adis_get(SV *obj)
     }
   return NULL;
 }
+
+regs_pad *regpad_get(SV *obj)
+{
+  SV *sv;
+  MAGIC* magic;
+ 
+  if (!sv_isobject(obj)) {
+     if (die)
+        croak("Not an object");
+        return NULL;
+  }
+  sv= SvRV(obj);
+  if (SvMAGICAL(sv)) {
+     /* Iterate magic attached to this scalar, looking for one with our vtable */
+     for (magic= SvMAGIC(sv); magic; magic = magic->mg_moremagic)
+        if (magic->mg_type == PERL_MAGIC_tied && magic->mg_virtual == &regpad_magic_vt)
+          /* If found, the mg_ptr points to the fields structure. */
+            return (regs_pad*) magic->mg_ptr;
+    }
+  return NULL;
+}
+
 
 #define EXPORT_ENUM(name, x) newCONSTSUB(stash, name, new_enum_dualvar(aTHX_ x, newSVpvs_share(name)));
 static SV * new_enum_dualvar(pTHX_ IV ival, SV *name) {
@@ -709,6 +850,81 @@ bl_jimm(SV *sv)
    else
     ST(0) = sv_2mortal( newSVuv(d->operands[0].op_imm.bits) );
   XSRETURN(1);
+
+void
+regpad(SV *sv)
+  INIT:
+  HV *pkg = NULL;
+  AV *fake = NULL;
+  adis *d = adis_get(sv);
+  regs_pad *rp = NULL;
+  SV *objref= NULL;
+  MAGIC* magic;
+ PPCODE:
+  if ( !(pkg = gv_stashpv(s_regpad, 0)) ) {
+    croak("Package %s does not exists", s_regpad);
+    XSRETURN(0);
+  }
+  rp = new regs_pad();
+  // tie on array
+  fake = newAV();
+  objref = newRV_noinc((SV*)fake);
+  sv_bless(objref, pkg);
+  magic = sv_magicext((SV*)fake, NULL, PERL_MAGIC_tied, &regpad_magic_vt, (const char *)rp, 0);
+  SvREADONLY_on((SV*)fake);
+  ST(0) = objref;
+  XSRETURN(1);
+
+void
+apply(SV *a, SV *r)
+ INIT:
+   adis *d = adis_get(a);
+   regs_pad *rp = regpad_get(r);
+ PPCODE:
+   if ( d->empty() )
+    ST(0) = &PL_sv_undef;
+   else
+    ST(0) = sv_2mortal( newSVuv( (unsigned long)d->apply(rp) ) );
+   XSRETURN(1);
+
+MODULE = Disasm::Arm64		PACKAGE = Disasm::Arm64::Regpad
+
+void
+FETCH(self, key)
+  SV *self;
+  IV key;
+ INIT:
+  auto *r = regpad_get(self);
+ PPCODE:
+  if ( key >= AD_REG_SP )
+    ST(0) = &PL_sv_undef;
+  else
+    ST(0) = sv_2mortal( newSVuv( (unsigned long)r->get(key) ) );
+  XSRETURN(1);
+
+void
+clone(SV *r)
+ INIT:
+  HV *pkg = NULL;
+  AV *fake = NULL;
+  regs_pad *rp = regpad_get(r), *res = NULL;
+  SV *objref= NULL;
+  MAGIC* magic;
+ PPCODE:
+  if ( !(pkg = gv_stashpv(s_regpad, 0)) ) {
+    croak("Package %s does not exists", s_regpad);
+    XSRETURN(0);
+  }
+  res = new regs_pad(*rp);
+  // tie on array
+  fake = newAV();
+  objref = newRV_noinc((SV*)fake);
+  sv_bless(objref, pkg);
+  magic = sv_magicext((SV*)fake, NULL, PERL_MAGIC_tied, &regpad_magic_vt, (const char *)res, 0);
+  SvREADONLY_on((SV*)fake);
+  ST(0) = objref;
+  XSRETURN(1);
+
 
 BOOT:
 {
