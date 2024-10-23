@@ -3,7 +3,6 @@
 # 22 oct 2024 (c) redp
 use strict;
 use warnings;
-
 use Elf::Reader;
 use Disasm::Arm64;
 use Interval::Tree;
@@ -17,46 +16,46 @@ my %g_addr;
 sub disasm_func
 {
   my($d, $ar) = @_;
-  # queue of addresses to process
+  # queue of addresses to process, [ addr regpad ]
   my @Q;
   my $tree = Interval::Tree->new();
-  push @Q, $ar->[0];
+  push @Q, [ $ar->[0], $d->regpad() ];
   while ( @Q )
   {
-    my $adr = shift @Q;
+    my($adr, $rp) = @{ shift @Q };
     next if ( $tree->in_tree($adr) );
-    my $rp = $d->regpad();
     my $next = $tree->next($adr);
     if ( $next ) {
-      $d->setup2( $adr, $next - $adr );
+      $d->setup2( $adr, $next - $adr);
     } else {
       $d->setup( $adr );
     }
     while ( my $len = $d->disasm() )
     {
       my $adr = $d->addr();
-      my $cc = $d->cc();
-      if ( defined $cc ) {
-        printf("%X: %s ; cc %d %d", $adr, $d->text(), $cc, $d->idx());
-      } else {
-        printf("%X: %s ; %d", $adr, $d->text(), $d->idx());
-      }
+      my $cc = $d->cc(); my $idx = $d->idx();
+      printf("%X: %s ; ", $adr, $d->text());
+      printf("%d ", $idx) if $idx;
+      printf("cc %d", $cc) if defined($cc);
       my $ja = $d->bl_jimm();
       if ( $ja && exists($g_addr{ $ja }) ) {
-        printf(" -> %s", $g_addr{ $ja }->[0] );
+          printf(" -> %s", $g_addr{ $ja }->[0] );
       }
       # find jxx
       my $j = $d->is_jxx();
       # push addr in queue if it was not processed yet
       if ( $j ) {
-        my $p = $tree->in_tree($j);
-        if ( !$p ) { push(@Q, $j) }
+        if ( !$tree->in_tree($j) ) { push(@Q, [$j, $rp->clone()]) }
         else { printf(" [-]"); }
       }
       # adrp/add pairs
       my $pa = $d->apply($rp);
-      if ( defined($pa) && exists( $g_addr{$pa} ) ) {
-        printf(" %s", $g_addr{ $pa }->[0] );
+      if ( defined($pa) && $pa ) {
+        if ( exists( $g_addr{$pa} ) ) {
+          printf(" %s", $g_addr{ $pa }->[0] );
+        } else {
+          printf(" ? %X", $pa );
+        }
       }
       printf("\n");
     }
@@ -85,7 +84,7 @@ die("cannot find symbols") if ( !defined($sec) ) ;
 my $syms = $e->syms($sec);
 foreach ( @$syms ) {
   last if ( !defined $_ );
-  next if ( $_->[0] eq '' );
+  next if ( $_->[0] eq '' ); # skip unnamed symbol
   $g_addr{ $_->[1] } = [ $_->[0], $_->[4] ] if ( $_->[1] );
   $g_syms{ $_->[0] } = [ $_->[1], $_->[2] ] if ( $_->[4] == STT_FUNC );
 }
