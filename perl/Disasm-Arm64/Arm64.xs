@@ -559,10 +559,27 @@ reg(SV *sv, int idx)
   else if ( idx >= d->num_operands ) {
     warn("reg(%d) when only %d operands", idx, d->num_operands);
     ST(0) = &PL_sv_undef;
-  } else if ( d->operands[idx].type != AD_OP_REG )
+  } else if ( d->operands[idx].type != AD_OP_REG || d->operands[idx].op_reg.rn == AD_NONE)
     ST(0) = &PL_sv_undef;
   else
    sv_2mortal( newSViv(d->operands[idx].op_reg.rn) );
+  XSRETURN(1);
+
+
+void
+fpreg(SV *sv, int idx)
+ INIT:
+   adis *d = adis_get(sv);
+ PPCODE:
+   if ( d->empty() )
+    ST(0) = &PL_sv_undef;
+  else if ( idx >= d->num_operands ) {
+    warn("fpreg(%d) when only %d operands", idx, d->num_operands);
+    ST(0) = &PL_sv_undef;
+  } else if ( d->operands[idx].type != AD_OP_REG || d->operands[idx].op_reg.fp == AD_NONE )
+    ST(0) = &PL_sv_undef;
+  else
+   sv_2mortal( newSViv(d->operands[idx].op_reg.fp) );
   XSRETURN(1);
 
 void
