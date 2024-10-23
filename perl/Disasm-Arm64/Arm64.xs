@@ -246,6 +246,98 @@ struct adis: public ad_insn {
             (operands[2].type == AD_OP_IMM)
      ;
    }
+   // 146% I forgot many of them
+   inline int is_dst_reg() const
+    {
+      if ( operands[0].type != AD_OP_REG )
+        return 0;
+      switch(instr_id)
+      {
+        case AD_INSTR_LDTR:
+        case AD_INSTR_LDTRB:
+        case AD_INSTR_LDTRH:
+        case AD_INSTR_LDRSW:
+        case AD_INSTR_LDRSH:
+        case AD_INSTR_LDAR:
+        case AD_INSTR_LDARB:
+        case AD_INSTR_LDARH:
+        case AD_INSTR_LDRB:
+        case AD_INSTR_LDRSB:
+        case AD_INSTR_LDRH:
+        case AD_INSTR_LDP:
+        case AD_INSTR_LDUR:
+        case AD_INSTR_LDURB:
+        case AD_INSTR_LDURH:
+        case AD_INSTR_LDURSW:
+        case AD_INSTR_ADRP:
+        case AD_INSTR_EON:
+        case AD_INSTR_EOR:
+        case AD_INSTR_ORR:
+        case AD_INSTR_ORN:
+        case AD_INSTR_AND:
+        case AD_INSTR_ANDS:
+        case AD_INSTR_MSUB:
+        case AD_INSTR_SUB:
+        case AD_INSTR_UMSUBL:
+        case AD_INSTR_SUBS:
+        case AD_INSTR_MOVK:
+        case AD_INSTR_MADD:
+        case AD_INSTR_ADDS:
+        case AD_INSTR_ADC:
+        case AD_INSTR_ADCS:
+        case AD_INSTR_CMN:
+        case AD_INSTR_STADD:
+        case AD_INSTR_UMADDL:
+        case AD_INSTR_SMADDL:
+        case AD_INSTR_UDIV:
+        case AD_INSTR_SDIV:
+        case AD_INSTR_MUL:
+        case AD_INSTR_UMULL:
+        case AD_INSTR_UMULH:
+        case AD_INSTR_SMULL:
+        case AD_INSTR_SMULH:
+        case AD_INSTR_SBFX:
+        case AD_INSTR_SXTW:
+        case AD_INSTR_SXTB:
+        case AD_INSTR_SXTH:
+        case AD_INSTR_CSEL:
+        case AD_INSTR_MRS:
+        case AD_INSTR_LSL:
+        case AD_INSTR_LSLV:
+        case AD_INSTR_LSR:
+        case AD_INSTR_LSRV:
+        case AD_INSTR_CSET:
+        case AD_INSTR_CSETM:
+        case AD_INSTR_UBFIZ:
+        case AD_INSTR_SBFIZ:
+        case AD_INSTR_BIC:
+        case AD_INSTR_ASR:
+        case AD_INSTR_ASRV:
+        case AD_INSTR_BFI:
+        case AD_INSTR_CNEG:
+        case AD_INSTR_NEG:
+        case AD_INSTR_NEGS:
+        case AD_INSTR_CSNEG:
+        case AD_INSTR_CSINC:
+        case AD_INSTR_CINC:
+        case AD_INSTR_CSINV:
+        case AD_INSTR_CINV:
+        case AD_INSTR_UBFX:
+        case AD_INSTR_BFXIL:
+        case AD_INSTR_ROR:
+        case AD_INSTR_MVN:
+        case AD_INSTR_CLS:
+        case AD_INSTR_CLZ:
+        case AD_INSTR_RBIT:
+        case AD_INSTR_REV:
+        case AD_INSTR_REV16:
+        case AD_INSTR_EXTR:
+        case AD_INSTR_LDADDAL:
+        case AD_INSTR_LDADDL:
+         return 1;
+      }
+      return 0;
+    }
 };
 
 static int arm64_magic_free(pTHX_ SV* sv, MAGIC* mg) {
@@ -471,6 +563,22 @@ reg(SV *sv, int idx)
     ST(0) = &PL_sv_undef;
   else
    sv_2mortal( newSViv(d->operands[idx].op_reg.rn) );
+  XSRETURN(1);
+
+void
+sysreg(SV *sv, int idx)
+ INIT:
+   adis *d = adis_get(sv);
+ PPCODE:
+   if ( d->empty() )
+    ST(0) = &PL_sv_undef;
+  else if ( idx >= d->num_operands ) {
+    warn("sysreg(%d) when only %d operands", idx, d->num_operands);
+    ST(0) = &PL_sv_undef;
+  } else if ( d->operands[idx].type != AD_OP_REG || d->operands[idx].op_reg.sysreg == AD_NONE )
+    ST(0) = &PL_sv_undef;
+  else
+   sv_2mortal( newSViv(d->operands[idx].op_reg.sysreg) );
   XSRETURN(1);
 
 void
