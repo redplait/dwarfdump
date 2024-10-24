@@ -38,22 +38,32 @@ struct regs_pad {
    {
      for ( int i = 0; i < AD_REG_SP; i++ ) m_regs[i].reset();
    }
+   // mark x0..x7 ldr - see https://github.com/ARM-software/abi-aa/blob/main/aapcs64/aapcs64.rst#machine-registers
+   void mark_abi() {
+    for ( int i = 0; i < 8; i++ )
+      m_regs[i].ldr = i;
+   }
    inline void zero(int reg)
    {
-     if ( reg >= AD_REG_SP )
+     if ( reg >= AD_REG_SP || reg < 0 )
        return;
      m_regs[reg].reset();
    }
    inline long get(int reg)
    {
-     if ( reg >= AD_REG_SP ) // hm
+     if ( reg >= AD_REG_SP || reg < 0 ) // hm
        return 0;
      return m_regs[reg].val;
+   }
+   inline int ldr(int reg) {
+     if ( reg >= AD_REG_SP || reg < 0 ) // hm
+       return -1;
+     return m_regs[reg].ldr;
    }
    // http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0802a/ADRP.html
    long adrp(int reg, long val)
    {
-     if ( reg >= AD_REG_SP )
+     if ( reg >= AD_REG_SP || reg < 0 )
        return 0;
      m_regs[reg].val = val;
      m_regs[reg].ldr = -1;
@@ -62,7 +72,7 @@ struct regs_pad {
    // http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0802a/a64_general_alpha.html
    long add(int reg1, int reg2, long val)
    {
-     if ( (reg1 >= AD_REG_SP) || (reg2 >= AD_REG_SP) )
+     if ( (reg1 >= AD_REG_SP) || (reg1 < 0) || (reg2 >= AD_REG_SP) || (reg2 < 0) )
        return 0;
      m_regs[reg1].ldr = -1;
      if ( !m_regs[reg2].val )
@@ -74,11 +84,14 @@ struct regs_pad {
    }
    int mov(int reg1, int reg2)
    {
-     if ( (reg1 >= AD_REG_SP) || (reg2 >= AD_REG_SP) ) 
+     if ( (reg1 >= AD_REG_SP) || (reg1 < 0) || (reg2 >= AD_REG_SP) || (reg2 < 0) )
        return 0;
      m_regs[reg1].ldr = -1;
      if ( !m_regs[reg2].val )
+     {
+       m_regs[reg1].ldr = m_regs[reg2].ldr;
        return 0;
+     }
      m_regs[reg1] = m_regs[reg2];
      return 1;
    }
@@ -277,7 +290,7 @@ struct adis: public ad_insn {
   }
   int is_adrp() const
   {
-    return (instr_id == AD_INSTR_ADRP) && 
+    return (instr_id == AD_INSTR_ADRP) &&
            (num_operands == 2) &&
            (operands[0].type == AD_OP_REG) &&
            (operands[1].type == AD_OP_IMM)
@@ -310,14 +323,17 @@ struct adis: public ad_insn {
             (operands[1].type == AD_OP_REG)
      ;
    }
-   int is_ldr() const
+   inline int is_rri() const
    {
-     return (instr_id == AD_INSTR_LDR) && 
-            (num_operands == 3) &&
+     return (num_operands == 3) &&
             (operands[0].type == AD_OP_REG) &&
             (operands[1].type == AD_OP_REG) &&
             (operands[2].type == AD_OP_IMM)
      ;
+   }
+   int is_ldr() const
+   {
+     return (instr_id == AD_INSTR_LDR) && is_rri();
    }
    // 146% I forgot many of them
    inline int is_dst_reg() const
@@ -432,6 +448,38 @@ struct adis: public ad_insn {
       // must be last
       if ( (num_operands > 1) && is_dst_reg() ) rp->zero(get_reg(0));
       return 0;
+    }
+    // return 1 if instr is ldrXX reg, [base + off],
+    //        2 if instr is strXX reg, [base + off],
+    // 0 otherwise
+    int is_ls(regs_pad *rp, int &base, long &off)
+    {
+      int res = 0;
+      if ( is_rri() ) {
+        switch(instr_id) {
+          case AD_INSTR_LDR:
+          case AD_INSTR_LDRB:
+          case AD_INSTR_LDRSB:
+          case AD_INSTR_LDRH:
+          case AD_INSTR_LDRSH:
+          case AD_INSTR_LDRSW:
+          case AD_INSTR_LDRAA:
+          case AD_INSTR_LDRAB:
+           res = 1;
+           base = rp->ldr(get_reg(1));
+           off = operands[2].op_imm.bits;
+           rp->zero(get_reg(0));
+           break;
+          case AD_INSTR_STR:
+          case AD_INSTR_STRB:
+          case AD_INSTR_STRH:
+           base = rp->ldr(get_reg(1));
+           off = operands[2].op_imm.bits;
+           res = 2;
+           break;
+        }
+      }
+      return res;
     }
 };
 
@@ -888,6 +936,30 @@ apply(SV *a, SV *r)
     ST(0) = sv_2mortal( newSVuv( (unsigned long)d->apply(rp) ) );
    XSRETURN(1);
 
+void
+is_ls(SV *a, SV *r)
+ INIT:
+   adis *d = adis_get(a);
+   regs_pad *rp = regpad_get(r);
+   int base = -1, res;
+   long off = 0;
+ PPCODE:
+   if ( d->empty() )
+    ST(0) = &PL_sv_undef;
+   else {
+    res = d->is_ls(rp, base, off);
+    if ( !res )
+      ST(0) = &PL_sv_undef;
+    else { // return array [res base off]
+      AV *av = newAV();
+      mXPUSHs(newRV_noinc((SV*)av));
+      av_push(av, newSViv( res ));
+      av_push(av, newSViv( base ));
+      av_push(av, newSViv( off ));
+    }
+   }
+   XSRETURN(1);
+
 MODULE = Disasm::Arm64		PACKAGE = Disasm::Arm64::Regpad
 
 void
@@ -897,7 +969,7 @@ FETCH(self, key)
  INIT:
   auto *r = regpad_get(self);
  PPCODE:
-  if ( key >= AD_REG_SP )
+  if ( key >= AD_REG_SP || key < 0 )
     ST(0) = &PL_sv_undef;
   else
     ST(0) = sv_2mortal( newSVuv( (unsigned long)r->get(key) ) );
@@ -931,12 +1003,21 @@ reset(SV *self, IV key)
  INIT:
   auto *r = regpad_get(self);
  PPCODE:
-  if ( key >= AD_REG_SP ) {
+  if ( key >= AD_REG_SP || key < 0 ) {
     XSRETURN_NO;
   } else {
    r->zero(key);
    XSRETURN_YES;
   }
+
+void
+abi(SV *self)
+ INIT:
+  auto *r = regpad_get(self);
+ PPCODE:
+  if ( !r ) XSRETURN_NO;
+  r->mark_abi();
+  XSRETURN_YES;
 
 BOOT:
 {
