@@ -56,6 +56,7 @@ struct regs_pad {
      if ( reg >= AD_REG_SP )
        return 0;
      m_regs[reg].val = val;
+     m_regs[reg].ldr = -1;
      return val;
    }
    // http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0802a/a64_general_alpha.html
@@ -925,6 +926,17 @@ clone(SV *r)
   ST(0) = objref;
   XSRETURN(1);
 
+void
+reset(SV *self, IV key)
+ INIT:
+  auto *r = regpad_get(self);
+ PPCODE:
+  if ( key >= AD_REG_SP ) {
+    XSRETURN_NO;
+  } else {
+   r->zero(key);
+   XSRETURN_YES;
+  }
 
 BOOT:
 {
