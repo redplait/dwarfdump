@@ -2342,12 +2342,21 @@ __END__
 
 =head1 NAME
 
-Disasm::Arm64 - Perl extension for blah blah blah
+Disasm::Arm64 - Perl binding of Arm64 disassembler (https://github.com/redplait/armpatched/tree/master/source)
+requires Elf::Reader
 
 =head1 SYNOPSIS
 
   use Disasm::Arm64;
-  blah blah blah
+  use Elf::Reader;
+  my $e = Elf::Reader->new(path2elf);
+  my $d = Disasm::Arm64->new($e);
+  $d->setup($address);
+  while( my $len = $d->disasm() ) {
+    ...
+    printf("%X: %s\n", $d->addr(), $d->text());
+  }
+  
 
 =head1 DESCRIPTION
 
