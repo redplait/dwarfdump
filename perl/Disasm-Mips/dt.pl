@@ -17,10 +17,8 @@ my %g_addr;
 sub is_li
 {
   my $d = shift;
-  my $op = $d->op();
-  return 0 if ( $op != LI );
-  my $cl = $d->op_class(1);
-  return 0 if ( $cl != IMM );
+  return 0 if ( $d->op() != LI );
+  return 0 if ( $d->op_class(1) != IMM );
   return $d->op_imm(1);
 }
 
@@ -52,12 +50,15 @@ sub disasm_func
       } elsif ( $li && exists($g_addr{ $li }) ) {
         printf(" ; %s", $g_addr{ $li }->[0] );
       }
-      printf("\n");
       # find jxx
       my $j = $d->is_jxx();
       # push addr in queue if it was not processed yet
-      push(@Q, $j) if ( $j && !$tree->in_tree($j) );
-      # last if ( $adr >= $ar->[0] + $ar->[1] );
+      if ( $j ) {
+        my $p = $tree->in_tree($j);
+        if ( !$p ) { push(@Q, $j) }
+        else { printf(" ; [-]"); }
+      }
+      printf("\n");
     }
     # add to tree
     $tree->insert( $adr, $d->addr() - $adr );
@@ -72,23 +73,8 @@ if ( scalar( @ARGV) < 1 ) {
 }
 my $e = Elf::Reader->new($ARGV[0]);
 die("Cannot load $ARGV[0]") if ( !defined($e) ) ;
-my $s = $e->secs();
-my $sec;
-foreach ( @$s ) {
- if ( $_->[2] == Elf::Reader::SHT_SYMTAB ) {
-   $sec = $_->[0];
-   last;
- }
-}
-die("cannot find symbols") if ( !defined($sec) ) ;
-my $syms = $e->syms($sec);
-foreach ( @$syms ) {
-  last if ( !defined $_ );
-  next if ( $_->[0] eq '' );
-  $g_addr{ $_->[1] } = [ $_->[0], $_->[4] ] if ( $_->[1] );
-  $g_syms{ $_->[0] } = [ $_->[1], $_->[2] ] if ( $_->[4] == STT_FUNC );
-}
-
+my $scount = simple_symbols($e, \%g_syms, \%g_addr);
+die("cannot find symbols") if ( !$scount ) ;
 # make disasm
 my $d = Disasm::Mips->new($e);
 # process remaining symbols
