@@ -72,23 +72,8 @@ if ( scalar( @ARGV) < 1 ) {
 }
 my $e = Elf::Reader->new($ARGV[0]);
 die("Cannot load $ARGV[0]") if ( !defined($e) ) ;
-my $s = $e->secs();
-my $sec;
-foreach ( @$s ) {
- if ( $_->[2] == Elf::Reader::SHT_SYMTAB ) {
-   $sec = $_->[0];
-   last;
- }
-}
-die("cannot find symbols") if ( !defined($sec) ) ;
-my $syms = $e->syms($sec);
-foreach ( @$syms ) {
-  last if ( !defined $_ );
-  next if ( $_->[0] eq '' ); # skip unnamed symbol
-  $g_addr{ $_->[1] } = [ $_->[0], $_->[4] ] if ( $_->[1] );
-  $g_syms{ $_->[0] } = [ $_->[1], $_->[2] ] if ( $_->[4] == STT_FUNC );
-}
-
+my $scount = simple_symbols($e, \%g_syms, \%g_addr);
+die("cannot find symbols") if ( !$scount ) ;
 # make disasm
 my $d = Disasm::Arm64->new($e);
 # process remaining symbols
