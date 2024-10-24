@@ -295,6 +295,37 @@ sub get_dtag_name($)
   undef;
 }
 
+# lean & mean symbols reading
+# arguments:
+#  - ref to Reader::Elf object
+#  - ref to map where key - name, value - [ address, size ]
+#  - ref tp map where key - addr, value - [ name, type ]
+# return count of symbols
+sub simple_symbols
+{
+  my( $e, $rsyms, $raddr ) = @_;
+  my $s = $e->secs();
+  my $sec;
+  foreach ( @$s ) {
+    if ( $_->[2] == SHT_SYMTAB ) {
+      $sec = $_->[0];
+      last;
+    }
+  }
+  return 0 if ( !defined($sec) );
+  my $syms = $e->syms($sec);
+  return 0 if ( !defined $syms );
+  my $res = 0;
+  foreach ( @$syms ) {
+    last if ( !defined $_ );
+    next if ( $_->[0] eq '' ); # skip unnamed symbol
+    $res++;
+    $raddr->{ $_->[1] } = [ $_->[0], $_->[4] ] if ( $_->[1] );
+    $rsyms->{ $_->[0] } = [ $_->[1], $_->[2] ] if ( $_->[4] == STT_FUNC );
+  }
+  return $res;
+}
+
 our @EXPORT = qw(
  ET_NONE
  ET_REL
@@ -466,6 +497,7 @@ DT_HIOS
 DT_LOPROC
 DT_HIPROC
 get_dtag_name
+simple_symbols
 );
 
 our $VERSION = '0.01';
