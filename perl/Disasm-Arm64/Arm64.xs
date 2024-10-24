@@ -268,15 +268,9 @@ struct adis: public ad_insn {
   {
     return (instr_id == AD_INSTR_MOV && num_operands == 2 && operands[0].type == AD_OP_REG && operands[1].type == AD_OP_IMM);
   }
-  inline int is_ldr_off() const
+  inline int is_ldr0() const
   {
-     return ( (instr_id == AD_INSTR_LDRAA || instr_id == AD_INSTR_LDR)
-               && num_operands == 3 && operands[0].type == AD_OP_REG && operands[1].type == AD_OP_REG
-             );
-  }
-  inline int is_ldraa() const
-  {
-      return ( (instr_id == AD_INSTR_LDRAA || instr_id == AD_INSTR_LDR)
+      return ( (instr_id == AD_INSTR_LDRAA || instr_id == AD_INSTR_LDRAB || instr_id == AD_INSTR_LDR)
                && num_operands == 2 && operands[0].type == AD_OP_REG && operands[1].type == AD_OP_REG
              );
   }
@@ -314,14 +308,6 @@ struct adis: public ad_insn {
            (operands[2].type == AD_OP_REG) &&
            (operands[3].type == AD_OP_IMM)
     ;
-   }
-   int is_ldr0() const
-   {
-     return (instr_id == AD_INSTR_LDR) && 
-            (num_operands == 2) &&
-            (operands[0].type == AD_OP_REG) &&
-            (operands[1].type == AD_OP_REG)
-     ;
    }
    inline int is_rri() const
    {
@@ -478,6 +464,11 @@ struct adis: public ad_insn {
            res = 2;
            break;
         }
+      } else if ( is_ldr0() ) {
+        res = 1;
+        base = rp->ldr(get_reg(1));
+        off = 0;
+        rp->zero(get_reg(0));
       }
       return res;
     }
