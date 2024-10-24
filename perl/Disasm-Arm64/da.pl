@@ -19,7 +19,8 @@ sub disasm_func
   # queue of addresses to process, [ addr regpad ]
   my @Q;
   my $tree = Interval::Tree->new();
-  push @Q, [ $ar->[0], $d->regpad() ];
+  my $irp = $d->regpad(); $irp->abi();
+  push @Q, [ $ar->[0], $irp ];
   while ( @Q )
   {
     my($adr, $rp) = @{ shift @Q };
@@ -56,6 +57,10 @@ sub disasm_func
         } else {
           printf(" ? %X", $pa );
         }
+      }
+      my $ld = $d->is_ls($rp);
+      if ( defined($ld) && $ld->[1] >= 0 ) {
+        printf("%s %d %X", $ld->[0] == 1 ? "ld" : "st", $ld->[1], $ld->[2]);
       }
       printf("\n");
     }
