@@ -32,12 +32,12 @@ struct mips_regs {
     if ( !pres[idx] ) return 0;
     return regs[idx];
   }
-  int set(int idx, int64_t v)
+  int64_t set(int idx, int64_t v)
   {
     if ( idx >= mips::REG_RA || idx < 0 ) return 0;
-    pres[idx] = 1;
+    pres[idx] = 1; m[idx] = -1;
     regs[idx] = v;
-    return 1;
+    return v;
   }
   int move(int idx, int src)
   {
@@ -202,6 +202,76 @@ using namespace mips;
       if ( inst.operands[1].operandClass == mips::LABEL )
         return inst.operands[1].immediate;
       break;
+   }
+   return 0;
+ }
+ int64_t apply(mips_regs *mr)
+ {
+   if ( inst.operation == mips::MIPS_MOVE )
+   {
+     mr->set(inst.operands[0].reg, inst.operands[1].reg);
+     return 0;
+   }
+   if ( (inst.operation == mips::MIPS_LUI || inst.operation == mips::MIPS_LI || inst.operation == mips::MIPS_LBU) &&
+        inst.operands[0].operandClass == mips::OperandClass::REG &&
+        inst.operands[1].operandClass == mips::OperandClass::IMM )
+    return mr->set(inst.operands[0].reg, inst.operands[1].immediate << 16);
+   if ( is_lw() )
+   {
+     auto old = mr->get(inst.operands[1].reg);
+     if ( old ) {
+       old += (int)inst.operands[1].immediate;
+       return mr->set(inst.operands[0].reg, old);
+     } else {
+       old = (int)inst.operands[1].immediate;
+       mr->set(inst.operands[0].reg, old);
+       return 0;
+     }
+   }
+   if ( inst.operands[0].operandClass == mips::OperandClass::REG && is_dst() )
+     mr->clear(inst.operands[0].reg);
+   return 0;
+ }
+ // boring stuff
+ int is_dst() const
+ {
+using namespace mips;
+   // https://www.cs.cmu.edu/afs/cs/academic/class/15740-f97/public/doc/mips-isa.pdf
+   switch(inst.operation) {
+     case MIPS_ADD:
+     case MIPS_ADDU:
+     case MIPS_SUB:
+     case MIPS_SUBU:
+     case MIPS_MUL:
+     case MIPS_MULT:
+     case MIPS_DIV:
+     case MIPS_AND:
+     case MIPS_OR:
+     case MIPS_ANDI:
+     case MIPS_ORI:
+     case MIPS_XOR:
+     case MIPS_XORI:
+     case MIPS_SLL:
+     case MIPS_SRL:
+      return 1;
+   }
+   return 0;
+ }
+ int is_lw() const
+ {
+   return (inst.operation == mips::MIPS_LW || inst.operation == mips::MIPS_LBU) &&
+          inst.operands[0].operandClass == mips::OperandClass::REG &&
+          inst.operands[1].operandClass == mips::OperandClass::MEM_IMM;
+ }
+ int is_addiu(int &val) const
+ {
+   if ( inst.operation == mips::MIPS_ADDIU &&
+        inst.operands[0].operandClass == mips::OperandClass::REG &&
+        inst.operands[1].operandClass == mips::OperandClass::REG &&
+        inst.operands[2].operandClass == mips::OperandClass::IMM )
+   {
+     val = (int)inst.operands[2].immediate;
+     return 1;
    }
    return 0;
  }
@@ -513,6 +583,18 @@ is_jxx(SV *sv)
   RETVAL = d->is_jxx();
  OUTPUT:
   RETVAL
+
+void
+apply(SV *a, SV *r)
+ INIT:
+   mdis *d = mdis_get(a);
+   mips_regs *rp = regpad_get(r);
+ PPCODE:
+   if ( d->empty() )
+    ST(0) = &PL_sv_undef;
+   else
+    ST(0) = sv_2mortal( newSViv( (unsigned long)d->apply(rp) ) );
+   XSRETURN(1);
 
 void
 regpad(SV *sv)
