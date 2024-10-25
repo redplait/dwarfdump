@@ -1,6 +1,7 @@
 #!perl -w
 # test for mips disasm binding
 # 18 oct 2024 (c) redp
+# 25 oct 2024 - add regpads, is_ls & apply
 use strict;
 use warnings;
 
@@ -25,13 +26,14 @@ sub is_li
 sub disasm_func
 {
   my($d, $ar) = @_;
-  # queue of addresses to process
+  # queue of addresses to process, [addr regpad]
   my @Q;
+  my $irp = $d->regpad(); $irp->abi();
   my $tree = Interval::Tree->new();
-  push @Q, $ar->[0];
+  push @Q, [ $ar->[0], $irp ];
   while ( @Q )
   {
-    my $adr = shift @Q;
+    my($adr, $rp) = @{ shift @Q };
     next if ( $tree->in_tree($adr) );
     my $next = $tree->next($adr);
     if ( $next ) {
@@ -55,9 +57,21 @@ sub disasm_func
       # push addr in queue if it was not processed yet
       if ( $j ) {
         my $p = $tree->in_tree($j);
-        if ( !$p ) { push(@Q, $j) }
+        if ( !$p ) { push(@Q, [ $j, $rp->clone() ]); }
         else { printf(" ; [-]"); }
+        goto out;
       }
+      my $ld = $d->is_ls($rp);
+      if ( defined($ld) && $ld->[1] >= 0 )
+      {
+        printf(" ; %s %d %X\n", $ld->[0] == 1 ? "ld" : "st", $ld->[1], $ld->[2]);
+        next;
+      }
+      my $r = $d->apply($rp);
+      if ( defined($r) && exists($g_addr{ $r }) ) {
+        printf(" ; %s", $g_addr{ $r }->[0] );
+      }
+out:
       printf("\n");
     }
     # add to tree
