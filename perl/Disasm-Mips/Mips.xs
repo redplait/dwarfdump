@@ -7,11 +7,58 @@
 #include "elfio/elfio.hpp"
 #include "../elf.inc"
 #include "mips.h"
+#include <bitset>
 
 void my_warn(const char * pat, ...) {
  va_list args;
  vwarn(pat, &args);
 }
+
+static const char *s_regpad = "Disasm::Mips::Regpad";
+
+// for handling lui/lw pairs
+struct mips_regs {
+  int64_t regs[mips::REG_RA];
+  std::bitset<mips::REG_RA> pres;
+  // for moves
+  char m[mips::REG_RA];
+  mips_regs() {
+    memset(m, -1, mips::REG_RA);
+  }
+  mips_regs(mips_regs &) = default;
+  int64_t get(int idx) const
+  {
+    if ( idx >= mips::REG_RA || idx < 0 ) return 0;
+    if ( !pres[idx] ) return 0;
+    return regs[idx];
+  }
+  int set(int idx, int64_t v)
+  {
+    if ( idx >= mips::REG_RA || idx < 0 ) return 0;
+    pres[idx] = 1;
+    regs[idx] = v;
+    return 1;
+  }
+  int move(int idx, int src)
+  {
+    if ( idx >= mips::REG_RA || idx < 0 || src >= mips::REG_RA || src < 0 ) return 0;
+    m[idx] = src;
+    return 1;
+  }
+  int clear(int idx)
+  {
+    if ( idx >= mips::REG_RA || idx < 0 ) return 0;
+    pres[idx] = 0;
+    regs[idx] = 0;
+    m[idx] = -1;
+    return 1;
+  }
+  // a0 .. a3, see https://refspecs.linuxfoundation.org/elf/mipsabi.pdf
+  void abi() {
+    for ( int i = mips::REG_A0; i <= mips::REG_A3; ++i )
+     m[i] = i;
+  }
+};
 
 struct mdis {
   const char *psp, *end;
@@ -160,10 +207,11 @@ using namespace mips;
  }
 };
 
+template <typename T>
 static int mips_magic_free(pTHX_ SV* sv, MAGIC* mg) {
     if (mg->mg_ptr) {
-        mdis *m = (mdis *)mg->mg_ptr;
-        delete m;
+        auto *m = (T *)mg->mg_ptr;
+        if ( m ) delete m;
         mg->mg_ptr= NULL;
     }
     return 0; // ignored anyway
@@ -175,7 +223,31 @@ static MGVTBL Mips_magic_vt = {
         0, /* write */
         0, /* length */
         0, /* clear */
-        mips_magic_free,
+        mips_magic_free<mdis>,
+        0, /* copy */
+        0 /* dup */
+#ifdef MGf_LOCAL
+        ,0
+#endif
+};
+
+static U32
+rpad_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
+{
+  U32 res = 0;
+  if (mg->mg_ptr) {
+    res = mips::REG_RA;
+  }
+  return res;
+}
+
+// magic table for Disasm::Arm64::Regpad
+static MGVTBL regpad_magic_vt = {
+        0, /* get */
+        0, /* write */
+        rpad_magic_sizepack, /* length */
+        0, /* clear */
+        mips_magic_free<mips_regs>,
         0, /* copy */
         0 /* dup */
 #ifdef MGf_LOCAL
@@ -203,6 +275,28 @@ mdis *mdis_get(SV *obj)
     }
   return NULL;
 }
+
+mips_regs *regpad_get(SV *obj)
+{
+  SV *sv;
+  MAGIC* magic;
+ 
+  if (!sv_isobject(obj)) {
+     if (die)
+        croak("Not an object");
+        return NULL;
+  }
+  sv= SvRV(obj);
+  if (SvMAGICAL(sv)) {
+     /* Iterate magic attached to this scalar, looking for one with our vtable */
+     for (magic= SvMAGIC(sv); magic; magic = magic->mg_moremagic)
+        if (magic->mg_type == PERL_MAGIC_tied && magic->mg_virtual == &regpad_magic_vt)
+          /* If found, the mg_ptr points to the fields structure. */
+            return (mips_regs*) magic->mg_ptr;
+    }
+  return NULL;
+}
+
 
 #define EXPORT_ENUM(x) newCONSTSUB(stash, #x, new_enum_dualvar(aTHX_ mips::x, newSVpvs_share(#x)));
 static SV * new_enum_dualvar(pTHX_ IV ival, SV *name) {
@@ -419,6 +513,87 @@ is_jxx(SV *sv)
   RETVAL = d->is_jxx();
  OUTPUT:
   RETVAL
+
+void
+regpad(SV *sv)
+  INIT:
+  HV *pkg = NULL;
+  AV *fake = NULL;
+  mdis *d = mdis_get(sv);
+  mips_regs *rp = NULL;
+  SV *objref= NULL;
+  MAGIC* magic;
+ PPCODE:
+  if ( !(pkg = gv_stashpv(s_regpad, 0)) ) {
+    croak("Package %s does not exists", s_regpad);
+    XSRETURN(0);
+  }
+  rp = new mips_regs();
+  // tie on array
+  fake = newAV();
+  objref = newRV_noinc((SV*)fake);
+  sv_bless(objref, pkg);
+  magic = sv_magicext((SV*)fake, NULL, PERL_MAGIC_tied, &regpad_magic_vt, (const char *)rp, 0);
+  SvREADONLY_on((SV*)fake);
+  ST(0) = objref;
+  XSRETURN(1);
+
+
+MODULE = Disasm::Mips		PACKAGE = Disasm::Mips::Regpad
+
+void
+FETCH(self, key)
+  SV *self;
+  IV key;
+ INIT:
+  auto *r = regpad_get(self);
+ PPCODE:
+  if ( key >= mips::REG_RA || key < 0 || !r->pres[key] )
+    ST(0) = &PL_sv_undef;
+  else
+    ST(0) = sv_2mortal( newSVuv( (unsigned long)r->get(key) ) );
+  XSRETURN(1);
+
+void
+clone(SV *r)
+ INIT:
+  HV *pkg = NULL;
+  AV *fake = NULL;
+  mips_regs *rp = regpad_get(r), *res = NULL;
+  SV *objref= NULL;
+  MAGIC* magic;
+ PPCODE:
+  if ( !(pkg = gv_stashpv(s_regpad, 0)) ) {
+    croak("Package %s does not exists", s_regpad);
+    XSRETURN(0);
+  }
+  res = new mips_regs(*rp);
+  // tie on array
+  fake = newAV();
+  objref = newRV_noinc((SV*)fake);
+  sv_bless(objref, pkg);
+  magic = sv_magicext((SV*)fake, NULL, PERL_MAGIC_tied, &regpad_magic_vt, (const char *)res, 0);
+  SvREADONLY_on((SV*)fake);
+  ST(0) = objref;
+  XSRETURN(1);
+
+void
+abi(SV *self)
+  INIT:
+  mips_regs *mr = regpad_get(self);
+ CODE:
+  mr->abi();
+
+int
+reset(SV *self, int key)
+  INIT:
+  mips_regs *mr = regpad_get(self);
+ CODE:
+  mr->abi();
+  RETVAL = mr->clear(key);
+ OUTPUT:
+  RETVAL
+
 
 BOOT:
  HV *stash= gv_stashpvn("Disasm::Mips", 12, 1);
