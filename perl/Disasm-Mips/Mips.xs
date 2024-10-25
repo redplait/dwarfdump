@@ -42,6 +42,8 @@ struct mips_regs {
   int move(int idx, int src)
   {
     if ( idx >= mips::REG_RA || idx < 0 || src >= mips::REG_RA || src < 0 ) return 0;
+    regs[idx] = regs[src];
+    pres[idx] = pres[src];
     m[idx] = src;
     return 1;
   }
@@ -209,7 +211,7 @@ using namespace mips;
  {
    if ( inst.operation == mips::MIPS_MOVE )
    {
-     mr->set(inst.operands[0].reg, inst.operands[1].reg);
+     mr->move(inst.operands[0].reg, inst.operands[1].reg);
      return 0;
    }
    if ( (inst.operation == mips::MIPS_LUI || inst.operation == mips::MIPS_LI || inst.operation == mips::MIPS_LBU) &&
