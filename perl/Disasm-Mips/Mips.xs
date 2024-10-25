@@ -239,6 +239,14 @@ using namespace mips;
        return 0;
      }
    }
+   int val = 0;
+   if ( is_addiu(val) ) {
+     auto old = mr->get(inst.operands[1].reg);
+     if ( old ) {
+       old += val;
+       return mr->set(inst.operands[0].reg, old);
+     }
+   }
    if ( inst.operands[0].operandClass == mips::OperandClass::REG && is_dst() )
      mr->clear(inst.operands[0].reg);
    return 0;
@@ -251,6 +259,7 @@ using namespace mips;
    switch(inst.operation) {
      case MIPS_ADD:
      case MIPS_ADDU:
+     case MIPS_ADDIU:
      case MIPS_SUB:
      case MIPS_SUBU:
      case MIPS_MUL:
@@ -313,6 +322,10 @@ using namespace mips;
    if ( is_stX() && mr->base(inst.operands[1].reg, base) ) {
      off = inst.operands[1].immediate;
      return 2;
+   }
+   if ( is_addiu(off) && mr->base(inst.operands[1].reg, base) ) {
+     mr->clear(inst.operands[0].reg);
+     return 1;
    }
    return 0;
  }
