@@ -317,6 +317,13 @@ struct adis: public ad_insn {
             (operands[2].type == AD_OP_IMM)
      ;
    }
+   inline int is_rr() const
+   {
+     return (num_operands >= 2) &&
+            (operands[0].type == AD_OP_REG) &&
+            (operands[1].type == AD_OP_REG)
+     ;
+   }
    int is_ldr() const
    {
      return (instr_id == AD_INSTR_LDR) && is_rri();
@@ -432,6 +439,10 @@ struct adis: public ad_insn {
         return 0;
       }
       // must be last
+      if ( is_rr() && instr_id == AD_INSTR_LDP ) {
+        rp->zero(get_reg(0)); rp->zero(get_reg(1));
+        return 0;
+      }
       if ( (num_operands > 1) && is_dst_reg() ) rp->zero(get_reg(0));
       return 0;
     }
