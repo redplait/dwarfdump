@@ -44,7 +44,7 @@ struct mips_regs {
     if ( idx >= mips::REG_RA || idx < 0 || src >= mips::REG_RA || src < 0 ) return 0;
     regs[idx] = regs[src];
     pres[idx] = pres[src];
-    m[idx] = src;
+    m[idx] = m[src];
     return 1;
   }
   int clear(int idx)
@@ -58,7 +58,16 @@ struct mips_regs {
   // a0 .. a3, see https://refspecs.linuxfoundation.org/elf/mipsabi.pdf
   void abi() {
     for ( int i = mips::REG_A0; i <= mips::REG_A3; ++i )
-     m[i] = i;
+     m[i] = i - mips::REG_A0;
+  }
+  int base(int idx, int &breg)
+  {
+    if ( idx >= mips::REG_RA || idx < 0 ) return 0;
+    if ( m[idx] != -1 ) {
+      breg = m[idx];
+      return 1;
+    }
+    return 0;
   }
 };
 
@@ -214,7 +223,7 @@ using namespace mips;
      mr->move(inst.operands[0].reg, inst.operands[1].reg);
      return 0;
    }
-   if ( (inst.operation == mips::MIPS_LUI || inst.operation == mips::MIPS_LI || inst.operation == mips::MIPS_LBU) &&
+   if ( (inst.operation == mips::MIPS_LUI || inst.operation == mips::MIPS_LI) &&
         inst.operands[0].operandClass == mips::OperandClass::REG &&
         inst.operands[1].operandClass == mips::OperandClass::IMM )
     return mr->set(inst.operands[0].reg, inst.operands[1].immediate << 16);
@@ -259,6 +268,21 @@ using namespace mips;
    }
    return 0;
  }
+ int is_lbX() const
+ {
+   return (inst.operation == mips::MIPS_LBU || inst.operation == mips::MIPS_LB ||
+      inst.operation == mips::MIPS_LH || inst.operation == mips::MIPS_LHU ||
+      inst.operation == mips::MIPS_LW || inst.operation == mips::MIPS_LL) &&
+    inst.operands[0].operandClass == mips::OperandClass::REG &&
+    inst.operands[1].operandClass == mips::OperandClass::MEM_IMM;
+ }
+ int is_stX() const
+ {
+  return (inst.operation == mips::MIPS_SB || inst.operation == mips::MIPS_SH ||
+      inst.operation == mips::MIPS_SW) &&
+    inst.operands[0].operandClass == mips::OperandClass::REG &&
+    inst.operands[1].operandClass == mips::OperandClass::MEM_IMM;
+ }
  int is_lw() const
  {
    return (inst.operation == mips::MIPS_LW || inst.operation == mips::MIPS_LBU) &&
@@ -274,6 +298,21 @@ using namespace mips;
    {
      val = (int)inst.operands[2].immediate;
      return 1;
+   }
+   return 0;
+ }
+ // return 1 if instr is lX reg, [base + off],
+ //        2 if instr is sX reg, [base + off],
+ // 0 otherwise
+ int is_ls(mips_regs *mr, int &base, int &off)
+ {
+   if ( is_lbX() && mr->base(inst.operands[1].reg, base) ) {
+     off = inst.operands[1].immediate;
+     return 1;
+   }
+   if ( is_stX() && mr->base(inst.operands[1].reg, base) ) {
+     off = inst.operands[1].immediate;
+     return 2;
    }
    return 0;
  }
@@ -585,6 +624,29 @@ is_jxx(SV *sv)
   RETVAL = d->is_jxx();
  OUTPUT:
   RETVAL
+
+void
+is_ls(SV *a, SV *r)
+ INIT:
+   mdis *d = mdis_get(a);
+   mips_regs *rp = regpad_get(r);
+   int base = -1, res, off = 0;
+ PPCODE:
+   if ( d->empty() )
+    ST(0) = &PL_sv_undef;
+   else {
+    res = d->is_ls(rp, base, off);
+    if ( !res )
+      ST(0) = &PL_sv_undef;
+    else { // return array [res base off]
+      AV *av = newAV();
+      mXPUSHs(newRV_noinc((SV*)av));
+      av_push(av, newSViv( res ));
+      av_push(av, newSViv( base ));
+      av_push(av, newSViv( off ));
+    }
+   }
+   XSRETURN(1);
 
 void
 apply(SV *a, SV *r)
