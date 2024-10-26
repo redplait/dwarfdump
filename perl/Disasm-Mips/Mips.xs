@@ -293,6 +293,7 @@ using namespace mips;
      case MIPS_C_SEQ_S:
      case MIPS_C_SEQ:
      case MIPS_SRA:
+     case MIPS_SRAV:
      case MIPS_DSRA:
      case MIPS_SLT:
      case MIPS_SLTI:
@@ -305,7 +306,9 @@ using namespace mips;
      case MIPS_XOR:
      case MIPS_XORI:
      case MIPS_SLL:
+     case MIPS_SLLV:
      case MIPS_SRL:
+     case MIPS_SRLV:
      case MIPS_DSRL:
      case MIPS_DSLL:
      case MIPS_MOVN:
@@ -501,6 +504,7 @@ new(obj_or_pkg, SV *elsv)
   } else
     croak("new: first arg must be package name or blessed object");
   // make real disasm object
+  e->add_ref();
   res = new mdis( e, ver );
   // attach magic
   magic = sv_magicext(msv, NULL, PERL_MAGIC_ext, &Mips_magic_vt, (const char*)res, 0);

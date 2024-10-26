@@ -617,6 +617,7 @@ new(obj_or_pkg, SV *elsv)
   } else
     croak("new: first arg must be package name or blessed object");
   // make real disasm object
+  e->add_ref();
   res = new adis( e );
 // attach magic
   magic = sv_magicext(msv, NULL, PERL_MAGIC_ext, &Arm64_magic_vt, (const char*)res, 0);
