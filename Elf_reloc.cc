@@ -31,8 +31,8 @@
 unsigned int
 ElfFile::get_reloc_type(unsigned int reloc_info)
 {
-  if ( reader.get_class() == ELFCLASS32 ) return reloc_info;
-  switch( reader.get_machine() )
+  if ( reader->get_class() == ELFCLASS32 ) return reloc_info;
+  switch( reader->get_machine() )
   {
     case EM_SPARCV9:
     case EM_MIPS: return reloc_info & 0xff;
@@ -1141,10 +1141,10 @@ bool ElfFile::try_apply_debug_relocs()
  if ( rmaps.empty() ) return true;
  // ok, enum reloc sections
  std::list<Elf_Half> rs;
- Elf_Half n = reader.sections.size();
+ Elf_Half n = reader->sections.size();
  section *sym_sec = nullptr;
  for ( Elf_Half i = 0; i < n; i++) {
-   section *s = reader.sections[i];
+   section *s = reader->sections[i];
    if ( s->get_type() == SHT_SYMTAB ) { sym_sec = s; continue; }
    if ( s->get_type() == SHT_REL || s->get_type() == SHT_RELA )
    {
@@ -1152,24 +1152,24 @@ bool ElfFile::try_apply_debug_relocs()
      auto si = rmaps.find(inf);
      if ( si == rmaps.end() ) continue;
      if ( g_opt_v )
-       printf("section(%d) %s has relocs\n", inf, reader.sections[inf]->get_name().c_str());
+       printf("section(%d) %s has relocs\n", inf, reader->sections[inf]->get_name().c_str());
      rs.push_back(i);
    }
  }
  if ( rs.empty() ) return true;
  if ( !sym_sec ) {
-   tree_builder->e_->error("Cannot find symtab\n");
+   tree_builder->e_->error("try_apply_debug_relocs: Cannot find symtab\n");
    return false;
  }
  had_relocs = true;
- auto machine = reader.get_machine();
+ auto machine = reader->get_machine();
  if ( machine == EM_MSP430 )
-   uses_msp430x_relocs = (reader.get_flags() & EF_MSP430_MACH) == E_MSP430_MACH_MSP430X;
+   uses_msp430x_relocs = (reader->get_flags() & EF_MSP430_MACH) == E_MSP430_MACH_MSP430X;
  // fill symbols
- symbol_section_accessor symbols( reader, sym_sec );
+ symbol_section_accessor symbols( *reader, sym_sec );
  Elf_Xword sym_no = symbols.get_symbols_num();
  if ( !sym_no ) {
-   tree_builder->e_->error("no symbols\n");
+   tree_builder->e_->error("try_apply_debug_relocs: no symbols\n");
    return false;
  } else {
     m_symbols.resize(sym_no);
@@ -1185,18 +1185,18 @@ bool ElfFile::try_apply_debug_relocs()
  // apply all reloc sections from rs list
  for ( auto irs: rs )
  {
-   section *cr = reader.sections[irs];
+   section *cr = reader->sections[irs];
    auto inf = cr->get_info();
    auto si = rmaps.find(inf);
    if ( si == rmaps.end() ) continue;
    apply_to = si->second;
    bool is_rela = cr->get_type() == SHT_RELA;
    if ( machine == EM_SH) is_rela = false;
-   relocation_section_accessor ac(reader, cr);
+   relocation_section_accessor ac(*reader, cr);
    int num = ac.get_entries_num();
    if ( g_opt_d )
      printf("reloc section %d %s has %d entries, dest %d (%s)\n", irs, cr->get_name().c_str(),
-       num, inf, reader.sections[inf]->get_name().c_str());
+       num, inf, reader->sections[inf]->get_name().c_str());
    Elf_Half prev_warn = 0;
    for ( int i = 0; i < num; ++i )
    {
@@ -1260,7 +1260,7 @@ bool ElfFile::try_apply_debug_relocs()
 	    {
 	      if (reloc_type != prev_reloc)
 	        tree_builder->e_->error("unable to apply unsupported reloc idx %d type %d to section %s\n",
-		      reloc_type, i, reader.sections[inf]->get_name().c_str());
+		      reloc_type, i, reader->sections[inf]->get_name().c_str());
 	      prev_reloc = reloc_type;
 	      continue;
 	    }
@@ -1268,14 +1268,14 @@ bool ElfFile::try_apply_debug_relocs()
 	  if ( !apply_to->in_section(offset, reloc_size) )
 	    {
 	      tree_builder->e_->error("skipping invalid relocation offset %lX in section %s\n",
-		      offset, reader.sections[inf]->get_name().c_str());
+		      offset, reader->sections[inf]->get_name().c_str());
 	      continue;
 	    }
 
 	  if (sym_idx >= sym_no)
 	    {
 	      tree_builder->e_->error("skipping invalid relocation symbol index %d in section %s\n",
-		      sym_idx, reader.sections[inf]->get_name().c_str());
+		      sym_idx, reader->sections[inf]->get_name().c_str());
 	      continue;
 	    }
     if ( m_symbols[sym_idx].type != STT_COMMON &&
@@ -1283,7 +1283,7 @@ bool ElfFile::try_apply_debug_relocs()
        )
       {
         tree_builder->e_->error("skipping unexpected symbol type %d in section %s relocation %d\n",
-          m_symbols[sym_idx].type, reader.sections[inf]->get_name().c_str(), i);
+          m_symbols[sym_idx].type, reader->sections[inf]->get_name().c_str(), i);
         continue;
       }
     uint64_t addend = 0;

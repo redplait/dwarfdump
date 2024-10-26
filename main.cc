@@ -99,7 +99,7 @@ int main(int argc, char* argv[])
   bool success;
   std::string binary_path = std::string(argv[optind]);
   {
-    ElfFile file(binary_path, success, render);
+    ElfReaderOwner file(binary_path, success, render);
     if (!success) {
       fprintf(stderr, "cannot load %s\n", argv[optind]);
       delete render;

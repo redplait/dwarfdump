@@ -84,8 +84,9 @@ struct elf_symbol {
 class ElfFile : public ISectionNames, public IGetLoclistX
 {
 public:
-  ElfFile(std::string filepath, bool& success, TreeBuilder *, bool read = true);
-  ~ElfFile();
+  ElfFile(TreeBuilder *tb) : tree_builder(tb)
+  { }
+  virtual ~ElfFile() {}
   bool GetAllClasses();
   bool SaveSections(std::string &fname);
   // ISectionNames
@@ -121,7 +122,9 @@ private:
   uint64_t fetch_indexed_addr(uint64_t, int size);
   uint64_t fetch_indexed_value(uint64_t, const unsigned char *, uint64_t s_size, uint64_t base);
 
-  elfio reader;
+ protected:
+  void cmn_read(bool& success);
+  elfio *reader;
   endianess_convertor endc;
   TreeBuilder *tree_builder;
 
@@ -270,4 +273,12 @@ private:
   unsigned int get_reloc_type(unsigned int);
   bool target_specific_reloc_handling(Elf_Half machine, Elf64_Addr, Elf_Word, unsigned, Elf_Sxword add);
   bool try_apply_debug_relocs();
+};
+
+class ElfReaderOwner: public ElfFile
+{
+ public:
+   ElfReaderOwner(std::string filepath, bool& success, TreeBuilder *);
+ protected:
+   elfio m_elf;
 };

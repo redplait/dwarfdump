@@ -86,7 +86,7 @@ bool ElfFile::check_compressed_section(ELFIO::section *s, dwarf_section &dw)
 {
   if ( ! (s->get_flags() & SHF_COMPRESSED) )
     return false;
-  if ( reader.get_class() == ELFCLASS64 )
+  if ( reader->get_class() == ELFCLASS64 )
     dw.free_ = uncompressed_section<Elf64_Chdr>(s, dw.s_, dw.size_);
   else
     dw.free_ = uncompressed_section<Elf32_Chdr>(s, dw.s_, dw.size_);
@@ -137,22 +137,28 @@ bool ElfFile::unzip_section(ELFIO::section *s, const unsigned char * &data, size
   return true;
 }
 
-ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb, bool read) :
-  tree_builder(tb)
+ElfReaderOwner::ElfReaderOwner(std::string filepath, bool& success, TreeBuilder *tb) :
+  ElfFile(tb)
 {
   // read elf file
-  if ( read && !reader.load(filepath.c_str()) )
+  if ( !m_elf.load(filepath.c_str()) )
   {
-    tree_builder->e_->error("ERR: Failed to open '%s'\n", filepath.c_str());
+    tb->e_->error("ERR: Failed to open '%s'\n", filepath.c_str());
     success = false;
     return;
   }
-  if ( reader.get_class() == ELFCLASS32 )
+  reader = &m_elf;
+  cmn_read(success);
+}
+
+void ElfFile::cmn_read(bool& success)
+{
+  if ( reader->get_class() == ELFCLASS32 )
     eh_addr_size = 4;
   else
     eh_addr_size = 8;
-  endc.setup(reader.get_encoding());
-  m_lsb = reader.get_encoding() == ELFDATA2LSB;
+  endc.setup(reader->get_encoding());
+  m_lsb = reader->get_encoding() == ELFDATA2LSB;
   success = true;
 
   // compressed sections
@@ -170,9 +176,9 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb, bool read
    *zranges = nullptr,
    *zframe = nullptr;
   // Search the debug sections, mandatory are .debug_info and .debug_abbrev
-  Elf_Half n = reader.sections.size();
+  Elf_Half n = reader->sections.size();
   for ( Elf_Half i = 0; i < n; i++) {
-    section *s = reader.sections[i];
+    section *s = reader->sections[i];
     const char* name = s->get_name().c_str();
     if (!strcmp(name, ".debug_info")) {
       debug_info_.asgn(s);
@@ -272,7 +278,7 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb, bool read
   UNPACK_ZSECTION(zranges, debug_ranges_)
   UNPACK_ZSECTION(zframe, debug_frame_)
 
-  tree_builder->m_rnames = get_regnames(reader.get_machine(), reader.get_class() == ELFCLASS64);
+  tree_builder->m_rnames = get_regnames(reader->get_machine(), reader->get_class() == ELFCLASS64);
   tree_builder->has_rngx = (debug_rnglists_.s_ != nullptr);
   success = (debug_info_.s_ && debug_abbrev_.s_);
   if ( !success) return;
@@ -282,10 +288,6 @@ ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb, bool read
     tree_builder->m_snames = this;
   parse_rnglists();
   if ( g_opt_f ) parse_frames();
-}
-
-ElfFile::~ElfFile()
-{
 }
 
 // static
@@ -1234,10 +1236,10 @@ const char *ElfFile::find_sname(uint64_t addr)
     }
     return nullptr;
   }
-  Elf_Half n = reader.sections.size();
+  Elf_Half n = reader->sections.size();
   for ( Elf_Half i = 0; i < n; i++) 
   {
-    section *s = reader.sections[i];
+    section *s = reader->sections[i];
     auto s_addr = s->get_address();
     if ( (addr >= s_addr) && (addr < s_addr + s->get_size())
        )
