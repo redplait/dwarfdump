@@ -84,7 +84,7 @@ struct elf_symbol {
 class ElfFile : public ISectionNames, public IGetLoclistX
 {
 public:
-  ElfFile(std::string filepath, bool& success, TreeBuilder *);
+  ElfFile(std::string filepath, bool& success, TreeBuilder *, bool read = true);
   ~ElfFile();
   bool GetAllClasses();
   bool SaveSections(std::string &fname);

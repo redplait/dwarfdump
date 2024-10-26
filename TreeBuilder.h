@@ -699,6 +699,8 @@ protected:
     if ( ns_stack.empty() ) return &ns_root;
     return ns_stack.top();
   }
+  // for addresses store
+  virtual void store_addr(Element *, uint64_t) {}
   // go names - actually this is only for backward refs, for forward use -g option
   std::unordered_map<uint64_t, const char *> m_go_types;
   std::unordered_map<uint64_t, go_ext_attr>  m_go_attrs;

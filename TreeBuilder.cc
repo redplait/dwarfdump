@@ -288,7 +288,7 @@ void TreeBuilder::dump_location(std::string &s, param_loc &pl)
           s += std::to_string(l.offset);
          break;
         default:
-         e_->error("unknown location op %d\n", l.type);
+         e_->warning("unknown location op %d\n", l.type);
       }
     }
 }
@@ -637,7 +637,7 @@ void TreeBuilder::set_range(uint64_t off, unsigned char addr_size)
   if ( current_element_type_ != ElementType::subroutine )
     return;
   if ( elements_.empty() ) {
-    e_->error("Can't set range when element list is empty\n");
+    e_->warning("Can't set range when element list is empty\n");
     return;
   }
   auto &f = elements_.back();
@@ -718,7 +718,7 @@ void TreeBuilder::pop_stack(uint64_t off)
     elements_.push_back(Element(ns_end, last->type_id_, last->level_, get_owner(), top_ns()));
     elements_.back().name_ = last->name_;
     if ( ns_stack.empty() )
-      e_->error("ns stack is empty, off %lX, ns_count %d\n", off, ns_count);
+      e_->warning("ns stack is empty, off %lX, ns_count %d\n", off, ns_count);
     else
       ns_stack.pop();
     if ( g_opt_v )
@@ -746,7 +746,7 @@ int TreeBuilder::can_have_methods(int level)
 bool TreeBuilder::AddVariant()
 {
   if ( m_stack.empty() ) {
-    e_->error("Can't add a variant when stack is empty\n");
+    e_->warning("Can't add a variant when stack is empty\n");
     return false;
   }
   auto top = m_stack.top();
@@ -759,7 +759,7 @@ bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level, bool ell)
   level -= ns_count;
   current_element_type_ = ElementType::formal_param;
   if ( m_stack.empty() ) {
-    e_->error("Can't add a formal parameter when stack is empty\n");
+    e_->warning("Can't add a formal parameter when stack is empty\n");
     return false;
   }
   auto top = m_stack.top();
@@ -779,7 +779,7 @@ void TreeBuilder::SetDiscr(uint64_t v)
   if ( current_element_type_ != ElementType::variant_type )
     return;
   if ( elements_.empty() ) {
-    e_->error("Can't add a discr when element list is empty\n");
+    e_->warning("Can't add a discr when element list is empty\n");
     return;
   }
   elements_.back().type_id_ = v;
@@ -792,7 +792,7 @@ void TreeBuilder::SetParentAccess(int a)
   }
 
   if ( m_stack.empty() ) {
-    e_->error("Can't add a access when stack is empty\n");
+    e_->warning("Can't add a access when stack is empty\n");
     return;
   }
   auto top = m_stack.top();
@@ -805,7 +805,7 @@ void TreeBuilder::SetParentAccess(int a)
     if ( recent_ )
       top = recent_;
     if ( !top->m_comp || top->m_comp->parents_.empty() ) {
-      e_->error("Can't add a parent access when parents list is empty\n");
+      e_->warning("Can't add a parent access when parents list is empty\n");
       return;
     }
     top->m_comp->parents_.back().access = a;
@@ -824,11 +824,11 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         return;
       }
       if ( m_stack.empty() ) {
-        e_->error("Can't add a member when stack is empty\n");
+        e_->warning("Can't add a member when stack is empty\n");
         return;
       }
       if (elements_.empty()) {
-        e_->error("Can't add a member if the element list is empty\n");
+        e_->warning("Can't add a member if the element list is empty\n");
         return;
       } else {
         auto &top = m_stack.top();
@@ -850,11 +850,11 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         return;
       }
       if (elements_.empty()) {
-        e_->error("Can't add a parent if the element list is empty\n");
+        e_->warning("Can't add a parent if the element list is empty\n");
         return;
       }
       if ( m_stack.empty() ) {
-        e_->error("Can't add a parent when stack is empty\n");
+        e_->warning("Can't add a parent when stack is empty\n");
         return;
       } else {
         auto &top = m_stack.top();
@@ -873,11 +873,11 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         return;
       }
       if (elements_.empty()) {
-        e_->error("Can't add a enumerator if the element list is empty\n");
+        e_->warning("Can't add a enumerator if the element list is empty\n");
         return;
       }
       if ( m_stack.empty() ) {
-        e_->error("Can't add a enumerator when stack is empty\n");
+        e_->warning("Can't add a enumerator when stack is empty\n");
         return;
       } else {
         auto &top = m_stack.top();
@@ -903,9 +903,9 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
           if ( !owner || !owner->can_have_static_vars() )
           {
             if ( !owner )
-              e_->error("Can't add a local var tag %lX when there is no top function\n", tag_id);
+              e_->warning("Can't add a local var tag %lX when there is no top function\n", tag_id);
             else if ( owner->type_ != ElementType::lexical_block )
-              e_->error("Can't add a local var tag %lX when there is no top function, owner %s\n", tag_id, owner->TypeName());
+              e_->warning("Can't add a local var tag %lX when there is no top function, owner %s\n", tag_id, owner->TypeName());
             current_element_type_ = ElementType::var_type;
             return;
           }
@@ -923,7 +923,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         auto owner = get_owner();
         if ( owner && owner->type_ == ElementType::var_type )
         {
-          e_->error("BUG: var id %lX wants to stack on var id %lX\n", tag_id, owner->id_);
+          e_->warning("BUG: var id %lX wants to stack on var id %lX\n", tag_id, owner->id_);
           current_element_type_ = ElementType::none;
           return;
         }
@@ -966,14 +966,14 @@ void TreeBuilder::SetFilename(std::string &fn, const char *fname)
   if (current_element_type_ == ElementType::none)
     return;
   if (!elements_.size()) {
-    e_->error("Can't set an file name if the element list is empty\n");
+    e_->warning("Can't set an file name if the element list is empty\n");
     return;
   }
   if ( current_element_type_ == ElementType::var_type )
   {
     if ( !last_var_ )
     {
-      e_->error("Can't set an file name when no last_var\n");
+      e_->warning("Can't set an file name when no last_var\n");
       return;
     }
     last_var_->fname_ = fname;
@@ -995,14 +995,14 @@ void TreeBuilder::SetLinkageName(const char* name)
   if (current_element_type_ == ElementType::none)
     return;
   if (!elements_.size()) {
-    e_->error("Can't set an linkage name if the element list is empty\n");
+    e_->warning("Can't set an linkage name if the element list is empty\n");
     return;
   }
   if ( current_element_type_ == ElementType::var_type )
   {
     if ( !last_var_ )
     {
-      e_->error("Can't set an linkage name when no last_var\n");
+      e_->warning("Can't set an linkage name when no last_var\n");
       return;
     }
     last_var_->link_name_ = name;
@@ -1019,7 +1019,7 @@ void TreeBuilder::SetTlsIndex(param_loc *pl)
   if (current_element_type_ != ElementType::var_type)
     return;
   if (!elements_.size()) {
-    e_->error("Can't set an tls index if the element list is empty\n");
+    e_->warning("Can't set an tls index if the element list is empty\n");
     return;
   }
   auto *top = &elements_.back();
@@ -1031,14 +1031,14 @@ void TreeBuilder::SetTlsIndex(param_loc *pl)
 TreeBuilder::FormalParam* TreeBuilder::get_param(const char *why)
 {
   if (!elements_.size()) {
-    e_->error("Can't set an parameter %s if the element list is empty\n", why);
+    e_->warning("Can't set an parameter %s if the element list is empty\n", why);
     return nullptr;
   }
   auto &top = m_stack.top();
   if ( recent_ )
     top = recent_;
   if (!top->m_comp || top->m_comp->params_.empty()) {
-    e_->error("Can't set the parameter %s if the params list is empty\n", why);
+    e_->warning("Can't set the parameter %s if the params list is empty\n", why);
     return nullptr;
   }
   return &top->m_comp->params_.back();
@@ -1082,25 +1082,25 @@ void TreeBuilder::SetElementName(const char* name, uint64_t off)
     return;
   }
   if (!elements_.size()) {
-    e_->error("Can't set an element name if the element list is empty, offset %lX\n", off);
+    e_->warning("Can't set an element name if the element list is empty, offset %lX\n", off);
     return;
   }
 
   if ( current_element_type_ == ElementType::formal_param )
   {
     if ( m_stack.empty() ) {
-      e_->error("Can't set the formal param name when stack is empty\n");
+      e_->warning("Can't set the formal param name when stack is empty\n");
       return;
     }
     auto top = m_stack.top();
     // check that top is subroutine or method
     if ( top->type_ != ElementType::subroutine && top->type_ != ElementType::method )
     {
-      e_->error("Can't set the formal param name if the top element is %s, offset %lX\n", top->TypeName(), off);
+      e_->warning("Can't set the formal param name if the top element is %s, offset %lX\n", top->TypeName(), off);
       return;
     }
     if ( !top->m_comp || top->m_comp->params_.empty()) {
-      e_->error("Can't set the formal param name to %lX when the params list is empty, offset %lX\n", top->id_, off);
+      e_->warning("Can't set the formal param name to %lX when the params list is empty, offset %lX\n", top->id_, off);
       return;
     }
 
@@ -1110,12 +1110,12 @@ void TreeBuilder::SetElementName(const char* name, uint64_t off)
   if ( current_element_type_ == ElementType::enumerator )
   {
     if ( m_stack.empty() ) {
-      e_->error("Can't set the enum name when stack is empty\n");
+      e_->warning("Can't set the enum name when stack is empty\n");
       return;
     }
     auto top = m_stack.top();
     if (!top->m_comp || top->m_comp->enums_.empty()) {
-      e_->error("Can't set the enum name if the enums list is empty\n");
+      e_->warning("Can't set the enum name if the enums list is empty\n");
       return;
     }
     top->m_comp->enums_.back().name = name;
@@ -1126,7 +1126,7 @@ void TreeBuilder::SetElementName(const char* name, uint64_t off)
   {
     if ( !last_var_ )
     {
-      e_->error("Can't set the var name when there is no last_var\n");
+      e_->warning("Can't set the var name when there is no last_var\n");
       return;
     }
     last_var_->name_ = name;
@@ -1149,7 +1149,7 @@ void TreeBuilder::SetElementSize(uint64_t size) {
     return;
   }
   if (!elements_.size()) {
-    e_->error("Can't set an element size if the element list is empty\n");
+    e_->warning("Can't set an element size if the element list is empty\n");
     return;
   }
 
@@ -1167,7 +1167,7 @@ void TreeBuilder::SetElementSize(uint64_t size) {
 void TreeBuilder::SetAddressClass(int v, uint64_t off)
 {
   if ( m_stack.empty() ) {
-    e_->error("Can't set the address class when stack is empty, offset %lX\n", off);
+    e_->warning("Can't set the address class when stack is empty, offset %lX\n", off);
     return;
   }
   if (current_element_type_ == ElementType::member )
@@ -1231,7 +1231,7 @@ void TreeBuilder::SetAte(unsigned char v)
     return;
   }
   if (!elements_.size()) {
-    e_->error("Can't set Ate if the element list is empty\n");
+    e_->warning("Can't set Ate if the element list is empty\n");
     return;
   }
   if ( recent_ )
@@ -1246,7 +1246,7 @@ void TreeBuilder::SetNoReturn()
     return;
   }
   if (!elements_.size()) {
-    e_->error("Can't set an noreturn attribute if the element list is empty\n");
+    e_->warning("Can't set an noreturn attribute if the element list is empty\n");
     return;
   }
   if ( recent_ )
@@ -1262,7 +1262,7 @@ void TreeBuilder::SetArtiticial()
   if ( current_element_type_ == ElementType::formal_param )
   {
     if ( m_stack.empty() ) {
-      e_->error("Can't set Artiticial for formal param when stack is empty\n");
+      e_->warning("Can't set Artiticial for formal param when stack is empty\n");
       return;
     }
     auto top = m_stack.top();
@@ -1271,11 +1271,11 @@ void TreeBuilder::SetArtiticial()
     // check that top is subroutine or method
     if ( top->type_ != ElementType::method && top->type_ != ElementType::subroutine_type )
     {
-      e_->error("Can't set Artiticial for formal param if the top element tag %lX is not method (%s)\n", top->id_,  top->TypeName());
+      e_->warning("Can't set Artiticial for formal param if the top element tag %lX is not method (%s)\n", top->id_,  top->TypeName());
       return;
     }
     if ( !top->m_comp || top->m_comp->params_.empty()) {
-      e_->error("Can't set Artiticial for formal param to %lX when the params list is empty\n", top->id_);
+      e_->warning("Can't set Artiticial for formal param to %lX when the params list is empty\n", top->id_);
       return;
     }
     auto &fp = top->m_comp->params_.back();
@@ -1300,7 +1300,7 @@ void TreeBuilder::SetConstExpr()
     return;
   if ( !last_var_ )
   {
-    e_->error("Can't set an const_expr attribute when there is no last_var\n");
+    e_->warning("Can't set an const_expr attribute when there is no last_var\n");
     return;
   }
   last_var_->const_expr_ = true;
@@ -1312,7 +1312,7 @@ void TreeBuilder::SetEnumClass()
     return;
   if ( elements_.empty() )
   {
-    e_->error("Can't set an enum_class attribute when element list is empty\n");
+    e_->warning("Can't set an enum_class attribute when element list is empty\n");
     return;
   }
   elements_.back().enum_class_ = true;
@@ -1324,7 +1324,7 @@ void TreeBuilder::SetGNUVector()
     return;
   if ( elements_.empty() )
   {
-    e_->error("Can't set an GNU_vector attribute when element list is empty\n");
+    e_->warning("Can't set an GNU_vector attribute when element list is empty\n");
     return;
   }
   elements_.back().gnu_vector_ = true;
@@ -1336,7 +1336,7 @@ void TreeBuilder::SetTensor()
     return;
   if ( elements_.empty() )
   {
-    e_->error("Can't set an tensor attribute when element list is empty\n");
+    e_->warning("Can't set an tensor attribute when element list is empty\n");
     return;
   }
   elements_.back().tensor_ = true;
@@ -1380,7 +1380,7 @@ void TreeBuilder::SetDeclaration()
     return;
   }
   if (!elements_.size()) {
-    e_->error("Can't set an declaration attribute if the element list is empty\n");
+    e_->warning("Can't set an declaration attribute if the element list is empty\n");
     return;
   }
   auto &last = elements_.back();
@@ -1400,12 +1400,12 @@ void TreeBuilder::SetBitOffset(int v)
 TreeBuilder::Element *TreeBuilder::get_member(const char *why)
 {
   if ( m_stack.empty() ) {
-    e_->error("Can't set the member %s when stack is empty\n", why);
+    e_->warning("Can't set the member %s when stack is empty\n", why);
     return nullptr;
   }
   auto top = m_stack.top();
   if (!top->m_comp || top->m_comp->members_.empty()) {
-    e_->error("Can't set the member %s if the members list is empty\n", why);
+    e_->warning("Can't set the member %s if the members list is empty\n", why);
     return nullptr;
   }
   return &top->m_comp->members_.back();
@@ -1414,12 +1414,12 @@ TreeBuilder::Element *TreeBuilder::get_member(const char *why)
 TreeBuilder::Parent *TreeBuilder::get_parent(const char *why)
 {
   if ( m_stack.empty() ) {
-    e_->error("Can't set the parent %s when stack is empty\n", why);
+    e_->warning("Can't set the parent %s when stack is empty\n", why);
     return nullptr;
   }
   auto top = m_stack.top();
   if (!top->m_comp || top->m_comp->parents_.empty()) {
-    e_->error("Can't set the parent %s if the parents list is empty\n", why);
+    e_->warning("Can't set the parent %s if the parents list is empty\n", why);
     return nullptr;
   }
   return &top->m_comp->parents_.back();
@@ -1430,7 +1430,7 @@ void TreeBuilder::SetElementOffset(uint64_t offset) {
     return;
   }
   if (!elements_.size()) {
-    e_->error("Can't set an element offset if the element list is empty\n");
+    e_->warning("Can't set an element offset if the element list is empty\n");
     return;
   }
   Parent *p;
@@ -1454,19 +1454,19 @@ void TreeBuilder::SetElementType(uint64_t type_id) {
     return;
   }
   if (!elements_.size()) {
-    e_->error("Can't set an element type if the element list is empty\n");
+    e_->warning("Can't set an element type if the element list is empty\n");
     return;
   }
   
   switch (current_element_type_) {
     case ElementType::member:
       if ( m_stack.empty() ) {
-        e_->error("Can't set the member type when stack is empty\n");
+        e_->warning("Can't set the member type when stack is empty\n");
         return;
       } else {
         auto top = m_stack.top();
         if (!top->m_comp || top->m_comp->members_.empty()) {
-          e_->error("Can't set the member type if the members list is empty\n");
+          e_->warning("Can't set the member type if the members list is empty\n");
           break;
         }
         top->m_comp->members_.back().type_id_ = type_id;
@@ -1474,12 +1474,12 @@ void TreeBuilder::SetElementType(uint64_t type_id) {
       break;
     case ElementType::inheritance:
       if ( m_stack.empty() ) {
-        e_->error("Can't set the parent type when stack is empty\n");
+        e_->warning("Can't set the parent type when stack is empty\n");
         return;
       } else {
         auto top = m_stack.top();
         if (!top->m_comp || top->m_comp->parents_.empty()) {
-          e_->error("Can't set the parent type if the parents list is empty\n");
+          e_->warning("Can't set the parent type if the parents list is empty\n");
           break;
         }
         top->m_comp->parents_.back().id = type_id;
@@ -1487,13 +1487,13 @@ void TreeBuilder::SetElementType(uint64_t type_id) {
       break;
     case ElementType::formal_param:
       if ( m_stack.empty() ) {
-        e_->error("Can't set the formal param type when stack is empty\n");
+        e_->warning("Can't set the formal param type when stack is empty\n");
         return;
       } else {
         auto top = m_stack.top();
         if (!top->m_comp || top->m_comp->params_.empty() )
         {
-          e_->error("Can't set the formal param type if the params list is empty\n");
+          e_->warning("Can't set the formal param type if the params list is empty\n");
           break;
         }
         top->m_comp->params_.back().id = type_id;
@@ -1504,7 +1504,7 @@ void TreeBuilder::SetElementType(uint64_t type_id) {
     case ElementType::var_type:
        if ( !last_var_ )
        {
-        e_->error("Can't set the var type %lx when no last_var\n", type_id);
+        e_->warning("Can't set the var type %lx when no last_var\n", type_id);
         return;
        }
        last_var_->type_id_ = type_id;
@@ -1527,7 +1527,7 @@ void TreeBuilder::SetAlignment(uint64_t v)
   )
   {
     if (!elements_.size()) {
-      e_->error("Can't set alignment when element list is empty\n");
+      e_->warning("Can't set alignment when element list is empty\n");
       return;
     }
     elements_.back().align_ = v;
@@ -1537,7 +1537,7 @@ void TreeBuilder::SetAlignment(uint64_t v)
 void TreeBuilder::SetContainingType(uint64_t ct)
 {
   if (!elements_.size()) {
-    e_->error("Can't set ContainingType when element list is empty\n");
+    e_->warning("Can't set ContainingType when element list is empty\n");
     return;
   }
   elements_.back().cont_type_ = ct;
@@ -1551,7 +1551,7 @@ void TreeBuilder::SetLocX(uint64_t ct)
   {
     if ( !last_var_ )
     {
-      e_->error("Can't set loclistx when there is no last_var\n");
+      e_->warning("Can't set loclistx when there is no last_var\n");
       return;
     }
     last_var_->locx_ = ct;
@@ -1571,14 +1571,14 @@ void TreeBuilder::SetAbs(uint64_t ct)
   {
     if ( !last_var_ )
     {
-      e_->error("Can't set abstract_origin when there is no last_var\n");
+      e_->warning("Can't set abstract_origin when there is no last_var\n");
       return;
     }
     last_var_->abs_ = ct;
     return;
   }
   if (!elements_.size()) {
-    e_->error("Can't set abstract_origin when element list is empty\n");
+    e_->warning("Can't set abstract_origin when element list is empty\n");
     return;
   }
   // fprintf(g_outf, "SetAbs %lX to %lX\n", ct, elements_.back().id_);
@@ -1595,7 +1595,7 @@ void TreeBuilder::SetInlined(int ct)
      )
     return;
   if (!elements_.size()) {
-    e_->error("Can't set inlined when element list is empty\n");
+    e_->warning("Can't set inlined when element list is empty\n");
     return;
   }
   if ( recent_)
@@ -1607,14 +1607,14 @@ void TreeBuilder::SetInlined(int ct)
 void TreeBuilder::SetSpec(uint64_t ct)
 {
   if (!elements_.size()) {
-    e_->error("Can't set specification when element list is empty\n");
+    e_->warning("Can't set specification when element list is empty\n");
     return;
   }
   if ( current_element_type_ == ElementType::var_type )
   {
     if ( !last_var_ )
     {
-      e_->error("Can't set specification when there is no last_var\n");
+      e_->warning("Can't set specification when there is no last_var\n");
       return;
     }
     last_var_->spec_ = ct;
@@ -1630,10 +1630,11 @@ void TreeBuilder::SetAddr(uint64_t count)
   {
     if ( !last_var_ )
     {
-      e_->error("Can't set address when there is no last_var\n");
+      e_->warning("Can't set address when there is no last_var\n");
       return;
     }
     last_var_->addr_ = count;
+    store_addr(last_var_, count);
     return;
   }
   if (current_element_type_ != ElementType::subroutine &&
@@ -1641,13 +1642,17 @@ void TreeBuilder::SetAddr(uint64_t count)
      )
      return;
   if (!elements_.size()) {
-    e_->error("Can't set address when element list is empty\n");
+    e_->warning("Can't set address when element list is empty\n");
     return;
   }
-  if ( recent_ )
+  if ( recent_ ) {
     recent_->addr_ = count;
-  else
-    elements_.back().addr_ = count;
+    store_addr(recent_, count);
+  } else {
+    auto &e = elements_.back();
+    e.addr_ = count;
+    store_addr(&e, count);
+  }
 }
 
 void TreeBuilder::SetVarConstValue(uint64_t v)
@@ -1657,7 +1662,7 @@ void TreeBuilder::SetVarConstValue(uint64_t v)
   }
   if ( !last_var_ )
   {
-    e_->error("Can't set var ConstValue when there is no last_var\n");
+    e_->warning("Can't set var ConstValue when there is no last_var\n");
     return;
   }
   m_lvalues[last_var_] = v;
@@ -1668,12 +1673,12 @@ void TreeBuilder::SetConstValue(uint64_t count) {
     return;
   }
   if ( m_stack.empty() ) {
-    e_->error("Can't set ConstValue when stack is empty\n");
+    e_->warning("Can't set ConstValue when stack is empty\n");
     return;
   }
   auto top = m_stack.top();
   if ( !top->m_comp || top->m_comp->enums_.empty()) {
-    e_->error("Can't set ConstValue if the enums list is empty\n");
+    e_->warning("Can't set ConstValue if the enums list is empty\n");
     return;
   }
   top->m_comp->enums_.back().value = count;
@@ -1684,7 +1689,7 @@ void TreeBuilder::SetElementCount(uint64_t count) {
     return;
   }
   if ( elements_.empty()) {
-    e_->error("Can't set an element count if the element list is empty\n");
+    e_->warning("Can't set an element count if the element list is empty\n");
     return;
   }
   if ( recent_ )
@@ -1699,18 +1704,18 @@ void TreeBuilder::SetLocVarLocation(param_loc *pl)
     return;
   if ( !last_var_ )
   {
-    e_->error("Can't set local var location when there is no last_var\n");
+    e_->warning("Can't set local var location when there is no last_var\n");
     return;
   }
   auto t = get_top_func();
   if ( !t )
   {
-    e_->error("Can't set local var location when there is no top_func\n");
+    e_->warning("Can't set local var location when there is no top_func\n");
     return;
   }
   if ( !t->m_comp )
   {
-    e_->error("Can't set local var location when there is no comp in top_func\n");
+    e_->warning("Can't set local var location when there is no comp in top_func\n");
     return;
   }
   t->m_comp->lvar_locs_[last_var_] = *pl;

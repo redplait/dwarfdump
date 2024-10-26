@@ -137,11 +137,11 @@ bool ElfFile::unzip_section(ELFIO::section *s, const unsigned char * &data, size
   return true;
 }
 
-ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb) :
+ElfFile::ElfFile(std::string filepath, bool& success, TreeBuilder *tb, bool read) :
   tree_builder(tb)
 {
   // read elf file
-  if ( !reader.load(filepath.c_str()) )
+  if ( read && !reader.load(filepath.c_str()) )
   {
     tree_builder->e_->error("ERR: Failed to open '%s'\n", filepath.c_str());
     success = false;
@@ -1127,7 +1127,7 @@ const unsigned char *ElfFile::read_formatted_table(bool is_dir)
             name = check_strp(str_pos);
            break;
           default:
-           tree_builder->e_->error("unknown path form %lX in read_formatted_table for %s\n", columns[formati].second,
+           tree_builder->e_->warning("unknown path form %lX in read_formatted_table for %s\n", columns[formati].second,
              is_dir ? "dirs" : "fnames"
            );
            return nullptr;
@@ -1166,7 +1166,7 @@ const unsigned char *ElfFile::read_formatted_table(bool is_dir)
           ptr += 2;
           bytes_available -= 2;
         } else {
-           tree_builder->e_->error("unknown directory_index form %lX in read_formatted_table for %s\n", columns[formati].second,
+           tree_builder->e_->warning("unknown directory_index form %lX in read_formatted_table for %s\n", columns[formati].second,
              is_dir ? "dirs" : "fnames"
            );
            return nullptr;
@@ -1210,7 +1210,7 @@ bool ElfFile::SaveSections(std::string &fn)
   elfio orig;
   if ( !orig.load(fn.c_str()) )
   {
-    tree_builder->e_->error("SaveSections: failed to open '%s'\n", fn.c_str());
+    tree_builder->e_->warning("SaveSections: failed to open '%s'\n", fn.c_str());
     return false;
   }
   Elf_Half n = orig.sections.size();
@@ -1251,7 +1251,7 @@ uint32_t ElfFile::read_x3(const unsigned char* &data, size_t& bytes_available)
   uint32_t res = 0;
   if ( bytes_available < 3)
   {
-    tree_builder->e_->error("read_x3 tries to read behind available data at %lx\n", data - debug_info_.s_);
+    tree_builder->e_->warning("read_x3 tries to read behind available data at %lx\n", data - debug_info_.s_);
     return 0;
   }
   if ( m_lsb )
@@ -1291,7 +1291,7 @@ void ElfFile::read_range(Dwarf32::Form form, const unsigned char* &info, size_t&
       value += rnglists_base;
       if ( value > debug_rnglists_.size_ )
       {
-        tree_builder->e_->error("laddr %lx is not inside rnglists section size %lx\n", value, debug_rnglists_.size_);
+        tree_builder->e_->warning("laddr %lx is not inside rnglists section size %lx\n", value, debug_rnglists_.size_);
         value = (uint64_t)-1;
         return;
       }
@@ -1446,7 +1446,7 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& b
       break;
 
     default:
-      tree_builder->e_->error("ERR(PassData): Unpexpected form type 0x%x at %lx\n", form,  data - debug_info_.s_);
+      tree_builder->e_->warning("ERR(PassData): Unpexpected form type 0x%x at %lx\n", form,  data - debug_info_.s_);
       break;
   }
 }
@@ -1473,7 +1473,7 @@ uint64_t ElfFile::fetch_indexed_value(uint64_t idx, const unsigned char *s, uint
     offset += bias;
   if ( offset + pointer_size > s_size )
   {
-    tree_builder->e_->error("fetch_indexed_value tries to read behind available data at %lx, section size %lx\n", offset, s_size);
+    tree_builder->e_->warning("fetch_indexed_value tries to read behind available data at %lx, section size %lx\n", offset, s_size);
     return -1;
   }
   if ( 4 == pointer_size )
@@ -1487,7 +1487,7 @@ bool ElfFile::get_loclistx(uint64_t off, std::list<LocListXItem> &out_list, uint
 {
   if ( off > debug_loclists_.size_ )
   {
-    tree_builder->e_->error("loclistx off %lx is not inside loclists section size %lx\n", off, debug_loclists_.size_);
+    tree_builder->e_->warning("loclistx off %lx is not inside loclists section size %lx\n", off, debug_loclists_.size_);
     return false;
   }
   uint64_t addr, base_addr = func_base;
@@ -1576,7 +1576,7 @@ bool ElfFile::get_loclistx(uint64_t off, std::list<LocListXItem> &out_list, uint
          begin = end = 0;
         break;
       default:
-        tree_builder->e_->error("unknown LLE tag %d at %lx\n", llet, start - debug_loclists_.s_);
+        tree_builder->e_->warning("unknown LLE tag %d at %lx\n", llet, start - debug_loclists_.s_);
         return false;
     }
     if ( llet == Dwarf32::dwarf_location_list_entry_type::DW_LLE_base_address ||
@@ -1591,7 +1591,7 @@ bool ElfFile::get_loclistx(uint64_t off, std::list<LocListXItem> &out_list, uint
     uint64_t len = ElfFile::ULEB128(tmp_start, tmp_avail);
     if ( len > avail )
     {
-      tree_builder->e_->error("bad LLE len %ld at %lx\n", len, start - debug_loclists_.s_);
+      tree_builder->e_->warning("bad LLE len %ld at %lx\n", len, start - debug_loclists_.s_);
       break;
     }
 //  fprintf(stderr, "len %lX at %lx %lX - %lX\n", len, start - debug_loclists_, begin, end);
@@ -1618,7 +1618,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
       lindex = ElfFile::ULEB128(data, bytes_available);
       if ( !loclist_base )
       {
-        tree_builder->e_->error("no loclist_base for DW_FORM_loclistx at %lx\n", data - debug_info_.s_);
+        tree_builder->e_->warning("no loclist_base for DW_FORM_loclistx at %lx\n", data - debug_info_.s_);
         return 0;
       }
       laddr = fetch_indexed_value(lindex, debug_loclists_.s_, debug_loclists_.size_, loclist_base);
@@ -1627,7 +1627,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
       laddr += loclist_base;
       if ( laddr > debug_loclists_.size_ )
       {
-        tree_builder->e_->error("laddr %lx is not inside loclists section size %lx\n", laddr, debug_loclists_.size_);
+        tree_builder->e_->warning("laddr %lx is not inside loclists section size %lx\n", laddr, debug_loclists_.size_);
         return 0;
       }
       data = (debug_loclists_.s_ + laddr);
@@ -1656,7 +1656,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
       bytes_available -= sizeof(uint32_t);
       break;
     default:
-      tree_builder->e_->error("DecodeAddrLocation: unknown form %X at %lX\n", form, doff);
+      tree_builder->e_->warning("DecodeAddrLocation: unknown form %X at %lX\n", form, doff);
       return 0;
   }
   const unsigned char *end = data + length;
@@ -1950,13 +1950,13 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
                 pl->locs.push_back({ imp_value, endc((unsigned int)*reinterpret_cast<const uint64_t*>(data)), 0});
                break;
              default:
-               tree_builder->e_->error("DecodeAddrLocation: unknown implicit_value size %lX at %lX\n", v64, doff);
+               tree_builder->e_->warning("DecodeAddrLocation: unknown implicit_value size %lX at %lX\n", v64, doff);
            }
            bytes_available -= v64;
            data += v64;
           break;
       default:
-        tree_builder->e_->error("DecodeAddrLocation: unknown op %X at %lX\n", op, doff);
+        tree_builder->e_->warning("DecodeAddrLocation: unknown op %X at %lX\n", op, doff);
         return 0;
     }
   }
@@ -2013,7 +2013,7 @@ uint64_t ElfFile::DecodeLocation(Dwarf32::Form form, const unsigned char* info, 
           value = *reinterpret_cast<const uint8_t*>(info);
           return value;
         }
-        tree_builder->e_->error("DecodeLocation: wrong len %lX for op %X\n", bytes_available, op);
+        tree_builder->e_->warning("DecodeLocation: wrong len %lX for op %X\n", bytes_available, op);
         return 0;
       }
       // 2 bytes
@@ -2025,7 +2025,7 @@ uint64_t ElfFile::DecodeLocation(Dwarf32::Form form, const unsigned char* info, 
           value = endc(*reinterpret_cast<const uint16_t*>(info));
           return value;
         }
-        tree_builder->e_->error("DecodeLocation: wrong len2 %lX for op %X\n", bytes_available, op);
+        tree_builder->e_->warning("DecodeLocation: wrong len2 %lX for op %X\n", bytes_available, op);
         return 0;
       }
       // 4 bytes
@@ -2037,7 +2037,7 @@ uint64_t ElfFile::DecodeLocation(Dwarf32::Form form, const unsigned char* info, 
           value = endc(*reinterpret_cast<const uint32_t*>(info));
           return value;
         }
-        tree_builder->e_->error("DecodeLocation: wrong len4 %lX for op %X\n", bytes_available, op);
+        tree_builder->e_->warning("DecodeLocation: wrong len4 %lX for op %X\n", bytes_available, op);
         return 0;
       }
       // 8 bytes
@@ -2049,12 +2049,12 @@ uint64_t ElfFile::DecodeLocation(Dwarf32::Form form, const unsigned char* info, 
           value = endc(*reinterpret_cast<const uint64_t*>(info));
           return value;
         }
-        tree_builder->e_->error("DecodeLocation: wrong len8 %lX for op %X\n", bytes_available, op);
+        tree_builder->e_->warning("DecodeLocation: wrong len8 %lX for op %X\n", bytes_available, op);
         return 0;
       }
 
       default:
-        tree_builder->e_->error("DecodeLocation: unknown op %X at %lX\n", op, info - debug_info_.s_);
+        tree_builder->e_->warning("DecodeLocation: unknown op %X at %lX\n", op, info - debug_info_.s_);
         return 0;
     }
   }
@@ -2067,7 +2067,7 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info, 
 
   switch(form) {
     case Dwarf32::Form::DW_FORM_flag_present:
-      tree_builder->e_->error("ERR: DW_FORM_flag_present at %lX\n", info - debug_info_.s_);
+      tree_builder->e_->warning("ERR: DW_FORM_flag_present at %lX\n", info - debug_info_.s_);
       value = 1;
      break;
     case Dwarf32::Form::DW_FORM_flag:
@@ -2218,7 +2218,7 @@ const char* ElfFile::check_strp(uint32_t str_pos)
     return nullptr;
   if ( (size_t)str_pos > debug_line_str_.size_ )
   {
-    tree_builder->e_->error("strp %X is not in debug_line_str section size %lx\n", str_pos, debug_line_str_.size_);
+    tree_builder->e_->warning("strp %X is not in debug_line_str section size %lx\n", str_pos, debug_line_str_.size_);
     return nullptr;
   } else
     return (const char*)debug_line_str_.s_ + str_pos;
@@ -2228,7 +2228,7 @@ const char* ElfFile::check_strx4(uint32_t str_pos)
 {
   if ( (size_t)str_pos > debug_str_offsets_.size_ )
   {
-    tree_builder->e_->error("stringx4 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_.size_);
+    tree_builder->e_->warning("stringx4 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_.size_);
     return nullptr;
   } else
     return get_indexed_str(str_pos);
@@ -2238,7 +2238,7 @@ const char* ElfFile::check_strx2(uint32_t str_pos)
 {
   if ( (size_t)str_pos > debug_str_offsets_.size_ )
   {
-    tree_builder->e_->error("stringx2 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_.size_);
+    tree_builder->e_->warning("stringx2 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_.size_);
     return nullptr;
   } else
     return get_indexed_str(str_pos);
@@ -2248,7 +2248,7 @@ const char* ElfFile::check_strx3(uint32_t str_pos)
 {
   if ( (size_t)str_pos > debug_str_offsets_.size_ )
   {
-    tree_builder->e_->error("stringx3 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_.size_);
+    tree_builder->e_->warning("stringx3 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_.size_);
     return nullptr;
   } else
     return get_indexed_str(str_pos);
@@ -2258,7 +2258,7 @@ const char* ElfFile::check_strx1(uint32_t str_pos)
 {
   if ( (size_t)str_pos > debug_str_offsets_.size_ )
   {
-    tree_builder->e_->error("stringx1 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_.size_);
+    tree_builder->e_->warning("stringx1 %X is not in str_offsets section size %lx\n", str_pos, debug_str_offsets_.size_);
     return nullptr;
   } else
     return get_indexed_str(str_pos);
@@ -2336,7 +2336,7 @@ const char* ElfFile::FormStringValue(Dwarf32::Form form, const unsigned char* &i
       str = check_strp(str_pos);
       break;
     default:
-      tree_builder->e_->error("ERR: Unexpected form string 0x%x at %lX\n", form, info - debug_info_.s_);
+      tree_builder->e_->warning("ERR: Unexpected form string 0x%x at %lX\n", form, info - debug_info_.s_);
       break;
   }
 
@@ -2349,7 +2349,7 @@ bool ElfFile::LoadAbbrevTags(uint32_t abbrev_offset) {
     return false;
   if ( abbrev_offset >= debug_abbrev_.size_ )
   {
-    tree_builder->e_->error("abbrev_offset %X is out of section\n", abbrev_offset);
+    tree_builder->e_->warning("abbrev_offset %X is out of section\n", abbrev_offset);
     return false;
   }
   compilation_unit_.clear();
@@ -2604,7 +2604,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         // check that it located somewhere inside .debug_rnglists section
         if ( (size_t)rnglists_base > debug_rnglists_.size_ )
         {
-          tree_builder->e_->error("bad DW_AT_rnglists_base %lx, size of .debug_rnglists %lx\n", rnglists_base, debug_rnglists_.size_);
+          tree_builder->e_->warning("bad DW_AT_rnglists_base %lx, size of .debug_rnglists %lx\n", rnglists_base, debug_rnglists_.size_);
           rnglists_base = 0;
         }
         return true;
@@ -2617,7 +2617,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         // check that it located somewhere inside .debug_loclists section
         if ( (size_t)loclist_base > debug_loclists_.size_ )
         {
-          tree_builder->e_->error("bad DW_AT_loclist_base %lx, size of .debug_loclists %lx\n", loclist_base, debug_loclists_.size_);
+          tree_builder->e_->warning("bad DW_AT_loclist_base %lx, size of .debug_loclists %lx\n", loclist_base, debug_loclists_.size_);
           loclist_base = 0;
         }
         return true;
@@ -2630,7 +2630,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         // check that it located somewhere inside .debug_addr section
         if ( (size_t)addr_base > debug_addr_.size_ )
         {
-          tree_builder->e_->error("bad DW_AT_addr_base %lx, size of .debug_addr %lx\n", addr_base, debug_addr_.size_);
+          tree_builder->e_->warning("bad DW_AT_addr_base %lx, size of .debug_addr %lx\n", addr_base, debug_addr_.size_);
           addr_base = 0;
         } else
           if ( tree_builder->cu.need_base_addr_idx )
@@ -2645,7 +2645,7 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         // check that it located somewhere inside .debug_str_offsets section
         if ( (size_t)offsets_base > debug_str_offsets_.size_ )
         {
-          tree_builder->e_->error("bad DW_AT_str_offsets_base %lx, size of .debug_str_offsets %lx\n", offsets_base, debug_str_offsets_.size_);
+          tree_builder->e_->warning("bad DW_AT_str_offsets_base %lx, size of .debug_str_offsets %lx\n", offsets_base, debug_str_offsets_.size_);
           offsets_base = 0;
         }
         apply_dlist();
