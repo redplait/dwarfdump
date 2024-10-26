@@ -257,6 +257,13 @@ using namespace mips;
 using namespace mips;
    // https://www.cs.cmu.edu/afs/cs/academic/class/15740-f97/public/doc/mips-isa.pdf
    switch(inst.operation) {
+     case MIPS_ABS_D:
+     case MIPS_ABS_PS:
+     case MIPS_ABS_S:
+     case MIPS_DADD:
+     case MIPS_DADDI:
+     case MIPS_DADDIU:
+     case MIPS_DADDU:
      case MIPS_ADD:
      case MIPS_ADDU:
      case MIPS_ADDIU:
@@ -264,7 +271,32 @@ using namespace mips;
      case MIPS_SUBU:
      case MIPS_MUL:
      case MIPS_MULT:
+     case MIPS_MULTU:
      case MIPS_DIV:
+     case MIPS_DIVU:
+     case MIPS_DIV_D:
+     case MIPS_DIV_PS:
+     case MIPS_DIV_S:
+     case MIPS_MFHI:
+     case MIPS_MTHI:
+     case MIPS_MFLO:
+     case MIPS_MTLO:
+     case MIPS_NEG_D:
+     case MIPS_NEG_PS:
+     case MIPS_NEG_S:
+     case MIPS_NEG:
+     case MIPS_NEGU:
+     case MIPS_NOR:
+     case MIPS_NOT:
+     case MIPS_C_SEQ_D:
+     case MIPS_C_SEQ_PS:
+     case MIPS_C_SEQ_S:
+     case MIPS_C_SEQ:
+     case MIPS_SRA:
+     case MIPS_SLT:
+     case MIPS_SLTI:
+     case MIPS_SLTU:
+     case MIPS_SLTIU:
      case MIPS_AND:
      case MIPS_OR:
      case MIPS_ANDI:
