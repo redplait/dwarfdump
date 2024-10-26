@@ -96,13 +96,13 @@ inline bool is_2op(param_op_type op)
   switch(op)
   {
     case fand:
-    case fdiv:
+    case Dfdiv:
     case fminus:
     case fplus:
     case f_or:
     case fxor:
-    case fmul:
-    case fmod:
+    case Dfmul:
+    case Dfmod:
     case fshl:
     case fshr:
      return true;
@@ -124,7 +124,7 @@ uint64_t TreeBuilder::calc_redudant_locs(const param_loc &pl)
       state++;
       continue;
     }
-    if ( state && (l.type == fneg || l.type == fabs || l.type == fnot) )
+    if ( state && (l.type == fneg || l.type == Dfabs || l.type == fnot) )
     {
       res += 2;
       continue;
@@ -301,7 +301,7 @@ const char *TreeBuilder::locs_no_ops(param_op_type op)
     case deref: return "OP_deref";
     case fneg: return "neg";
     case fnot: return "not";
-    case fabs: return "abs";
+    case Dfabs: return "abs";
     case fand: return "and";
     case fminus: return "minus";
     case f_or: return "or";
@@ -310,9 +310,9 @@ const char *TreeBuilder::locs_no_ops(param_op_type op)
     case fshr: return "shr";
     case fshra: return "shra";
     case fxor: return "xor";
-    case fmul: return "mul";
-    case fdiv: return "div";
-    case fmod: return "mod";
+    case Dfmul: return "mul";
+    case Dfdiv: return "div";
+    case Dfmod: return "mod";
     case fstack: return "stack_value";
     default: return nullptr;
   }

@@ -33,7 +33,7 @@ enum param_op_type
   fneg,   // DW_OP_neg
   fnot,   // DW_OP_not
   fand,   // DW_OP_and
-  fabs,   // DW_OP_abs
+  Dfabs,  // DW_OP_abs
   fminus, // DW_OP_minus
   f_or,   // DW_OP_or
   fplus,  // DW_OP_plus
@@ -41,9 +41,9 @@ enum param_op_type
   fshr,   // DW_OP_shr
   fshra,  // DW_OP_shra
   fxor,   // DW_OP_xor
-  fmul,   // DW_OP_mul
-  fdiv,   // DW_OP_div
-  fmod,   // DW_OP_mod
+  Dfmul,  // DW_OP_mul
+  Dfdiv,  // DW_OP_div
+  Dfmod,  // DW_OP_mod
   fstack, // DW_OP_stack_value
 };
 

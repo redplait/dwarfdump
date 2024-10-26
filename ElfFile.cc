@@ -1800,7 +1800,7 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
           break;
         case Dwarf32::dwarf_ops::DW_OP_abs:
            if ( pl )
-             pl->push_exp(fabs);
+             pl->push_exp(Dfabs);
           break;
         case Dwarf32::dwarf_ops::DW_OP_and:
            if ( pl )
@@ -1836,15 +1836,15 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
           break;
         case Dwarf32::dwarf_ops::DW_OP_mul:
            if ( pl )
-             pl->push_exp(fmul);
+             pl->push_exp(Dfmul);
           break;
         case Dwarf32::dwarf_ops::DW_OP_div:
            if ( pl )
-             pl->push_exp(fdiv);
+             pl->push_exp(Dfdiv);
           break;
         case Dwarf32::dwarf_ops::DW_OP_mod:
            if ( pl )
-             pl->push_exp(fmod);
+             pl->push_exp(Dfmod);
           break;
         case Dwarf32::dwarf_ops::DW_OP_piece:
           v64 = ElfFile::ULEB128(data, bytes_available);
