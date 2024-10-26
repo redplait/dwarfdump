@@ -268,12 +268,12 @@ using namespace mips;
      case MIPS_ADDU:
      case MIPS_ADDIU:
      case MIPS_SUB:
+     case MIPS_DSUB:
      case MIPS_SUBU:
+     case MIPS_DSUBU:
      case MIPS_MUL:
      case MIPS_MULT:
      case MIPS_MULTU:
-     case MIPS_DIV:
-     case MIPS_DIVU:
      case MIPS_DIV_D:
      case MIPS_DIV_PS:
      case MIPS_DIV_S:
@@ -293,6 +293,7 @@ using namespace mips;
      case MIPS_C_SEQ_S:
      case MIPS_C_SEQ:
      case MIPS_SRA:
+     case MIPS_DSRA:
      case MIPS_SLT:
      case MIPS_SLTI:
      case MIPS_SLTU:
@@ -305,6 +306,10 @@ using namespace mips;
      case MIPS_XORI:
      case MIPS_SLL:
      case MIPS_SRL:
+     case MIPS_DSRL:
+     case MIPS_DSLL:
+     case MIPS_MOVN:
+     case MIPS_MOVZ:
       return 1;
    }
    return 0;
@@ -313,14 +318,14 @@ using namespace mips;
  {
    return (inst.operation == mips::MIPS_LBU || inst.operation == mips::MIPS_LB ||
       inst.operation == mips::MIPS_LH || inst.operation == mips::MIPS_LHU ||
-      inst.operation == mips::MIPS_LW || inst.operation == mips::MIPS_LL) &&
+      inst.operation == mips::MIPS_LW || inst.operation == mips::MIPS_LL || inst.operation == mips::MIPS_LLD) &&
     inst.operands[0].operandClass == mips::OperandClass::REG &&
     inst.operands[1].operandClass == mips::OperandClass::MEM_IMM;
  }
  int is_stX() const
  {
   return (inst.operation == mips::MIPS_SB || inst.operation == mips::MIPS_SH ||
-      inst.operation == mips::MIPS_SW) &&
+       inst.operation == mips::MIPS_SW || inst.operation == mips::MIPS_SD) &&
     inst.operands[0].operandClass == mips::OperandClass::REG &&
     inst.operands[1].operandClass == mips::OperandClass::MEM_IMM;
  }
