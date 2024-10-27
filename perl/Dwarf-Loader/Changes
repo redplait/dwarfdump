@@ -1,0 +1,6 @@
+Revision history for Perl extension Dwarf::Loader.
+
+0.01  Sat Oct 26 16:12:29 2024
+	- original version; created by h2xs 1.23 with options
+		-cfn Dwarf::Loader
+
