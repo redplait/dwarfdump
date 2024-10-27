@@ -70,11 +70,42 @@ class PerlRenderer: public TreeBuilder
     { return t->size_; }
     UV type_id() const
     { return t->type_id_; }
+    // methods attributes
     IV mvirt() const
     {
       if ( t->type_ != method ) return 0;
       auto method = (Method *)t;
       return method->virt_;
+    }
+    UV mvtbl_idx() const
+    {
+      if ( t->type_ != method ) return 0;
+      auto method = (Method *)t;
+      return method->vtbl_index_;
+    }
+    UV mthis_arg() const
+    {
+      if ( t->type_ != method ) return 0;
+      auto method = (Method *)t;
+      return method->this_arg_;
+    }
+    int mart() const
+    {
+      if ( t->type_ != method ) return 0;
+      auto method = (Method *)t;
+      return method->art_;
+    }
+    int mdef() const
+    {
+      if ( t->type_ != method ) return 0;
+      auto method = (Method *)t;
+      return method->def_;
+    }
+    int mexpl() const
+    {
+      if ( t->type_ != method ) return 0;
+      auto method = (Method *)t;
+      return method->expl_;
     }
    };
    // find methods
@@ -107,6 +138,16 @@ class PerlRenderer: public TreeBuilder
    { return m_names.size(); }
    size_t addr_cnt() const
    { return m_addresses.size(); }
+   // get tag arrays with some type
+   AV *named(IV type)
+   {
+     AV *av = newAV();
+     for ( auto &n: m_names ) {
+       if ( n.second->type_ != type ) continue;
+       av_push(av, newSVuv( n.second->id_ ));
+     }
+     return av;
+   }
  protected:
    virtual void RenderUnit(int last);
    virtual void store_addr(Element *e, uint64_t addr) {
@@ -455,6 +496,14 @@ addr_cnt(SV *self)
  OUTPUT:
   RETVAL
 
+void
+named(SV *self, int type)
+ INIT:
+  auto *d = dwarf_magic_ext<IDwarf>(self, 1, &dwarf_magic_vt);
+ PPCODE:
+  mXPUSHs( newRV_noinc((SV*)d->pr.named(type)) );
+  XSRETURN(1);
+
 MODULE = Dwarf::Loader		PACKAGE = Dwarf::Loader::Element
 
 UV
@@ -543,6 +592,66 @@ mvirt(SV *self)
     XSRETURN(1);
   }
   ST(0) = sv_2mortal( newSViv( d->mvirt() ) );
+  XSRETURN(1);
+
+void
+mvtbl_idx(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->type_ != TreeBuilder::ElementType::method ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  ST(0) = sv_2mortal( newSVuv( d->mvtbl_idx() ) );
+  XSRETURN(1);
+
+void
+mthis_arg(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->type_ != TreeBuilder::ElementType::method ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  ST(0) = sv_2mortal( newSVuv( d->mthis_arg() ) );
+  XSRETURN(1);
+
+void
+mart(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->type_ != TreeBuilder::ElementType::method ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  ST(0) = sv_2mortal( newSViv( d->mart() ) );
+  XSRETURN(1);
+
+void
+mdef(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->type_ != TreeBuilder::ElementType::method ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  ST(0) = sv_2mortal( newSViv( d->mdef() ) );
+  XSRETURN(1);
+
+void
+mexpl(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->type_ != TreeBuilder::ElementType::method ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  ST(0) = sv_2mortal( newSViv( d->mexpl() ) );
   XSRETURN(1);
 
 BOOT:
