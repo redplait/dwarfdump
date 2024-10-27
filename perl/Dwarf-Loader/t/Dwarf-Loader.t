@@ -21,10 +21,12 @@ ok( defined($dw), 'new Dwarf::Loader' );
 my $adr = $dw->by_addr(0x12C76C0);
 ok ( defined($adr), 'by_addr');
 ok ( $adr->type() == TSub, 'by_addr is sub');
+my $atag = $adr->abs();
+$atag = $adr->tag() if !defined($atag);
 
 my $fn = $dw->by_name('slab_unmergeable');
 ok ( defined($fn), 'by_name');
-ok ( $fn->tag() == $adr->tag(), 'same tags');
+ok ( $fn->tag() == $atag, 'same tags');
 
 #########################
 

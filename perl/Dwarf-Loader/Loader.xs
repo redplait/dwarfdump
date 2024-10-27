@@ -70,6 +70,12 @@ class PerlRenderer: public TreeBuilder
     { return t->size_; }
     UV type_id() const
     { return t->type_id_; }
+    IV mvirt() const
+    {
+      if ( t->type_ != method ) return 0;
+      auto method = (Method *)t;
+      return method->virt_;
+    }
    };
    // find methods
    Element *by_addr(uint64_t addr)
@@ -460,6 +466,15 @@ tag(SV *self)
  OUTPUT:
   RETVAL
 
+UV
+abs(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ CODE:
+  RETVAL = d->t->abs_;
+ OUTPUT:
+  RETVAL
+
 IV
 rank(SV *self)
  INIT:
@@ -495,6 +510,40 @@ type_id(SV *self)
   RETVAL = d->type_id();
  OUTPUT:
   RETVAL
+
+void
+owner(SV *self)
+ INIT:
+  HV *pkg = NULL;
+  SV *msv;
+  SV *objref= NULL;
+  MAGIC* magic;
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( !d->t->owner_ ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  // wrap owner to DElem
+  if ( !(pkg = gv_stashpv(s_delem, 0)) ) {
+    croak("Package %s does not exists", s_delem);
+  }
+  d->e->add_ref();
+  auto res = new PerlRenderer::DElem(d->e, d->t->owner_);
+  // bless
+  DWARF_EXT(delem_magic_vt, res)
+
+void
+mvirt(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->type_ != TreeBuilder::ElementType::method ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  ST(0) = sv_2mortal( newSViv( d->mvirt() ) );
+  XSRETURN(1);
 
 BOOT:
  HV *stash= gv_stashpvn("Dwarf::Loader", 13, 1);
