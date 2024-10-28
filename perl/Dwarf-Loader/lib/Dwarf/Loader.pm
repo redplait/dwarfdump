@@ -22,6 +22,13 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
+# access
+use constant {
+ Public => 1,
+ Protected => 2,
+ Private => 3,
+};
+
 our @EXPORT = qw(
 TArray
 TClass
@@ -49,6 +56,9 @@ TPtr2Member
 TUnspec
 TVar
 TVariant
+Public
+Protected
+Private
 );
 
 our $VERSION = '0.01';
