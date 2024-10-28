@@ -12,6 +12,7 @@ extern int g_opt_f, g_opt_k, g_opt_F;
 static HV *s_elem_pkg,
  *s_member_iter_pkg,
  *s_method_iter_pkg,
+ *s_lvars_iter_pkg,
  *s_param_pkg, *s_param_iter_pkg,
  *s_parent_pkg, *s_parent_iter_pkg;
 
@@ -70,6 +71,7 @@ class PerlRenderer: public TreeBuilder
    PDWARF(DParent, Parent) };
    PDWARF(DParentIter, std::vector<Parent>) };
    PDWARF(DMemberIter, std::vector<Element>) };
+   PDWARF(DLVarIter, std::vector<Element *>) };
    struct DMethodIter {
      ~DMethodIter();
      DMethodIter(struct IDwarf *_e, std::list<Method> &m): e(_e) {
@@ -263,6 +265,8 @@ DESTR(DParamIter)
 DESTR(DParent)
 DESTR(DParentIter)
 DESTR(DMemberIter)
+DESTR(DLVarIter)
+
 
 PerlRenderer::DMethodIter::~DMethodIter()
 {
@@ -413,6 +417,21 @@ static MGVTBL dmethod_iter_vt = {
         dwarf_magic_size<PerlRenderer::DMethodIter>, /* length */
         0, /* clear */
         dwarf_magic_del<PerlRenderer::DMethodIter>,
+        0, /* copy */
+        0 /* dup */
+#ifdef MGf_LOCAL
+        ,0
+#endif
+};
+
+static const char *s_lvars = "Dwarf::Loader::LVarIterator";
+// magic table for Dwarf::Loader::LVarIterator
+static MGVTBL dlvar_iter_vt = {
+        0, /* get */
+        0, /* write */
+        dwarf_magic_size<PerlRenderer::DLVarIter>, /* length */
+        0, /* clear */
+        dwarf_magic_del<PerlRenderer::DLVarIter>,
         0, /* copy */
         0 /* dup */
 #ifdef MGf_LOCAL
@@ -682,6 +701,24 @@ offset(SV *self)
   RETVAL
 
 UV
+count(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ CODE:
+  RETVAL = d->t->count_;
+ OUTPUT:
+  RETVAL
+
+UV
+cont_id(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ CODE:
+  RETVAL = d->t->cont_type_;
+ OUTPUT:
+  RETVAL
+
+UV
 align(SV *self)
  INIT:
   auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
@@ -725,6 +762,36 @@ bit_offset(SV *self)
   RETVAL = d->t->bit_offset_;
  OUTPUT:
   RETVAL
+
+void
+noret(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->noret_ )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
+
+void
+decl(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->decl_ )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
+
+void
+const_expr(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->const_expr_ )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
 
 void
 owner(SV *self)
@@ -930,6 +997,24 @@ methods(SV *self)
   // bless
   DWARF_TIE(dmethod_iter_vt, s_method_iter_pkg, res)
 
+void
+vars(SV *self)
+ INIT:
+  AV *fake;
+  SV *objref= NULL;
+  MAGIC* magic;
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( !d->t->m_comp || d->t->m_comp->lvars_.empty() ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  // make new PerlRenderer::DLVarIter
+  d->e->add_ref();
+  auto res = new PerlRenderer::DLVarIter(d->e, &d->t->m_comp->lvars_);
+  // bless
+  DWARF_TIE(dlvar_iter_vt, s_lvars_iter_pkg, res)
+
 
 MODULE = Dwarf::Loader		PACKAGE = Dwarf::Loader::Param
 
@@ -1126,6 +1211,30 @@ FETCH(self, key)
   // bless
   DWARF_EXT(delem_magic_vt, s_elem_pkg, res)
 
+MODULE = Dwarf::Loader		PACKAGE = Dwarf::Loader::LVarIterator
+
+void
+FETCH(self, key)
+  SV *self;
+  IV key;
+ INIT:
+  SV *msv;
+  SV *objref= NULL;
+  MAGIC* magic;
+  auto *d = dwarf_magic_tied<PerlRenderer::DLVarIter>(self, 1, &dlvar_iter_vt);
+ PPCODE:
+  if ( key >= d->t->size() ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  auto p = d->t->at(key);
+  // bless result into Dwarf::Loader::Element
+  d->e->add_ref();
+  auto res = new PerlRenderer::DElem(d->e, p);
+  // bless
+  DWARF_EXT(delem_magic_vt, s_elem_pkg, res)
+
+
 BOOT:
  // store frequently used packages
  s_elem_pkg = gv_stashpv(s_delem, 0);
@@ -1149,6 +1258,9 @@ BOOT:
  s_method_iter_pkg = gv_stashpv(s_methods, 0);
  if ( !s_method_iter_pkg )
     croak("Package %s does not exists", s_methods);
+ s_lvars_iter_pkg = gv_stashpv(s_lvars, 0);
+ if ( !s_lvars_iter_pkg )
+    croak("Package %s does not exists", s_lvars);
 
 
  HV *stash= gv_stashpvn("Dwarf::Loader", 13, 1);
