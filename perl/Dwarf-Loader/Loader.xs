@@ -10,6 +10,8 @@
 extern int g_opt_f, g_opt_k, g_opt_F;
 
 static HV *s_elem_pkg,
+ *s_member_iter_pkg,
+ *s_method_iter_pkg,
  *s_param_pkg, *s_param_iter_pkg,
  *s_parent_pkg, *s_parent_iter_pkg;
 
@@ -63,13 +65,20 @@ class PerlRenderer: public TreeBuilder
    struct IDwarf *e; \
    type *t;
 
-   PDWARF(DParam, FormalParam)
-   };
-   PDWARF(DParamIter, std::vector<FormalParam>)
-   };
-   PDWARF(DParent, Parent)
-   };
-   PDWARF(DParentIter, std::vector<Parent>)
+   PDWARF(DParam, FormalParam) };
+   PDWARF(DParamIter, std::vector<FormalParam>) };
+   PDWARF(DParent, Parent) };
+   PDWARF(DParentIter, std::vector<Parent>) };
+   PDWARF(DMemberIter, std::vector<Element>) };
+   struct DMethodIter {
+     ~DMethodIter();
+     DMethodIter(struct IDwarf *_e, std::list<Method> &m): e(_e) {
+       t = new std::vector<Element *>;
+       t->reserve( m.size() );
+       for ( auto &im: m ) t->push_back( &im );
+     }
+     struct IDwarf *e;
+     std::vector<Element *> *t;
    };
    PDWARF(DElem, Element)
     IV rank() const
@@ -253,6 +262,14 @@ DESTR(DParam)
 DESTR(DParamIter)
 DESTR(DParent)
 DESTR(DParentIter)
+DESTR(DMemberIter)
+
+PerlRenderer::DMethodIter::~DMethodIter()
+{
+  e->release();
+  if ( t ) delete t;
+}
+
 
 template <typename T>
 static int dwarf_magic_release(pTHX_ SV* sv, MAGIC* mg) {
@@ -373,6 +390,35 @@ static MGVTBL dparent_iter_vt = {
 #endif
 };
 
+static const char *s_members = "Dwarf::Loader::MemberIterator";
+// magic table for Dwarf::Loader::MemberIterator
+static MGVTBL dmember_iter_vt = {
+        0, /* get */
+        0, /* write */
+        dwarf_magic_size<PerlRenderer::DMemberIter>, /* length */
+        0, /* clear */
+        dwarf_magic_del<PerlRenderer::DMemberIter>,
+        0, /* copy */
+        0 /* dup */
+#ifdef MGf_LOCAL
+        ,0
+#endif
+};
+
+static const char *s_methods = "Dwarf::Loader::MethodIterator";
+// magic table for Dwarf::Loader::MethodIterator
+static MGVTBL dmethod_iter_vt = {
+        0, /* get */
+        0, /* write */
+        dwarf_magic_size<PerlRenderer::DMethodIter>, /* length */
+        0, /* clear */
+        dwarf_magic_del<PerlRenderer::DMethodIter>,
+        0, /* copy */
+        0 /* dup */
+#ifdef MGf_LOCAL
+        ,0
+#endif
+};
 
 #define DWARF_EXT(vtab, pkg, what) \
   msv = newSViv(0); \
@@ -848,6 +894,43 @@ parents(SV *self)
   // bless
   DWARF_TIE(dparent_iter_vt, s_parent_iter_pkg, res)
 
+void
+members(SV *self)
+ INIT:
+  AV *fake;
+  SV *objref= NULL;
+  MAGIC* magic;
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( !d->t->m_comp || d->t->m_comp->members_.empty() ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  // make new PerlRenderer::DMemberIter
+  d->e->add_ref();
+  auto res = new PerlRenderer::DMemberIter(d->e, &d->t->m_comp->members_);
+  // bless
+  DWARF_TIE(dmember_iter_vt, s_member_iter_pkg, res)
+
+void
+methods(SV *self)
+ INIT:
+  AV *fake;
+  SV *objref= NULL;
+  MAGIC* magic;
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( !d->t->m_comp || d->t->m_comp->methods_.empty() ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  // make new PerlRenderer::DMethodIter
+  d->e->add_ref();
+  auto res = new PerlRenderer::DMethodIter(d->e, d->t->m_comp->methods_);
+  // bless
+  DWARF_TIE(dmethod_iter_vt, s_method_iter_pkg, res)
+
+
 MODULE = Dwarf::Loader		PACKAGE = Dwarf::Loader::Param
 
 void
@@ -863,7 +946,7 @@ name(SV *self)
   XSRETURN(1);
 
 IV
-type(SV *self)
+type_id(SV *self)
  INIT:
   auto *d = dwarf_magic_ext<PerlRenderer::DParam>(self, 1, &dparam_magic_vt);
  CODE:
@@ -937,7 +1020,7 @@ FETCH(self, key)
 MODULE = Dwarf::Loader		PACKAGE = Dwarf::Loader::Parent
 
 UV
-type(SV *self)
+type_id(SV *self)
  INIT:
   auto *d = dwarf_magic_ext<PerlRenderer::DParent>(self, 1, &dparent_magic_vt);
  CODE:
@@ -997,6 +1080,52 @@ FETCH(self, key)
   DWARF_EXT(dparent_magic_vt, s_parent_pkg, res)
 
 
+MODULE = Dwarf::Loader		PACKAGE = Dwarf::Loader::MemberIterator
+
+void
+FETCH(self, key)
+  SV *self;
+  IV key;
+ INIT:
+  SV *msv;
+  SV *objref= NULL;
+  MAGIC* magic;
+  auto *d = dwarf_magic_tied<PerlRenderer::DMemberIter>(self, 1, &dmember_iter_vt);
+ PPCODE:
+  if ( key >= d->t->size() ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  auto &p = d->t->at(key);
+  // bless result into Dwarf::Loader::Element
+  d->e->add_ref();
+  auto res = new PerlRenderer::DElem(d->e, &p);
+  // bless
+  DWARF_EXT(delem_magic_vt, s_elem_pkg, res)
+
+MODULE = Dwarf::Loader		PACKAGE = Dwarf::Loader::MethodIterator
+
+void
+FETCH(self, key)
+  SV *self;
+  IV key;
+ INIT:
+  SV *msv;
+  SV *objref= NULL;
+  MAGIC* magic;
+  auto *d = dwarf_magic_tied<PerlRenderer::DMethodIter>(self, 1, &dmethod_iter_vt);
+ PPCODE:
+  if ( key >= d->t->size() ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  auto p = d->t->at(key);
+  // bless result into Dwarf::Loader::Element
+  d->e->add_ref();
+  auto res = new PerlRenderer::DElem(d->e, p);
+  // bless
+  DWARF_EXT(delem_magic_vt, s_elem_pkg, res)
+
 BOOT:
  // store frequently used packages
  s_elem_pkg = gv_stashpv(s_delem, 0);
@@ -1014,6 +1143,13 @@ BOOT:
  s_parent_iter_pkg = gv_stashpv(s_fparents, 0);
  if ( !s_parent_iter_pkg )
     croak("Package %s does not exists", s_fparents);
+ s_member_iter_pkg = gv_stashpv(s_members, 0);
+ if ( !s_member_iter_pkg )
+    croak("Package %s does not exists", s_members);
+ s_method_iter_pkg = gv_stashpv(s_methods, 0);
+ if ( !s_method_iter_pkg )
+    croak("Package %s does not exists", s_methods);
+
 
  HV *stash= gv_stashpvn("Dwarf::Loader", 13, 1);
  g_opt_f = g_opt_k = g_opt_F = 1;

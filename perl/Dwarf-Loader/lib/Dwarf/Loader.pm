@@ -59,12 +59,28 @@ TVariant
 Public
 Protected
 Private
+unchain
 );
 
 our $VERSION = '0.01';
 
 require XSLoader;
 XSLoader::load('Dwarf::Loader', $VERSION);
+
+# sub to get final type in chain of pointers/references
+# args: dwarf_reader element
+sub unchain
+{
+  my($dw, $e) = @_;
+  my $t = $e->type();
+  while( defined($t) && ( $t == TPtr() || $t == TConst() || $t == TVolatile() || $t == TImmutable() || $t == TRef() ) )
+  {
+    $e = $dw->by_id($e->type_id());
+    last if !defined($e);
+    $t = $e->type();
+  }
+  return $e;
+}
 
 # Preloaded methods go here.
 
