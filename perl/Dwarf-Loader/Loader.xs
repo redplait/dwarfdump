@@ -9,7 +9,8 @@
 
 extern int g_opt_f, g_opt_k, g_opt_F;
 
-static HV *s_elem_pkg;
+static HV *s_elem_pkg,
+ *s_param_pkg, *s_param_iter_pkg;
 
 class PerlLog: public ErrLog
 {
@@ -61,6 +62,10 @@ class PerlRenderer: public TreeBuilder
    struct IDwarf *e; \
    type *t;
 
+   PDWARF(DParam, FormalParam)
+   };
+   PDWARF(DParamIter, std::vector<FormalParam>)
+   };
    PDWARF(DElem, Element)
     IV rank() const
     { return t->get_rank(); }
@@ -241,6 +246,16 @@ PerlRenderer::DElem::~DElem()
   e->release();
 }
 
+PerlRenderer::DParam::~DParam()
+{
+  e->release();
+}
+
+PerlRenderer::DParamIter::~DParamIter()
+{
+  e->release();
+}
+
 template <typename T>
 static int dwarf_magic_release(pTHX_ SV* sv, MAGIC* mg) {
     if (mg->mg_ptr) {
@@ -289,6 +304,47 @@ static MGVTBL delem_magic_vt = {
         ,0
 #endif
 };
+
+static const char *s_fparam = "Dwarf::Loader::Param";
+// magic table for Dwarf::Loader::Param
+static MGVTBL dparam_magic_vt = {
+        0, /* get */
+        0, /* write */
+        0, /* length */
+        0, /* clear */
+        dwarf_magic_del<PerlRenderer::DParam>,
+        0, /* copy */
+        0 /* dup */
+#ifdef MGf_LOCAL
+        ,0
+#endif
+};
+
+// iterators
+template<typename T>
+static U32 dwarf_magic_size(pTHX_ SV* sv, MAGIC* mg) {
+    if (mg->mg_ptr) {
+        auto *m = (T *)mg->mg_ptr;
+        return m->t->size()-1;
+    }
+    return 0; // ignored anyway
+}
+
+static const char *s_fparams = "Dwarf::Loader::ParamIterator";
+// magic table for Dwarf::Loader::Param
+static MGVTBL dparam_iter_vt = {
+        0, /* get */
+        0, /* write */
+        dwarf_magic_size<PerlRenderer::DParamIter>, /* length */
+        0, /* clear */
+        dwarf_magic_del<PerlRenderer::DParamIter>,
+        0, /* copy */
+        0 /* dup */
+#ifdef MGf_LOCAL
+        ,0
+#endif
+};
+
 
 #define DWARF_EXT(vtab, pkg, what) \
   msv = newSViv(0); \
@@ -674,11 +730,122 @@ mexpl(SV *self)
   else
     XSRETURN_NO;
 
+void
+params(SV *self)
+ INIT:
+  AV *fake;
+  SV *objref= NULL;
+  MAGIC* magic;
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( !d->t->m_comp || d->t->m_comp->params_.empty() ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  // make new PerlRenderer::DParamIter
+  d->e->add_ref();
+  auto res = new PerlRenderer::DParamIter(d->e, &d->t->m_comp->params_);
+  // bless
+  DWARF_TIE(dparam_iter_vt, s_param_iter_pkg, res)
+
+
+MODULE = Dwarf::Loader		PACKAGE = Dwarf::Loader::Param
+
+void
+name(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DParam>(self, 1, &dparam_magic_vt);
+ PPCODE:
+  if ( !d->t->name ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  ST(0) = sv_2mortal( newSVpv( d->t->name, strlen(d->t->name) ) );
+  XSRETURN(1);
+
+IV
+type(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DParam>(self, 1, &dparam_magic_vt);
+ CODE:
+  RETVAL = d->t->id;
+ OUTPUT:
+  RETVAL
+
+void
+ellips(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DParam>(self, 1, &dparam_magic_vt);
+ PPCODE:
+  if ( d->t->ellipsis )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
+
+void
+var(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DParam>(self, 1, &dparam_magic_vt);
+ PPCODE:
+  if ( d->t->var_ )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
+
+void
+art(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DParam>(self, 1, &dparam_magic_vt);
+ PPCODE:
+  if ( d->t->art_ )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
+
+void
+opt(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DParam>(self, 1, &dparam_magic_vt);
+ PPCODE:
+  if ( d->t->optional_ )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
+
+MODULE = Dwarf::Loader		PACKAGE = Dwarf::Loader::ParamIterator
+
+void
+FETCH(self, key)
+  SV *self;
+  IV key;
+ INIT:
+  SV *msv;
+  SV *objref= NULL;
+  MAGIC* magic;
+  auto *d = dwarf_magic_tied<PerlRenderer::DParamIter>(self, 1, &dparam_iter_vt);
+ PPCODE:
+  if ( key >= d->t->size() ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  auto &p = d->t->at(key);
+  // bless result into Dwarf::Loader::Param
+  d->e->add_ref();
+  auto res = new PerlRenderer::DParam(d->e, &p);
+  // bless
+  DWARF_EXT(dparam_magic_vt, s_param_pkg, res)
+
 BOOT:
  // store frequently used packages
  s_elem_pkg = gv_stashpv(s_delem, 0);
  if ( !s_elem_pkg )
     croak("Package %s does not exists", s_delem);
+ s_param_iter_pkg = gv_stashpv(s_fparams, 0);
+ if ( !s_param_iter_pkg )
+    croak("Package %s does not exists", s_fparams);
+ s_param_pkg = gv_stashpv(s_fparam, 0);
+ if ( !s_param_pkg )
+    croak("Package %s does not exists", s_fparam);
  HV *stash= gv_stashpvn("Dwarf::Loader", 13, 1);
  g_opt_f = g_opt_k = g_opt_F = 1;
  // dump TreeBuilder::ElementType

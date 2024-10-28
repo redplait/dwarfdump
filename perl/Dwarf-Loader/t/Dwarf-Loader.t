@@ -8,7 +8,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 7;
+use Test::More tests => 9;
 use Elf::Reader;
 BEGIN { use_ok('Dwarf::Loader') };
 
@@ -27,6 +27,11 @@ $atag = $adr->tag() if !defined($atag);
 my $fn = $dw->by_name('slab_unmergeable');
 ok ( defined($fn), 'by_name');
 ok ( $fn->tag() == $atag, 'same tags');
+
+# fn params
+my $fpi = $fn->params();
+ok( defined($fpi), 'func params' );
+ok ( scalar( @$fpi) == 1, 'func params count' );
 
 #########################
 
