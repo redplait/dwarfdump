@@ -168,7 +168,7 @@ secs_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
   U32 res = 0;
   if (mg->mg_ptr) {
     IElf *e = (IElf *)mg->mg_ptr;
-    res = e->rdr->sections.size();
+    res = e->rdr->sections.size() - 1;
   }
   return res;
 }
@@ -179,7 +179,7 @@ segs_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
   U32 res = 0;
   if (mg->mg_ptr) {
     IElf *e = (IElf *)mg->mg_ptr;
-    res = e->rdr->segments.size();
+    res = e->rdr->segments.size() - 1;
   }
   return res;
 }
@@ -190,7 +190,7 @@ syms_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
   U32 res = 0;
   if (mg->mg_ptr) {
     IElfSyms *e = (IElfSyms *)mg->mg_ptr;
-    res = e->ssa.get_symbols_num();
+    res = e->ssa.get_symbols_num() - 1;
   }
   return res;
 }
@@ -201,7 +201,7 @@ dyn_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
   U32 res = 0;
   if (mg->mg_ptr) {
     IElfDyns *e = (IElfDyns *)mg->mg_ptr;
-    res = e->dsa.get_entries_num();
+    res = e->dsa.get_entries_num() - 1;
   }
   return res;
 }
@@ -212,7 +212,7 @@ rel_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
   U32 res = 0;
   if (mg->mg_ptr) {
     IElfRels *e = (IElfRels *)mg->mg_ptr;
-    res = e->rsa.get_entries_num();
+    res = e->rsa.get_entries_num() - 1;
   }
   return res;
 }
@@ -223,7 +223,7 @@ notes_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
   U32 res = 0;
   if (mg->mg_ptr) {
     IElfNotes *e = (IElfNotes *)mg->mg_ptr;
-    res = e->nsa.get_notes_num();
+    res = e->nsa.get_notes_num() - 1;
   }
   return res;
 }
@@ -234,7 +234,7 @@ versyms_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
   U32 res = 0;
   if (mg->mg_ptr) {
     IElfVersyms *e = (IElfVersyms *)mg->mg_ptr;
-    res = e->vsa.get_entries_num();
+    res = e->vsa.get_entries_num() - 1;
   }
   return res;
 }
@@ -245,7 +245,7 @@ modinfo_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
   U32 res = 0;
   if (mg->mg_ptr) {
     IElfModinfo *e = (IElfModinfo *)mg->mg_ptr;
-    res = e->msa.get_attribute_num();
+    res = e->msa.get_attribute_num() - 1;
   }
   return res;
 }

@@ -23,11 +23,11 @@ ok( $e->entry() == 0x67d0, 'entry');
 # sections tests
 my $secs = $e->secs();
 ok( $secs, 'secs' );
-ok( scalar( @$secs ) == 31, 'secs count' );
+ok( scalar( @$secs ) == 30, 'secs count' );
 # segments tests
 my $segs = $e->segs();
 ok( $segs, 'segs' );
-ok( scalar( @$segs ) == 14, 'segs count' );
+ok( scalar( @$segs ) == 13, 'segs count' );
 my $phdr = $segs->[0];
 ok( $phdr, 'phdr' );
 ok( $phdr->[1] == PT_PHDR(), 'phdr type' );
@@ -37,5 +37,5 @@ ok( $Elf::Relocs::aarch64_rnames{20} eq 'R_AARCH64_P32_JUMP26' );
 # versyms
 my $vs = $e->versyms();
 ok ( defined($vs), 'versyms');
-ok ( scalar( @$vs ) == 2, 'versyms count');
+ok ( scalar( @$vs ) == 1, 'versyms count');
 ok ( $vs->[0]->[1] eq 'libc.so.6', 'veryms name' );
