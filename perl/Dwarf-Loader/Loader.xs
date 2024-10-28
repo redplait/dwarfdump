@@ -7,7 +7,9 @@
 #include "ElfFile.h"
 #include "../elf.inc"
 
-extern int g_opt_f, g_opt_k;
+extern int g_opt_f, g_opt_k, g_opt_F;
+
+static HV *s_elem_pkg;
 
 class PerlLog: public ErrLog
 {
@@ -60,16 +62,8 @@ class PerlRenderer: public TreeBuilder
    type *t;
 
    PDWARF(DElem, Element)
-    UV tag() const
-    { return t->id_; }
     IV rank() const
     { return t->get_rank(); }
-    IV type() const
-    { return t->type_; }
-    IV size() const
-    { return t->size_; }
-    UV type_id() const
-    { return t->type_id_; }
     // methods attributes
     IV mvirt() const
     {
@@ -89,19 +83,19 @@ class PerlRenderer: public TreeBuilder
       auto method = (Method *)t;
       return method->this_arg_;
     }
-    int mart() const
+    bool mart() const
     {
       if ( t->type_ != method ) return 0;
       auto method = (Method *)t;
       return method->art_;
     }
-    int mdef() const
+    bool mdef() const
     {
       if ( t->type_ != method ) return 0;
       auto method = (Method *)t;
       return method->def_;
     }
-    int mexpl() const
+    bool mexpl() const
     {
       if ( t->type_ != method ) return 0;
       auto method = (Method *)t;
@@ -149,8 +143,8 @@ class PerlRenderer: public TreeBuilder
      return av;
    }
  protected:
-   virtual void RenderUnit(int last);
-   virtual void store_addr(Element *e, uint64_t addr) {
+   virtual void RenderUnit(int last) override;
+   virtual void store_addr(Element *e, uint64_t addr) override {
      if ( e->spec_ ) {
        m_pending_addr[addr] = e->spec_;
      } else {
@@ -296,7 +290,7 @@ static MGVTBL delem_magic_vt = {
 #endif
 };
 
-#define DWARF_EXT(vtab, what) \
+#define DWARF_EXT(vtab, pkg, what) \
   msv = newSViv(0); \
   objref = newRV_noinc((SV*)msv); \
   sv_bless(objref, pkg); \
@@ -305,7 +299,7 @@ static MGVTBL delem_magic_vt = {
   ST(0) = objref; \
   XSRETURN(1);
 
-#define DWARF_TIE(vtab, what) \
+#define DWARF_TIE(vtab, pkg, what) \
   fake = newAV(); \
   objref = newRV_noinc((SV*)fake); \
   sv_bless(objref, pkg); \
@@ -401,20 +395,16 @@ new(obj_or_pkg, SV *elsv)
   // read
   res->be->GetAllClasses();
   // bless
-  DWARF_EXT(dwarf_magic_vt, res)
+  DWARF_EXT(dwarf_magic_vt, pkg, res)
 
 void
 by_name(SV *self, SV *key)
  INIT:
-  HV *pkg = NULL;
   SV *msv;
   SV *objref= NULL;
   MAGIC* magic;
   auto *d = dwarf_magic_ext<IDwarf>(self, 1, &dwarf_magic_vt);
  PPCODE:
-  if ( !(pkg = gv_stashpv(s_delem, 0)) ) {
-    croak("Package %s does not exists", s_delem);
-  }
   auto del = d->pr.by_name(key);
   if ( !del ) {
     ST(0) = &PL_sv_undef;
@@ -423,20 +413,16 @@ by_name(SV *self, SV *key)
   d->add_ref();
   auto res = new PerlRenderer::DElem(d, del);
   // bless
-  DWARF_EXT(delem_magic_vt, res)
+  DWARF_EXT(delem_magic_vt, s_elem_pkg, res)
 
 void
 by_addr(SV *self, UV key)
  INIT:
-  HV *pkg = NULL;
   SV *msv;
   SV *objref= NULL;
   MAGIC* magic;
   auto *d = dwarf_magic_ext<IDwarf>(self, 1, &dwarf_magic_vt);
  PPCODE:
-  if ( !(pkg = gv_stashpv(s_delem, 0)) ) {
-    croak("Package %s does not exists", s_delem);
-  }
   auto del = d->pr.by_addr(key);
   if ( !del ) {
     ST(0) = &PL_sv_undef;
@@ -445,20 +431,16 @@ by_addr(SV *self, UV key)
   d->add_ref();
   auto res = new PerlRenderer::DElem(d, del);
   // bless
-  DWARF_EXT(delem_magic_vt, res)
+  DWARF_EXT(delem_magic_vt, s_elem_pkg, res)
 
 void
 by_id(SV *self, UV tag)
  INIT:
-  HV *pkg = NULL;
   SV *msv;
   SV *objref= NULL;
   MAGIC* magic;
   auto *d = dwarf_magic_ext<IDwarf>(self, 1, &dwarf_magic_vt);
  PPCODE:
-  if ( !(pkg = gv_stashpv(s_delem, 0)) ) {
-    croak("Package %s does not exists", s_delem);
-  }
   auto del = d->pr.by_id(tag);
   if ( !del ) {
     ST(0) = &PL_sv_undef;
@@ -467,7 +449,7 @@ by_id(SV *self, UV tag)
   d->add_ref();
   auto res = new PerlRenderer::DElem(d, del);
   // bless
-  DWARF_EXT(delem_magic_vt, res)
+  DWARF_EXT(delem_magic_vt, s_elem_pkg, res)
 
 UV
 id_cnt(SV *self)
@@ -511,7 +493,7 @@ tag(SV *self)
  INIT:
   auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
  CODE:
-  RETVAL = d->tag();
+  RETVAL = d->t->id_;
  OUTPUT:
   RETVAL
 
@@ -538,7 +520,7 @@ type(SV *self)
  INIT:
   auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
  CODE:
-  RETVAL = d->type();
+  RETVAL = d->t->type_;
  OUTPUT:
   RETVAL
 
@@ -547,7 +529,7 @@ size(SV *self)
  INIT:
   auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
  CODE:
-  RETVAL = d->size();
+  RETVAL = d->t->size_;
  OUTPUT:
   RETVAL
 
@@ -556,14 +538,13 @@ type_id(SV *self)
  INIT:
   auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
  CODE:
-  RETVAL = d->type_id();
+  RETVAL = d->t->type_id_;
  OUTPUT:
   RETVAL
 
 void
 owner(SV *self)
  INIT:
-  HV *pkg = NULL;
   SV *msv;
   SV *objref= NULL;
   MAGIC* magic;
@@ -574,13 +555,46 @@ owner(SV *self)
     XSRETURN(1);
   }
   // wrap owner to DElem
-  if ( !(pkg = gv_stashpv(s_delem, 0)) ) {
-    croak("Package %s does not exists", s_delem);
-  }
   d->e->add_ref();
   auto res = new PerlRenderer::DElem(d->e, d->t->owner_);
   // bless
-  DWARF_EXT(delem_magic_vt, res)
+  DWARF_EXT(delem_magic_vt, s_elem_pkg, res)
+
+void
+name(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( !d->t->name_ ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  ST(0) = sv_2mortal( newSVpv( d->t->name_, strlen(d->t->name_) ) );
+  XSRETURN(1);
+
+void
+link_name(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( !d->t->link_name_ ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  ST(0) = sv_2mortal( newSVpv( d->t->link_name_, strlen(d->t->link_name_) ) );
+  XSRETURN(1);
+
+void
+fname(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->fullname_.empty() ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  ST(0) = sv_2mortal( newSVpv( d->t->fullname_.c_str(), d->t->fullname_.size() ) );
+  XSRETURN(1);
 
 void
 mvirt(SV *self)
@@ -627,8 +641,10 @@ mart(SV *self)
     ST(0) = &PL_sv_undef;
     XSRETURN(1);
   }
-  ST(0) = sv_2mortal( newSViv( d->mart() ) );
-  XSRETURN(1);
+  if ( d->mart() )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
 
 void
 mdef(SV *self)
@@ -639,8 +655,10 @@ mdef(SV *self)
     ST(0) = &PL_sv_undef;
     XSRETURN(1);
   }
-  ST(0) = sv_2mortal( newSViv( d->mdef() ) );
-  XSRETURN(1);
+  if ( d->mdef() )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
 
 void
 mexpl(SV *self)
@@ -651,12 +669,18 @@ mexpl(SV *self)
     ST(0) = &PL_sv_undef;
     XSRETURN(1);
   }
-  ST(0) = sv_2mortal( newSViv( d->mexpl() ) );
-  XSRETURN(1);
+  if ( d->mexpl() )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
 
 BOOT:
+ // store frequently used packages
+ s_elem_pkg = gv_stashpv(s_delem, 0);
+ if ( !s_elem_pkg )
+    croak("Package %s does not exists", s_delem);
  HV *stash= gv_stashpvn("Dwarf::Loader", 13, 1);
- g_opt_f = g_opt_k = 1;
+ g_opt_f = g_opt_k = g_opt_F = 1;
  // dump TreeBuilder::ElementType
  EXPORT_TENUM("TArray", array_type)
  EXPORT_TENUM("TClass", class_type)
