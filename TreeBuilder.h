@@ -424,11 +424,11 @@ protected:
   struct FormalParam {
     const char *name = nullptr;
     uint64_t param_id = 0,
-     id = 0;
+     id = 0; // type id
     unsigned char pdir = 0; // param direction - 2 in 3 out
     bool ellipsis = false,
      var_ = false, // from DW_AT_variable_parameter - go mostly?
-     art_ = false, // seems that dwarf5 mark this arg as articial and don`t have DW_AT_object_pointer
+     art_ = false, // seems that dwarf5 mark this arg as articial and don't have DW_AT_object_pointer
      optional_ = false; // DW_AT_is_optional
     param_loc loc;
   };
@@ -642,7 +642,7 @@ protected:
     std::vector<EnumItem> enums_;
     std::vector<FormalParam> params_;
     std::list<Method> methods_;
-    std::list<Element *> lvars_; // local vars with -x option
+    std::vector<Element *> lvars_; // local vars with -x option
     std::unordered_map<Element *, param_loc> lvar_locs_; // from DecodeAddrLocation when -x option was used
   };
 
