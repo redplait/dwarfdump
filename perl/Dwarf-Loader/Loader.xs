@@ -10,6 +10,7 @@
 extern int g_opt_f, g_opt_k, g_opt_F;
 
 static HV *s_elem_pkg,
+ *s_enum_iter_pkg,
  *s_member_iter_pkg,
  *s_method_iter_pkg,
  *s_lvars_iter_pkg,
@@ -72,6 +73,9 @@ class PerlRenderer: public TreeBuilder
    PDWARF(DParentIter, std::vector<Parent>) };
    PDWARF(DMemberIter, std::vector<Element>) };
    PDWARF(DLVarIter, std::vector<Element *>) };
+   PDWARF(DEnumIter, std::vector<EnumItem>)
+     char ate_; // from Element::ate_ for proper enums decoding
+   };
    struct DMethodIter {
      ~DMethodIter();
      DMethodIter(struct IDwarf *_e, std::list<Method> &m): e(_e) {
@@ -271,7 +275,7 @@ DESTR(DParent)
 DESTR(DParentIter)
 DESTR(DMemberIter)
 DESTR(DLVarIter)
-
+DESTR(DEnumIter)
 
 PerlRenderer::DMethodIter::~DMethodIter()
 {
@@ -300,6 +304,12 @@ static int dwarf_magic_del(pTHX_ SV* sv, MAGIC* mg) {
     return 0; // ignored anyway
 }
 
+#ifdef MGf_LOCAL
+#define TAB_TAIL ,0
+#else
+#define TAB_TAIL
+#endif
+
 // magic table for Dwarf::Loader
 static MGVTBL dwarf_magic_vt = {
         0, /* get */
@@ -309,9 +319,7 @@ static MGVTBL dwarf_magic_vt = {
         dwarf_magic_release<IDwarf>,
         0, /* copy */
         0 /* dup */
-#ifdef MGf_LOCAL
-        ,0
-#endif
+        TAB_TAIL
 };
 
 static const char *s_delem = "Dwarf::Loader::Element";
@@ -324,9 +332,7 @@ static MGVTBL delem_magic_vt = {
         dwarf_magic_del<PerlRenderer::DElem>,
         0, /* copy */
         0 /* dup */
-#ifdef MGf_LOCAL
-        ,0
-#endif
+        TAB_TAIL
 };
 
 static const char *s_fparam = "Dwarf::Loader::Param";
@@ -339,9 +345,7 @@ static MGVTBL dparam_magic_vt = {
         dwarf_magic_del<PerlRenderer::DParam>,
         0, /* copy */
         0 /* dup */
-#ifdef MGf_LOCAL
-        ,0
-#endif
+        TAB_TAIL
 };
 
 static const char *s_fparent = "Dwarf::Loader::Parent";
@@ -354,9 +358,7 @@ static MGVTBL dparent_magic_vt = {
         dwarf_magic_del<PerlRenderer::DParent>,
         0, /* copy */
         0 /* dup */
-#ifdef MGf_LOCAL
-        ,0
-#endif
+        TAB_TAIL
 };
 
 // iterators
@@ -369,81 +371,43 @@ static U32 dwarf_magic_size(pTHX_ SV* sv, MAGIC* mg) {
     return 0; // ignored anyway
 }
 
+// repeating magic table definition with prefix _iter_vt
+#define ENUM_MAGIC(tab_name, cname) \
+static MGVTBL tab_name##_iter_vt = { \
+        0, /* get */ \
+        0, /* write */ \
+        dwarf_magic_size<PerlRenderer::cname>, /* length */ \
+        0, /* clear */ \
+        dwarf_magic_del<PerlRenderer::cname>, \
+        0, /* copy */ \
+        0 /* dup */ \
+        TAB_TAIL };
+
 static const char *s_fparams = "Dwarf::Loader::ParamIterator";
 // magic table for Dwarf::Loader::Param
-static MGVTBL dparam_iter_vt = {
-        0, /* get */
-        0, /* write */
-        dwarf_magic_size<PerlRenderer::DParamIter>, /* length */
-        0, /* clear */
-        dwarf_magic_del<PerlRenderer::DParamIter>,
-        0, /* copy */
-        0 /* dup */
-#ifdef MGf_LOCAL
-        ,0
-#endif
-};
+ENUM_MAGIC(dparam, DParamIter)
 
 static const char *s_fparents = "Dwarf::Loader::ParentIterator";
 // magic table for Dwarf::Loader::ParentIterator
-static MGVTBL dparent_iter_vt = {
-        0, /* get */
-        0, /* write */
-        dwarf_magic_size<PerlRenderer::DParentIter>, /* length */
-        0, /* clear */
-        dwarf_magic_del<PerlRenderer::DParentIter>,
-        0, /* copy */
-        0 /* dup */
-#ifdef MGf_LOCAL
-        ,0
-#endif
-};
+ENUM_MAGIC(dparent, DParentIter)
 
 static const char *s_members = "Dwarf::Loader::MemberIterator";
 // magic table for Dwarf::Loader::MemberIterator
-static MGVTBL dmember_iter_vt = {
-        0, /* get */
-        0, /* write */
-        dwarf_magic_size<PerlRenderer::DMemberIter>, /* length */
-        0, /* clear */
-        dwarf_magic_del<PerlRenderer::DMemberIter>,
-        0, /* copy */
-        0 /* dup */
-#ifdef MGf_LOCAL
-        ,0
-#endif
-};
+ENUM_MAGIC(dmember, DMemberIter)
 
 static const char *s_methods = "Dwarf::Loader::MethodIterator";
 // magic table for Dwarf::Loader::MethodIterator
-static MGVTBL dmethod_iter_vt = {
-        0, /* get */
-        0, /* write */
-        dwarf_magic_size<PerlRenderer::DMethodIter>, /* length */
-        0, /* clear */
-        dwarf_magic_del<PerlRenderer::DMethodIter>,
-        0, /* copy */
-        0 /* dup */
-#ifdef MGf_LOCAL
-        ,0
-#endif
-};
+ENUM_MAGIC(dmethod, DMethodIter)
 
 static const char *s_lvars = "Dwarf::Loader::LVarIterator";
 // magic table for Dwarf::Loader::LVarIterator
-static MGVTBL dlvar_iter_vt = {
-        0, /* get */
-        0, /* write */
-        dwarf_magic_size<PerlRenderer::DLVarIter>, /* length */
-        0, /* clear */
-        dwarf_magic_del<PerlRenderer::DLVarIter>,
-        0, /* copy */
-        0 /* dup */
-#ifdef MGf_LOCAL
-        ,0
-#endif
-};
+ENUM_MAGIC(dlvar, DLVarIter)
 
+static const char *s_enums = "Dwarf::Loader::EnumIterator";
+// magic table for Dwarf::Loader::EnumIterator
+ENUM_MAGIC(denum, DEnumIter)
+
+// blessing macros
 #define DWARF_EXT(vtab, pkg, what) \
   msv = newSViv(0); \
   objref = newRV_noinc((SV*)msv); \
@@ -508,6 +472,7 @@ static T *dwarf_magic_tied(SV *obj, int die, MGVTBL *tab)
 
 #define EXPORT_ENUM(name, x) newCONSTSUB(stash, name, new_enum_dualvar(aTHX_ x, newSVpvs_share(name)));
 #define EXPORT_TENUM(name, x) newCONSTSUB(stash, name, new_enum_dualvar(aTHX_ TreeBuilder::ElementType::x, newSVpvs_share(name)));
+#define EXPORT_ATENUM(name, x) newCONSTSUB(stash, name, new_enum_dualvar(aTHX_ Dwarf32::dwarf_ate::DW_ATE_##x, newSVpvs_share(name)));
 static SV * new_enum_dualvar(pTHX_ IV ival, SV *name) {
         SvUPGRADE(name, SVt_PVNV);
         SvIV_set(name, ival);
@@ -794,6 +759,26 @@ const_expr(SV *self)
   auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
  PPCODE:
   if ( d->t->const_expr_ )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
+
+void
+has_range(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->has_range_ )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
+
+void
+enum_class(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->enum_class_ )
     XSRETURN_YES;
   else
     XSRETURN_NO;
@@ -1270,7 +1255,7 @@ BOOT:
 
  HV *stash= gv_stashpvn("Dwarf::Loader", 13, 1);
  g_opt_f = g_opt_k = g_opt_F = 1;
- // dump TreeBuilder::ElementType
+ // export TreeBuilder::ElementType enums
  EXPORT_TENUM("TArray", array_type)
  EXPORT_TENUM("TClass", class_type)
  EXPORT_TENUM("TInterface", interface_type)
@@ -1297,3 +1282,24 @@ BOOT:
  EXPORT_TENUM("TUnspec", unspec_type)
  EXPORT_TENUM("TVar", var_type)
  EXPORT_TENUM("TVariant", variant_type)
+ // export DW_ATE enums
+ EXPORT_ATENUM("ATE_address", address)
+ EXPORT_ATENUM("ATE_boolean", boolean)
+ EXPORT_ATENUM("ATE_complex_float", complex_float)
+ EXPORT_ATENUM("ATE_float", float)
+ EXPORT_ATENUM("ATE_signed", signed)
+ EXPORT_ATENUM("ATE_signed_char", signed_char)
+ EXPORT_ATENUM("ATE_unsigned", unsigned)
+ EXPORT_ATENUM("ATE_unsigned_char", unsigned_char)
+ EXPORT_ATENUM("ATE_imaginary_float", imaginary_float)
+ EXPORT_ATENUM("ATE_packed_decimal", packed_decimal)
+ EXPORT_ATENUM("ATE_numeric_string", numeric_string)
+ EXPORT_ATENUM("ATE_edited", edited)
+ EXPORT_ATENUM("ATE_signed_fixed", signed_fixed)
+ EXPORT_ATENUM("ATE_unsigned_fixed", unsigned_fixed)
+ EXPORT_ATENUM("ATE_decimal_float", decimal_float)
+ EXPORT_ATENUM("ATE_UTF", UTF)
+ EXPORT_ATENUM("ATE_UCS", UCS)
+ EXPORT_ATENUM("ATE_ASCII", ASCII)
+ EXPORT_ATENUM("ATE_lo_user", lo_user)
+ EXPORT_ATENUM("ATE_hi_user", hi_user)
