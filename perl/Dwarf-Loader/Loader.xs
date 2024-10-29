@@ -1005,6 +1005,24 @@ vars(SV *self)
   // bless
   DWARF_TIE(dlvar_iter_vt, s_lvars_iter_pkg, res)
 
+void
+enums(SV *self)
+ INIT:
+  AV *fake;
+  SV *objref= NULL;
+  MAGIC* magic;
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( !d->t->m_comp || d->t->m_comp->enums_.empty() ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  // make new PerlRenderer::DEnumIter
+  d->e->add_ref();
+  auto res = new PerlRenderer::DEnumIter(d->e, &d->t->m_comp->enums_);
+  res->ate_ = d->t->ate_;
+  // bless
+  DWARF_TIE(denum_iter_vt, s_enum_iter_pkg, res)
 
 MODULE = Dwarf::Loader		PACKAGE = Dwarf::Loader::Param
 
@@ -1224,6 +1242,34 @@ FETCH(self, key)
   // bless
   DWARF_EXT(delem_magic_vt, s_elem_pkg, res)
 
+MODULE = Dwarf::Loader		PACKAGE = Dwarf::Loader::EnumIterator
+
+void
+FETCH(self, key)
+  SV *self;
+  IV key;
+ INIT:
+  AV *av;
+  auto *d = dwarf_magic_tied<PerlRenderer::DEnumIter>(self, 1, &denum_iter_vt);
+ PPCODE:
+  if ( key >= d->t->size() ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  // return ref to AV with items [ name, value ]
+  auto &p = d->t->at(key);
+  av = newAV();
+  av_push(av, newSVpv(p.name, strlen(p.name)) );
+  // value is bit tricky and depends from ate_ field
+  if ( d->ate_ == Dwarf32::dwarf_ate::DW_ATE_boolean ) {
+    av_push(av, p.value ? &PL_sv_yes : &PL_sv_no );
+  } else if ( d->e->pr.is_signed_ate(d->ate_) ) {
+    av_push(av, newSViv((IV)p.value) );
+  } else {
+    av_push(av, newSVuv(p.value) );
+  }
+  mXPUSHs(newRV_noinc((SV*)av));
+  XSRETURN(1);
 
 BOOT:
  // store frequently used packages
@@ -1251,7 +1297,9 @@ BOOT:
  s_lvars_iter_pkg = gv_stashpv(s_lvars, 0);
  if ( !s_lvars_iter_pkg )
     croak("Package %s does not exists", s_lvars);
-
+ s_enum_iter_pkg = gv_stashpv(s_enums, 0);
+ if ( !s_enum_iter_pkg )
+    croak("Package %s does not exists", s_enums);
 
  HV *stash= gv_stashpvn("Dwarf::Loader", 13, 1);
  g_opt_f = g_opt_k = g_opt_F = 1;
