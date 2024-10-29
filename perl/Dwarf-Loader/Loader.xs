@@ -232,6 +232,11 @@ void PerlRenderer::RenderUnit(int last)
     }
     // by id
     m_id[ el.id_] = &el;
+    // methods to be able find them by_id
+    if ( el.has_methods() ) {
+      for ( auto &mi: el.m_comp->methods_ )
+        m_id[ mi.id_] = &mi;
+    }
   }
   // specs - addr/id
   for ( auto sic: m_pending_addr )
