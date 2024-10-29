@@ -664,7 +664,7 @@ bool TreeBuilder::lookup_range(uint64_t tag, std::list<std::pair<uint64_t, uint6
 }
 
 void TreeBuilder::AddNone() {
-  current_element_type_ = ElementType::none; 
+  current_element_type_ = ElementType::none;
 }
 
 int TreeBuilder::add2stack(int regged)
@@ -1758,7 +1758,7 @@ bool TreeBuilder::is_local_var() const
   return nullptr != get_top_func();
 }
 
-int TreeBuilder::is_signed_ate(unsigned char ate) const
+int TreeBuilder::is_signed_ate(unsigned char ate)
 {
   switch(ate)
   {

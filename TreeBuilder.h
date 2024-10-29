@@ -354,6 +354,7 @@ public:
   {
     return (s >= (const char *)debug_str_) && (s < (const char *)debug_str_ + debug_str_size_);
   }
+  static int is_signed_ate(unsigned char ate);
 protected:
   virtual bool conv2str(uint64_t key, std::string &)
   { return false; }
@@ -364,7 +365,6 @@ protected:
   int merge_dumped();
   const char *locs_no_ops(param_op_type);
   int can_have_methods(int level);
-  int is_signed_ate(unsigned char ate) const;
   void dump_location(std::string &s, param_loc &pl);
   uint64_t calc_redudant_locs(const param_loc &pl);
 
