@@ -167,6 +167,15 @@ class PerlRenderer: public TreeBuilder
      }
      return av;
    }
+   HV *addresses(IV type)
+   {
+     HV *hv = newHV();
+     for ( auto a: m_addresses ) {
+       if ( a.second->type_ != type ) continue;
+       hv_store_ent( hv, newSVuv(a.first), newSVuv(a.second->id_), 0 );
+     }
+     return hv;
+   }
  protected:
    virtual void RenderUnit(int last) override;
    virtual void store_addr(Element *e, uint64_t addr) override {
@@ -604,6 +613,15 @@ named(SV *self, int type)
  PPCODE:
   mXPUSHs( newRV_noinc((SV*)d->pr.named(type)) );
   XSRETURN(1);
+
+void
+addressable(SV *self, int type)
+ INIT:
+  auto *d = dwarf_magic_ext<IDwarf>(self, 1, &dwarf_magic_vt);
+ PPCODE:
+  mXPUSHs( newRV_noinc((SV*)d->pr.addresses(type)) );
+  XSRETURN(1);
+
 
 MODULE = Dwarf::Loader		PACKAGE = Dwarf::Loader::Element
 
