@@ -60,6 +60,26 @@ Public
 Protected
 Private
 unchain
+ATE_address
+ATE_boolean
+ATE_complex_float
+ATE_float
+ATE_signed
+ATE_signed_char
+ATE_unsigned
+ATE_unsigned_char
+ATE_imaginary_float
+ATE_packed_decimal
+ATE_numeric_string
+ATE_edited
+ATE_signed_fixed
+ATE_unsigned_fixed
+ATE_decimal_float
+ATE_UTF
+ATE_UCS
+ATE_ASCII
+ATE_lo_user
+ATE_hi_user
 );
 
 our $VERSION = '0.01';
