@@ -400,7 +400,7 @@ rpad_magic_sizepack(pTHX_ SV *sv, MAGIC *mg)
 {
   U32 res = 0;
   if (mg->mg_ptr) {
-    res = mips::REG_RA;
+    res = mips::REG_RA-1;
   }
   return res;
 }
