@@ -520,6 +520,7 @@ new(obj_or_pkg, SV *elsv)
     ST(0) = &PL_sv_undef;
     XSRETURN(1);
   }
+  res->pr.m_locX = res->be;
   // read
   res->be->GetAllClasses();
   // bless
@@ -856,6 +857,22 @@ fname(SV *self)
   XSRETURN(1);
 
 void
+frame_size(SV *self)
+ INIT:
+  uint64_t fsize = 0;
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t-> type_ != TreeBuilder::ElementType::subroutine || !d->e->pr.m_locX) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  if ( d->e->pr.m_locX->find_dfa(d->t->addr_, fsize) ) {
+    ST(0) = sv_2mortal( newSVuv( fsize ) );
+  } else
+    ST(0) = &PL_sv_undef;
+  XSRETURN(1);
+
+void
 mvirt(SV *self)
  INIT:
   auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
@@ -1055,6 +1072,15 @@ name(SV *self)
   }
   ST(0) = sv_2mortal( newSVpv( d->t->name, strlen(d->t->name) ) );
   XSRETURN(1);
+
+UV
+tag(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DParam>(self, 1, &dparam_magic_vt);
+ CODE:
+  RETVAL = d->t->param_id;
+ OUTPUT:
+  RETVAL
 
 IV
 type_id(SV *self)
