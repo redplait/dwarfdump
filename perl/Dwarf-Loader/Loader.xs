@@ -6,6 +6,7 @@
 #include "ppport.h"
 #include "ElfFile.h"
 #include "../elf.inc"
+#include <unordered_set>
 
 extern int g_opt_f, g_opt_k, g_opt_F;
 
@@ -158,7 +159,7 @@ class PerlRenderer: public TreeBuilder
    size_t addr_cnt() const
    { return m_addresses.size(); }
    // get tag arrays with some type
-   AV *named(IV type)
+   AV *named(IV type) const
    {
      AV *av = newAV();
      for ( auto &n: m_names ) {
@@ -167,7 +168,7 @@ class PerlRenderer: public TreeBuilder
      }
      return av;
    }
-   HV *addresses(IV type)
+   HV *addresses(IV type) const
    {
      HV *hv = newHV();
      for ( auto a: m_addresses ) {
@@ -175,6 +176,22 @@ class PerlRenderer: public TreeBuilder
        hv_store_ent( hv, newSVuv(a.first), newSVuv(a.second->id_), 0 );
      }
      return hv;
+   }
+   Element *find_offset(Element *where, uint64_t off) const
+   {
+     auto res = _find_offset(where, off);
+     if ( res ) return res;
+     std::unordered_set<uint64_t> parents;
+     parents.insert(where->type_id_);
+     return find_in_parents(where, off, &PerlRenderer::_find_offset, parents);
+   }
+   Element *find_voffset(Element *where, uint64_t off) const
+   {
+     auto res = _find_voffset(where, off);
+     if ( res ) return res;
+     std::unordered_set<uint64_t> parents;
+     parents.insert(where->type_id_);
+     return find_in_parents(where, off, &PerlRenderer::_find_voffset, parents);
    }
  protected:
    virtual void RenderUnit(int last) override;
@@ -188,6 +205,39 @@ class PerlRenderer: public TreeBuilder
        else /* we don't have rank here so just put in m_unranked_addr */
          m_unranked_addr.push_back( {addr, e} );
      }
+   }
+   Element *_find_voffset(Element *where, uint64_t off) const {
+     if ( !where->m_comp || where->m_comp->methods_.empty() ) return nullptr;
+     for ( auto &e: where->m_comp->methods_ ) {
+       if ( e.virt_ && e.vtbl_index_ == off ) return &e;
+     }
+     return nullptr;
+   }
+   Element *_find_offset(Element *where, uint64_t off) const {
+     if ( !where->m_comp || where->m_comp->members_.empty() ) return nullptr;
+     for ( auto &e: where->m_comp->members_ ) {
+       if ( e.offset_ == off ) return &e;
+     }
+     return nullptr;
+   }
+   template<typename M>
+   Element *find_in_parents(Element *where, uint64_t off, M func, std::unordered_set<uint64_t> &visited) const {
+     if ( !where->m_comp || where->m_comp->parents_.empty() ) return nullptr;
+     for ( auto &p: where->m_comp->parents_ ) {
+       auto vid = visited.find(p.id);
+       if ( vid != visited.end() ) continue;
+       // find parent by it's id
+       auto by_tag = m_id.find(p.id);
+       if ( by_tag == m_id.end() ) continue;
+       // add this parent to visited
+       visited.insert(p.id);
+       auto *tmp = (this->*func)(by_tag->second, off);
+       if ( tmp ) return tmp;
+       // recursive call
+       tmp = find_in_parents(by_tag->second, off, func, visited);
+       if ( tmp ) return tmp;
+     }
+     return nullptr;
    }
    std::list< std::list<Element> > m_storage;
    /* main maps for names -> Element & ID -> Element */
@@ -819,6 +869,44 @@ owner(SV *self)
   auto res = new PerlRenderer::DElem(d->e, d->t->owner_);
   // bless
   DWARF_EXT(delem_magic_vt, s_elem_pkg, res)
+
+void
+foff(SV *self, UV offset)
+ INIT:
+  SV *msv;
+  SV *objref= NULL;
+  MAGIC* magic;
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  auto res = d->e->pr.find_offset(d->t, offset);
+  if ( !res ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  // wrap owner to DElem
+  d->e->add_ref();
+  auto retval = new PerlRenderer::DElem(d->e, d->t->owner_);
+  // bless
+  DWARF_EXT(delem_magic_vt, s_elem_pkg, retval)
+
+void
+voff(SV *self, UV offset)
+ INIT:
+  SV *msv;
+  SV *objref= NULL;
+  MAGIC* magic;
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  auto res = d->e->pr.find_voffset(d->t, offset);
+  if ( !res ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  // wrap owner to DElem
+  d->e->add_ref();
+  auto retval = new PerlRenderer::DElem(d->e, d->t->owner_);
+  // bless
+  DWARF_EXT(delem_magic_vt, s_elem_pkg, retval)
 
 void
 name(SV *self)
