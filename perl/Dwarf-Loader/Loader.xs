@@ -183,7 +183,7 @@ class PerlRenderer: public TreeBuilder
      if ( res ) return res;
      std::unordered_set<uint64_t> parents;
      parents.insert(where->type_id_);
-     return find_in_parents(where, off, &PerlRenderer::_find_offset, parents);
+     return find_off_parents(where, off, &PerlRenderer::_find_offset, parents);
    }
    Element *find_voffset(Element *where, uint64_t off) const
    {
@@ -220,6 +220,7 @@ class PerlRenderer: public TreeBuilder
      }
      return nullptr;
    }
+   // general function to search something in parents hierarchy, DFS
    template<typename M>
    Element *find_in_parents(Element *where, uint64_t off, M func, std::unordered_set<uint64_t> &visited) const {
      if ( !where->m_comp || where->m_comp->parents_.empty() ) return nullptr;
@@ -239,6 +240,28 @@ class PerlRenderer: public TreeBuilder
      }
      return nullptr;
    }
+   // unfortunatelly for fields offset we need to fix offsets when searching in parents
+   template<typename M>
+   Element *find_off_parents(Element *where, uint64_t off, M func, std::unordered_set<uint64_t> &visited) const {
+     if ( !where->m_comp || where->m_comp->parents_.empty() ) return nullptr;
+     for ( auto &p: where->m_comp->parents_ ) {
+       if ( p.offset > off ) continue; // skip parent located beyond off
+       auto vid = visited.find(p.id);
+       if ( vid != visited.end() ) continue;
+       // find parent by it's id
+       auto by_tag = m_id.find(p.id);
+       if ( by_tag == m_id.end() ) continue;
+       // add this parent to visited
+       visited.insert(p.id);
+       auto *tmp = (this->*func)(by_tag->second, off - p.offset);
+       if ( tmp ) return tmp;
+       // recursive call
+       tmp = find_in_parents(by_tag->second, off - p.offset, func, visited);
+       if ( tmp ) return tmp;
+     }
+     return nullptr;
+   }
+
    std::list< std::list<Element> > m_storage;
    /* main maps for names -> Element & ID -> Element */
    std::unordered_map< std::string_view, Element *> m_names;
