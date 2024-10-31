@@ -14,7 +14,7 @@ struct IGetLoclistX
 
 struct ISectionNames
 {
-  virtual const char *find_sname(uint64_t) = 0;
+  virtual int find_sname(uint64_t, std::string &) = 0;
 };
 
 struct RegNames

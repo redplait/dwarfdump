@@ -1224,28 +1224,30 @@ bool ElfFile::SaveSections(std::string &fn)
   return !m_orig_sects.empty();
 }
 
-const char *ElfFile::find_sname(uint64_t addr)
+int ElfFile::find_sname(uint64_t addr, std::string &sname)
 {
   if ( !m_orig_sects.empty() )
   {
     for ( auto &s: m_orig_sects )
     {
-      if ( (addr >= s.offset) && (addr < s.offset + s.len)
-         )
-        return s.name.c_str();
+      if ( (addr >= s.offset) && (addr < s.offset + s.len) ) {
+        sname = s.name;
+        return 1;
+      }
     }
-    return nullptr;
+    return 0;
   }
   Elf_Half n = reader->sections.size();
   for ( Elf_Half i = 0; i < n; i++) 
   {
     section *s = reader->sections[i];
     auto s_addr = s->get_address();
-    if ( (addr >= s_addr) && (addr < s_addr + s->get_size())
-       )
-      return s->get_name().c_str();
+    if ( (addr >= s_addr) && (addr < s_addr + s->get_size()) ) {
+      sname = s->get_name();
+      return 1;
+    }
   }
-  return nullptr;
+  return 0;
 }
 
 uint32_t ElfFile::read_x3(const unsigned char* &data, size_t& bytes_available)

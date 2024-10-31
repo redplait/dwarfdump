@@ -300,9 +300,9 @@ std::string JsonRender::GenerateJson(Element &e) {
     put(result, "addr", e.addr_);
     if ( g_opt_s && m_snames != nullptr )
     {
-      auto sname = m_snames->find_sname(e.addr_);
-      if ( sname != nullptr )
-        put(result, "section", sname);
+      std::string sname;
+      if ( m_snames->find_sname(e.addr_, sname) )
+        put(result, "section", sname.c_str());
     }
     // frame size
     if ( e.type_ == ElementType::subroutine && m_locX )
@@ -323,9 +323,9 @@ std::string JsonRender::GenerateJson(Element &e) {
         put(result, "end", r.second);
         if ( g_opt_s && m_snames != nullptr )
         {
-          auto sname = m_snames->find_sname(r.first);
-          if ( sname != nullptr )
-            put(result, "section", sname);
+          std::string sname;
+          if ( m_snames->find_sname(r.first, sname) )
+            put(result, "section", sname.c_str());
         }
         result += "},";
       }

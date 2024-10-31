@@ -486,13 +486,13 @@ void PlainRender::dump_spec(Element *en)
     fprintf(g_outf, "// specification\n");
   for ( auto e: *slist )
   {
-    const char *s_name = nullptr;
+    std::string s_name;
     if ( g_opt_s && m_snames != nullptr )
-      s_name = m_snames->find_sname(e->addr_);
-    if ( s_name == nullptr )
+      m_snames->find_sname(e->addr_, s_name);
+    if ( s_name.empty() )
       fprintf(g_outf, "//  Addr %lX type_id %lX", e->addr_, e->id_);
     else
-      fprintf(g_outf, "//  Addr %lX %s type_id %lX", e->addr_, s_name, e->id_);
+      fprintf(g_outf, "//  Addr %lX %s type_id %lX", e->addr_, s_name.c_str(), e->id_);
     if ( e->link_name_ )
       fprintf(g_outf, " %s", e->link_name_);
     fprintf(g_outf, "\n");
@@ -814,13 +814,13 @@ void PlainRender::dump_one_var(Element *e, int local)
   const char *margin = local ? lmargin : "";
   if ( e->addr_ )
   {
-    const char *s_name = nullptr;
+    std::string s_name;
     if ( g_opt_s && m_snames != nullptr )
-      s_name = m_snames->find_sname(e->addr_);
-    if ( s_name == nullptr )
+      m_snames->find_sname(e->addr_, s_name);
+    if ( s_name.empty() )
       fprintf(g_outf, "// %sAddr 0x%lX\n", margin, e->addr_);
     else
-      fprintf(g_outf, "// %sAddr 0x%lX %s\n", margin, e->addr_, s_name);
+      fprintf(g_outf, "// %sAddr 0x%lX %s\n", margin, e->addr_, s_name.c_str());
   }
   auto ti = m_tls.find(e->id_);
   if ( ti != m_tls.end() )
@@ -1076,13 +1076,13 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
         }
         if ( go_attrs->second.rt_type )
         {
-          const char *s_name = nullptr;
+          std::string s_name;
           if ( g_opt_s && m_snames != nullptr )
-            s_name = m_snames->find_sname((uint64_t)go_attrs->second.rt_type);
-          if ( s_name == nullptr )
+            m_snames->find_sname((uint64_t)go_attrs->second.rt_type, s_name);
+          if ( s_name.empty() )
             fprintf(g_outf, "// GoRType %p\n", go_attrs->second.rt_type);
           else
-            fprintf(g_outf, "// GoRType %p %s\n", go_attrs->second.rt_type, s_name);
+            fprintf(g_outf, "// GoRType %p %s\n", go_attrs->second.rt_type, s_name.c_str());
         }
         if ( go_attrs->second.key )
           fprintf(g_outf, "// GoKey %lX\n", go_attrs->second.key);
@@ -1094,13 +1094,13 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
     }
     if ( e.addr_ )
     {
-      const char *s_name = nullptr;
+      std::string s_name;
       if ( g_opt_s && m_snames != nullptr )
-        s_name = m_snames->find_sname(e.addr_);
-      if ( s_name == nullptr )
+        m_snames->find_sname(e.addr_, s_name);
+      if ( s_name.empty() )
         fprintf(g_outf, "// Addr 0x%lX\n", e.addr_);
       else
-        fprintf(g_outf, "// Addr 0x%lX %s\n", e.addr_, s_name);
+        fprintf(g_outf, "// Addr 0x%lX %s\n", e.addr_, s_name.c_str());
       if ( e.type_ == ElementType::subroutine && m_locX )
       {
         uint64_t fsize = 0;
@@ -1115,11 +1115,11 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
         fprintf(g_outf, "// Ranges: %ld\n", ranges.size());
         for ( auto &r: ranges )
         {
-          const char *s_name = nullptr;
+          std::string s_name;
           if ( g_opt_s && m_snames != nullptr )
-            s_name = m_snames->find_sname(e.addr_);
-          if ( s_name )
-            fprintf(g_outf, "//  %lX - %lX %s\n", r.first, r.second, s_name);
+            m_snames->find_sname(e.addr_, s_name);
+          if ( !s_name.empty() )
+            fprintf(g_outf, "//  %lX - %lX %s\n", r.first, r.second, s_name.c_str());
           else
             fprintf(g_outf, "//  %lX - %lX\n", r.first, r.second);
         }

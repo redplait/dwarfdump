@@ -90,7 +90,7 @@ public:
   bool GetAllClasses();
   bool SaveSections(std::string &fname);
   // ISectionNames
-  virtual const char *find_sname(uint64_t);
+  virtual int find_sname(uint64_t, std::string &) override;
   // IGetLoclistX
   virtual bool get_loclistx(uint64_t off, std::list<LocListXItem> &, uint64_t);
 private:
