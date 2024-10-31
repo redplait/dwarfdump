@@ -696,6 +696,18 @@ addressable(SV *self, int type)
   mXPUSHs( newRV_noinc((SV*)d->pr.addresses(type)) );
   XSRETURN(1);
 
+void
+go_kind_name(SV *self, int type)
+ INIT:
+  auto *d = dwarf_magic_ext<IDwarf>(self, 1, &dwarf_magic_vt);
+ PPCODE:
+  auto s = get_go_kind(type);
+  if ( !s ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  ST(0) = sv_2mortal( newSVpv( s, strlen(s) ) );
+  XSRETURN(1);
 
 MODULE = Dwarf::Loader		PACKAGE = Dwarf::Loader::Element
 
@@ -1425,6 +1437,16 @@ FETCH(self, key)
   }
   mXPUSHs(newRV_noinc((SV*)av));
   XSRETURN(1);
+
+IV
+ate(self)
+  SV *self;
+ INIT:
+  auto *d = dwarf_magic_tied<PerlRenderer::DEnumIter>(self, 1, &denum_iter_vt);
+ CODE:
+  RETVAL = d->ate_;
+ OUTPUT:
+  RETVAL
 
 BOOT:
  // store frequently used packages
