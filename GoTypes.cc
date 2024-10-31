@@ -43,6 +43,7 @@ const char *get_go_kind(int k)
 
 void TreeBuilder::SetGoKind(uint64_t id, int v)
 {
+  if ( !mark_has_go(id) ) return;
   auto giter = m_go_attrs.find(id);
   if ( giter == m_go_attrs.end() )
   {
@@ -55,6 +56,7 @@ void TreeBuilder::SetGoKind(uint64_t id, int v)
 
 void TreeBuilder::SetGoKey(uint64_t id, uint64_t v)
 {
+  if ( !mark_has_go(id) ) return;
   auto giter = m_go_attrs.find(id);
   if ( giter == m_go_attrs.end() )
   {
@@ -67,6 +69,7 @@ void TreeBuilder::SetGoKey(uint64_t id, uint64_t v)
 
 void TreeBuilder::SetGoDictIndex(uint64_t id, int v)
 {
+  if ( !mark_has_go(id) ) return;
   auto giter = m_go_attrs.find(id);
   if ( giter == m_go_attrs.end() )
   {
@@ -79,6 +82,7 @@ void TreeBuilder::SetGoDictIndex(uint64_t id, int v)
 
 void TreeBuilder::SetGoElem(uint64_t id, uint64_t v)
 {
+  if ( !mark_has_go(id) ) return;
   auto giter = m_go_attrs.find(id);
   if ( giter == m_go_attrs.end() )
   {
@@ -91,6 +95,7 @@ void TreeBuilder::SetGoElem(uint64_t id, uint64_t v)
 
 void TreeBuilder::SetGoRType(uint64_t id, const void *v)
 {
+  if ( !mark_has_go(id) ) return;
   auto giter = m_go_attrs.find(id);
   if ( giter == m_go_attrs.end() )
   {

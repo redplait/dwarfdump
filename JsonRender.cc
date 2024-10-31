@@ -252,7 +252,8 @@ std::string JsonRender::GenerateJson(Element &e) {
     }
     if ( e.addr_class_ )
       put(result, "addr_class", e.addr_class_);
-    RenderGoAttrs(result, e.type_id_);
+    if ( e.has_go )
+      RenderGoAttrs(result, e.type_id_);
     result += "\"offset\":"+std::to_string(e.offset_);
     result += "}";
     return result;
@@ -263,7 +264,8 @@ std::string JsonRender::GenerateJson(Element &e) {
   put(result, "type", e.TypeName());
   if ( e.dumped_ )
     put(result, "dumped", e.dumped_);
-  RenderGoAttrs(result, e.type_id_);
+  if ( e.has_go )
+    RenderGoAttrs(result, e.type_id_);
   if ( e.ate_ )
     put(result, "ate", e.ate_);
   if ( !e.fullname_.empty() )

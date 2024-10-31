@@ -812,6 +812,35 @@ void TreeBuilder::SetParentAccess(int a)
   }
 }
 
+int TreeBuilder::mark_has_go(uint64_t id)
+{
+  if ( elements_.empty() ) {
+    e_->warning("Can't mark go attr when elements is empty\n");
+    return 0;
+  }
+  auto &el = elements_.back();
+  if ( el.id_ == id ) {
+    el.has_go = true;
+    return 1;
+  }
+  // check member
+  if ( current_element_type_ == ElementType::member ) {
+    if ( m_stack.empty() ) {
+        e_->warning("Can't mark go attr when stack is empty\n");
+        return 0;
+    }
+    auto top = m_stack.top();
+    if ( !top->m_comp ) return 0;
+    auto &m = top->m_comp->members_.back();
+    if ( m.id_ == id ) {
+      m.has_go = true;
+      return 1;
+    }
+    return 0;
+  }
+  return 0;
+}
+
 void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int level) {
   level -= ns_count;
   // fprintf(g_outf, "AddElement %d id %lX level %d ns_count %d last_var %p\n", element_type, tag_id, level, ns_count, last_var_);

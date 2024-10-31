@@ -1062,33 +1062,35 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
     if ( ci != m_replaced.end() )
       continue;
     put_file_hdr(rcu);
-    auto go_attrs = m_go_attrs.find(e.id_);
-    if ( go_attrs != m_go_attrs.end() )
-    {
-      if ( go_attrs->second.kind )
+    if ( e.has_go ) {
+      auto go_attrs = m_go_attrs.find(e.id_);
+      if ( go_attrs != m_go_attrs.end() )
       {
-        const char *kname = get_go_kind(go_attrs->second.kind);
-        if ( kname )
-          fprintf(g_outf, "// GoKind %d %s\n", go_attrs->second.kind, kname);
-        else
-          fprintf(g_outf, "// GoKind %d\n", go_attrs->second.kind);
+        if ( go_attrs->second.kind )
+        {
+          const char *kname = get_go_kind(go_attrs->second.kind);
+          if ( kname )
+            fprintf(g_outf, "// GoKind %d %s\n", go_attrs->second.kind, kname);
+          else
+            fprintf(g_outf, "// GoKind %d\n", go_attrs->second.kind);
+        }
+        if ( go_attrs->second.rt_type )
+        {
+          const char *s_name = nullptr;
+          if ( g_opt_s && m_snames != nullptr )
+            s_name = m_snames->find_sname((uint64_t)go_attrs->second.rt_type);
+          if ( s_name == nullptr )
+            fprintf(g_outf, "// GoRType %p\n", go_attrs->second.rt_type);
+          else
+            fprintf(g_outf, "// GoRType %p %s\n", go_attrs->second.rt_type, s_name);
+        }
+        if ( go_attrs->second.key )
+          fprintf(g_outf, "// GoKey %lX\n", go_attrs->second.key);
+        if ( go_attrs->second.elem )
+          fprintf(g_outf, "// GoElem %lX\n", go_attrs->second.elem);
+        if ( go_attrs->second.dict_index )
+          fprintf(g_outf, "// GoDictIndex %d\n", go_attrs->second.dict_index);
       }
-      if ( go_attrs->second.rt_type )
-      {
-        const char *s_name = nullptr;
-        if ( g_opt_s && m_snames != nullptr )
-          s_name = m_snames->find_sname((uint64_t)go_attrs->second.rt_type);
-        if ( s_name == nullptr )
-          fprintf(g_outf, "// GoRType %p\n", go_attrs->second.rt_type);
-        else
-          fprintf(g_outf, "// GoRType %p %s\n", go_attrs->second.rt_type, s_name);
-      }
-      if ( go_attrs->second.key )
-        fprintf(g_outf, "// GoKey %lX\n", go_attrs->second.key);
-      if ( go_attrs->second.elem )
-        fprintf(g_outf, "// GoElem %lX\n", go_attrs->second.elem);
-      if ( go_attrs->second.dict_index )
-        fprintf(g_outf, "// GoDictIndex %d\n", go_attrs->second.dict_index);
     }
     if ( e.addr_ )
     {
@@ -1164,7 +1166,7 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
         fprintf(g_outf, "union %s", e.name_);
         if ( e.is_pure_decl() )
           break;
-        dump_complex_type(e);  
+        dump_complex_type(e);
         break;
       case ElementType::interface_type:
       case ElementType::class_type:
@@ -1189,6 +1191,10 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
             fprintf(g_outf, "typedef %s", tname.c_str());
           break;
         }
+      // skip hi-level types
+      case ElementType::array_type:
+      case ElementType::subroutine_type:
+       continue;
       default:
         if ( e.type_ != ElementType::pointer_type )
           e_->error("unknown type %d tag %lX\n", e.type_, e.id_);
@@ -1201,7 +1207,7 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
           if ( tn != nullptr )
             fprintf(g_outf, "%s %s", tname.c_str(), e.name_);
           else
-            fprintf(g_outf, "%s", tname.c_str());          
+            fprintf(g_outf, "%s", tname.c_str());
         }
     }
     fprintf(g_outf, ";\n\n");

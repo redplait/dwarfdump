@@ -474,6 +474,7 @@ protected:
       enum_class_ = e.enum_class_;
       gnu_vector_ = e.gnu_vector_;
       tensor_ = e.tensor_;
+      has_go = e.has_go;
       dumped_ = e.dumped_;
     }
     Element(Element &&e)
@@ -535,6 +536,7 @@ protected:
      enum_class_ = false,
      gnu_vector_ = false,
      tensor_ = false,
+     has_go = false,
      dumped_ = false;
 
     inline bool is_abs() const
@@ -702,6 +704,7 @@ protected:
   // for addresses store
   virtual void store_addr(Element *, uint64_t) {}
   // go names - actually this is only for backward refs, for forward use -g option
+  int mark_has_go(uint64_t);
   std::unordered_map<uint64_t, const char *> m_go_types;
   std::unordered_map<uint64_t, go_ext_attr>  m_go_attrs;
   // tls indexes
