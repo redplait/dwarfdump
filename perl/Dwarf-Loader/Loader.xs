@@ -847,6 +847,17 @@ noret(SV *self)
   else
     XSRETURN_NO;
 
+
+void
+has_go(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->has_go )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
+
 void
 decl(SV *self)
  INIT:
@@ -1482,6 +1493,7 @@ BOOT:
  g_opt_f = g_opt_k = g_opt_F = 1;
  // export TreeBuilder::ElementType enums
  EXPORT_TENUM("TArray", array_type)
+ EXPORT_TENUM("TSubrange", subrange_type)
  EXPORT_TENUM("TClass", class_type)
  EXPORT_TENUM("TInterface", interface_type)
  EXPORT_TENUM("TEnum", enumerator_type)

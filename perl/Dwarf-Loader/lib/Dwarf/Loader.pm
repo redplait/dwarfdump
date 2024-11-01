@@ -31,6 +31,7 @@ use constant {
 
 our @EXPORT = qw(
 TArray
+TSubrange
 TClass
 TInterface
 TEnum
@@ -112,12 +113,20 @@ __END__
 
 =head1 NAME
 
-Dwarf::Loader - Perl extension for blah blah blah
+Dwarf::Loader - Perl extension for loading/parsing DWARF debug info
+C++ sources for dwarf parser itself located in ../.. dir
 
 =head1 SYNOPSIS
 
   use Dwarf::Loader;
-  blah blah blah
+  use Elf::Reader;
+  my $e = Elf::Reader->new($ARGV[0]);
+  die("cannot load $ARGV[0]") if !defined($e);
+
+  my $dw = Dwarf::Loader->new($e);
+  die("cannot load dwarf") if !defined($dw);
+
+  ...
 
 =head1 DESCRIPTION
 
