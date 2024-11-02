@@ -138,11 +138,11 @@ There is problem when you read some tag - is it full-fledged DIE or just some li
 xxx DW_TAG_pointer_type
   DW_AT_type yyy
 yyy DW_TAG_some_real_type
- 
+
 
 For some tags you can safely predict to which class it falls - like DW_TAG_enumerator or DW_TAG_member but in general you can't
 So there are two approach how to read and parse DWARF debug info
-1) do all in one pass. Obvious drawback is memory comsumption - each DIE should keep all possible attributes (see Table A.1
+1) do all in one pass. Obvious drawback is memory consumption - each DIE should keep all possible attributes (see Table A.1
  on page 266 for list of all possible attributes for each tag)
 2) scan first pass only to build indexes of named/addressable DIEs and then read and parse each DIE on demand. In such case
 we need to do lots of book-keeping for each CU - like store bases for things like loclists/offsets/addresses/rnglists etc

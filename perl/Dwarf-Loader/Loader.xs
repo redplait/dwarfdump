@@ -10,7 +10,7 @@
 
 extern int g_opt_f, g_opt_k, g_opt_F;
 
-static HV *s_elem_pkg,
+static HV *s_elem_pkg, *s_ns_pkg,
  *s_enum_iter_pkg,
  *s_member_iter_pkg,
  *s_method_iter_pkg,
@@ -69,6 +69,7 @@ class PerlRenderer: public TreeBuilder
    type *t;
 
    PDWARF(DParam, FormalParam) };
+   PDWARF(DNS, NSpace) };
    PDWARF(DParamIter, std::vector<FormalParam>) };
    PDWARF(DParent, Parent) };
    PDWARF(DParentIter, std::vector<Parent>) };
@@ -351,6 +352,7 @@ void PerlRenderer::RenderUnit(int last)
 #define DESTR(name) PerlRenderer::name::~name() { e->release(); }
 
 DESTR(DElem)
+DESTR(DNS)
 DESTR(DParam)
 DESTR(DParamIter)
 DESTR(DParent)
@@ -438,6 +440,19 @@ static MGVTBL dparent_magic_vt = {
         0, /* length */
         0, /* clear */
         dwarf_magic_del<PerlRenderer::DParent>,
+        0, /* copy */
+        0 /* dup */
+        TAB_TAIL
+};
+
+static const char *s_ns = "Dwarf::Loader::Namespace";
+// magic table for Dwarf::Loader::Namespace
+static MGVTBL dns_magic_vt = {
+        0, /* get */
+        0, /* write */
+        0, /* length */
+        0, /* clear */
+        dwarf_magic_del<PerlRenderer::DNS>,
         0, /* copy */
         0 /* dup */
         TAB_TAIL
@@ -941,6 +956,24 @@ owner(SV *self)
   DWARF_EXT(delem_magic_vt, s_elem_pkg, res)
 
 void
+ns(SV *self)
+ INIT:
+  SV *msv;
+  SV *objref= NULL;
+  MAGIC* magic;
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( !d->t->ns_ ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  // wrap ns to DNS
+  d->e->add_ref();
+  auto retval = new PerlRenderer::DNS(d->e, d->t->ns_);
+  // bless and return
+  DWARF_EXT(dns_magic_vt, s_ns_pkg, retval)
+
+void
 foff(SV *self, UV offset)
  INIT:
   SV *msv;
@@ -1217,6 +1250,39 @@ enums(SV *self)
   // bless
   DWARF_TIE(denum_iter_vt, s_enum_iter_pkg, res)
 
+
+MODULE = Dwarf::Loader		PACKAGE = Dwarf::Loader::Namespace
+
+void
+name(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DNS>(self, 1, &dns_magic_vt);
+ PPCODE:
+  if ( !d->t->ns_el_ || !d->t->ns_el_->name_ ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  ST(0) = sv_2mortal( newSVpv( d->t->ns_el_->name_, strlen(d->t->ns_el_->name_) ) );
+  XSRETURN(1);
+
+void
+parent(SV *self)
+ INIT:
+  SV *msv;
+  SV *objref= NULL;
+  MAGIC* magic;
+  auto *d = dwarf_magic_ext<PerlRenderer::DNS>(self, 1, &dns_magic_vt);
+ PPCODE:
+  if ( !d->t->parent_ ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  // wrap owner to DNS
+  d->e->add_ref();
+  auto retval = new PerlRenderer::DNS(d->e, d->t->parent_);
+  // bless
+  DWARF_EXT(dns_magic_vt, s_ns_pkg, retval)
+
 MODULE = Dwarf::Loader		PACKAGE = Dwarf::Loader::Param
 
 void
@@ -1488,6 +1554,9 @@ BOOT:
  s_elem_pkg = gv_stashpv(s_delem, 0);
  if ( !s_elem_pkg )
     croak("Package %s does not exists", s_delem);
+ s_ns_pkg = gv_stashpv(s_ns, 0);
+ if ( !s_ns_pkg )
+    croak("Package %s does not exists", s_ns);
  s_param_iter_pkg = gv_stashpv(s_fparams, 0);
  if ( !s_param_iter_pkg )
     croak("Package %s does not exists", s_fparams);
