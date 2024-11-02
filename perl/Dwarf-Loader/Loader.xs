@@ -792,6 +792,30 @@ cont_id(SV *self)
  OUTPUT:
   RETVAL
 
+void
+cont(SV *self)
+ INIT:
+  SV *msv;
+  SV *objref= NULL;
+  MAGIC* magic;
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( !d->t->cont_type_ ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  auto c_obj = d->e->pr.by_id(d->t->cont_type_);
+  if ( !c_obj ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  // wrap cont to DElem
+  d->e->add_ref();
+  auto res = new PerlRenderer::DElem(d->e, c_obj);
+  // bless
+  DWARF_EXT(delem_magic_vt, s_elem_pkg, res)
+
+
 UV
 align(SV *self)
  INIT:
