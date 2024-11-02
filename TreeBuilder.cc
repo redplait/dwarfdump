@@ -1023,7 +1023,7 @@ void TreeBuilder::SetLinkageName(const char* name)
 {
   if (current_element_type_ == ElementType::none)
     return;
-  if (!elements_.size()) {
+  if (elements_.empty()) {
     e_->warning("Can't set an linkage name if the element list is empty\n");
     return;
   }
@@ -1047,7 +1047,7 @@ void TreeBuilder::SetTlsIndex(param_loc *pl)
 {
   if (current_element_type_ != ElementType::var_type)
     return;
-  if (!elements_.size()) {
+  if (elements_.empty()) {
     e_->warning("Can't set an tls index if the element list is empty\n");
     return;
   }
@@ -1059,7 +1059,7 @@ void TreeBuilder::SetTlsIndex(param_loc *pl)
 
 TreeBuilder::FormalParam* TreeBuilder::get_param(const char *why)
 {
-  if (!elements_.size()) {
+  if (elements_.empty()) {
     e_->warning("Can't set an parameter %s if the element list is empty\n", why);
     return nullptr;
   }
@@ -1110,7 +1110,7 @@ void TreeBuilder::SetElementName(const char* name, uint64_t off)
   if (current_element_type_ == ElementType::none) {
     return;
   }
-  if (!elements_.size()) {
+  if (elements_.empty()) {
     e_->warning("Can't set an element name if the element list is empty, offset %lX\n", off);
     return;
   }
@@ -1177,7 +1177,7 @@ void TreeBuilder::SetElementSize(uint64_t size) {
    if (current_element_type_ == ElementType::none) {
     return;
   }
-  if (!elements_.size()) {
+  if (elements_.empty()) {
     e_->warning("Can't set an element size if the element list is empty\n");
     return;
   }
@@ -1190,7 +1190,7 @@ void TreeBuilder::SetElementSize(uint64_t size) {
   if ( recent_ )
     recent_->size_ = size;
   else
-    elements_.back().size_ = size; 
+    elements_.back().size_ = size;
 }
 
 void TreeBuilder::SetAddressClass(int v, uint64_t off)
@@ -1259,7 +1259,7 @@ void TreeBuilder::SetAte(unsigned char v)
    if (current_element_type_ == ElementType::none) {
     return;
   }
-  if (!elements_.size()) {
+  if (elements_.empty()) {
     e_->warning("Can't set Ate if the element list is empty\n");
     return;
   }
@@ -1274,7 +1274,7 @@ void TreeBuilder::SetNoReturn()
    if (current_element_type_ == ElementType::none) {
     return;
   }
-  if (!elements_.size()) {
+  if (elements_.empty()) {
     e_->warning("Can't set an noreturn attribute if the element list is empty\n");
     return;
   }
@@ -1408,7 +1408,7 @@ void TreeBuilder::SetDeclaration()
    if (current_element_type_ == ElementType::none) {
     return;
   }
-  if (!elements_.size()) {
+  if (elements_.empty()) {
     e_->warning("Can't set an declaration attribute if the element list is empty\n");
     return;
   }
@@ -1458,7 +1458,7 @@ void TreeBuilder::SetElementOffset(uint64_t offset) {
    if (current_element_type_ == ElementType::none) {
     return;
   }
-  if (!elements_.size()) {
+  if (elements_.empty()) {
     e_->warning("Can't set an element offset if the element list is empty\n");
     return;
   }
@@ -1482,7 +1482,7 @@ void TreeBuilder::SetElementType(uint64_t type_id) {
   if (current_element_type_ == ElementType::none) {
     return;
   }
-  if (!elements_.size()) {
+  if (elements_.empty()) {
     e_->warning("Can't set an element type if the element list is empty\n");
     return;
   }
@@ -1555,7 +1555,7 @@ void TreeBuilder::SetAlignment(uint64_t v)
        current_element_type_ == ElementType::union_type
   )
   {
-    if (!elements_.size()) {
+    if (elements_.empty()) {
       e_->warning("Can't set alignment when element list is empty\n");
       return;
     }
@@ -1565,7 +1565,7 @@ void TreeBuilder::SetAlignment(uint64_t v)
 
 void TreeBuilder::SetContainingType(uint64_t ct)
 {
-  if (!elements_.size()) {
+  if (elements_.empty()) {
     e_->warning("Can't set ContainingType when element list is empty\n");
     return;
   }
@@ -1574,7 +1574,7 @@ void TreeBuilder::SetContainingType(uint64_t ct)
 
 void TreeBuilder::SetLocX(uint64_t ct)
 {
-  if (!elements_.size())
+  if (elements_.empty())
     return;
   if ( current_element_type_ == ElementType::var_type )
   {
@@ -1606,7 +1606,7 @@ void TreeBuilder::SetAbs(uint64_t ct)
     last_var_->abs_ = ct;
     return;
   }
-  if (!elements_.size()) {
+  if (elements_.empty()) {
     e_->warning("Can't set abstract_origin when element list is empty\n");
     return;
   }
@@ -1623,7 +1623,7 @@ void TreeBuilder::SetInlined(int ct)
       current_element_type_ != ElementType::method
      )
     return;
-  if (!elements_.size()) {
+  if (elements_.empty()) {
     e_->warning("Can't set inlined when element list is empty\n");
     return;
   }
@@ -1635,7 +1635,7 @@ void TreeBuilder::SetInlined(int ct)
 
 void TreeBuilder::SetSpec(uint64_t ct)
 {
-  if (!elements_.size()) {
+  if (elements_.empty()) {
     e_->warning("Can't set specification when element list is empty\n");
     return;
   }
@@ -1670,7 +1670,7 @@ void TreeBuilder::SetAddr(uint64_t count)
       current_element_type_ != ElementType::method
      )
      return;
-  if (!elements_.size()) {
+  if (elements_.empty()) {
     e_->warning("Can't set address when element list is empty\n");
     return;
   }
