@@ -3,6 +3,8 @@ Makefile.PL
 MANIFEST
 ppport.h
 Reader.xs
+bm_search.h
+bm_search.cc
 README
 t/Elf-Reader.t
 lib/Elf/Reader.pm
