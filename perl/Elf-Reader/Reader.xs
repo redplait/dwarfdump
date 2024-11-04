@@ -465,12 +465,20 @@ AV *bm_asciiz(SV *pattern, const unsigned char *start, const unsigned char *end,
   STRLEN len;
   char *ptr = SvPVbyte(pattern, len);
   if ( !ptr || !len ) return nullptr;
-  std::string tmp(ptr, len);
-  // append leading zero
-  tmp.push_back(0); len++;
+  bm_search srch;
+  // check if SV already has SV_HAS_TRAILING_NUL
+  if ( SvFLAGS(pattern) & SV_HAS_TRAILING_NUL )
+  {
+    len++;
+    srch.set((const unsigned char *)ptr, len);
+  } else {
+    std::string tmp(ptr, len);
+    // append leading zero
+    tmp.push_back(0); len++;
+    srch.set((const unsigned char *)tmp.c_str(), len);
+  }
   AV *av = newAV();
   // make BM
-  bm_search srch( (const unsigned char *)tmp.c_str(), len );
   auto curr = start;
   while ( curr < end )
   {
@@ -575,6 +583,48 @@ bmz_idx(SV *self, SV *pattern, IV section_idx)
   auto start = s->get_data();
   auto end = start + s->get_size();
   res = bm_asciiz(pattern, (const unsigned char *)start, (const unsigned char *)end, ptrdiff_t(start - s->get_address()));
+  if ( !res )
+   ST(0) = &PL_sv_undef;
+  else
+   ST(0) = newRV_noinc((SV*)res);
+  XSRETURN(1);
+
+void
+bm_from(SV *self, SV *pattern, UV addr)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(self, 1, &Elf_magic_vt);
+   AV *res = nullptr;
+ PPCODE:
+  auto *s = find_section(e, addr);
+  if ( !s ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  auto start = s->get_data() + addr - s->get_address();
+  auto end = s->get_data() + s->get_size();
+  ptrdiff_t diff = ptrdiff_t(s->get_data() - s->get_address());
+  res = bm_ascii(pattern, (const unsigned char *)start, (const unsigned char *)end, diff);
+  if ( !res )
+   ST(0) = &PL_sv_undef;
+  else
+   ST(0) = newRV_noinc((SV*)res);
+  XSRETURN(1);
+
+void
+bmz_from(SV *self, SV *pattern, UV addr)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(self, 1, &Elf_magic_vt);
+   AV *res = nullptr;
+ PPCODE:
+  auto *s = find_section(e, addr);
+  if ( !s ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  auto start = s->get_data() + addr - s->get_address();
+  auto end = s->get_data() + s->get_size();
+  ptrdiff_t diff = ptrdiff_t(s->get_data() - s->get_address());
+  res = bm_asciiz(pattern, (const unsigned char *)start, (const unsigned char *)end, diff);
   if ( !res )
    ST(0) = &PL_sv_undef;
   else

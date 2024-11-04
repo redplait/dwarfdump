@@ -614,6 +614,12 @@ versyms items are arrays with indexes
  4 - other
  5 - dep_name, string
 
+=head3 Boyer Moore string search methods
+ bm_idx(self, pattern, section_index)
+ bmz_idx - the same as bm_idx but includes trailing zero
+ bm_from(self, pattern, address)
+ bmz_from - the same as bm_from but includes trailing zero
+
 =head2 EXPORT
 
 Names of ELF constants
