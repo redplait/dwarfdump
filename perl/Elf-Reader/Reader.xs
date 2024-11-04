@@ -6,6 +6,12 @@
 
 #include "ppport.h"
 #include "../elf.inc"
+#include "bm_search.h"
+
+void my_warn(const char * pat, ...) {
+ va_list args;
+ vwarn(pat, &args);
+}
 
 static unsigned char get_host_encoding(void)
 {
@@ -425,6 +431,64 @@ static int s_rdr_id = 0;
   ST(0) = objref; \
   XSRETURN(1);
 
+// bm search
+AV *bm_ascii(SV *pattern, const unsigned char *start, const unsigned char *end, ptrdiff_t diff)
+{
+  int cnt = 0;
+  STRLEN len;
+  const unsigned char *ptr = (const unsigned char *)SvPVbyte(pattern, len);
+  if ( !ptr || !len ) return nullptr;
+  AV *av = newAV();
+  // make BM
+  bm_search srch( ptr, len );
+  auto curr = start;
+  while ( curr < end )
+  {
+    auto fres = srch.search(curr, end - curr);
+    if ( NULL == fres )
+      break;
+    cnt++;
+    av_push(av, newSVuv( UV(curr - diff) ) );
+    curr = fres + len;
+  }
+  // instead of returning empty AV return nullptr
+  if ( !cnt ) {
+    SvREFCNT_dec((SV *)av);
+    return nullptr;
+  }
+  return av;
+}
+
+AV *bm_asciiz(SV *pattern, const unsigned char *start, const unsigned char *end, ptrdiff_t diff)
+{
+  int cnt = 0;
+  STRLEN len;
+  char *ptr = SvPVbyte(pattern, len);
+  if ( !ptr || !len ) return nullptr;
+  std::string tmp(ptr, len);
+  // append leading zero
+  tmp.push_back(0); len++;
+  AV *av = newAV();
+  // make BM
+  bm_search srch( (const unsigned char *)tmp.c_str(), len );
+  auto curr = start;
+  while ( curr < end )
+  {
+    auto fres = srch.search(curr, end - curr);
+    if ( NULL == fres )
+      break;
+    cnt++;
+    av_push(av, newSVuv( UV(curr - diff) ) );
+    curr = fres + len;
+  }
+  // instead of returning empty AV return nullptr
+  if ( !cnt ) {
+    SvREFCNT_dec((SV *)av);
+    return nullptr;
+  }
+  return av;
+}
+
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader		
 
@@ -463,6 +527,58 @@ new(obj_or_pkg, const char *fname)
     magic->mg_flags |= MGf_DUP;
 #endif
   }
+  XSRETURN(1);
+
+void
+bm_idx(SV *self, SV *pattern, IV section_idx)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(self, 1, &Elf_magic_vt);
+   AV *res = nullptr;
+ PPCODE:
+  auto *s = e->rdr->sections[section_idx];
+  if ( !s ) {
+    my_warn("bm_idx - no section with index %d", section_idx);
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  if ( s->get_type() != ELFIO::SHT_PROGBITS ) {
+    my_warn("bm_idx - section with index %d has no content", section_idx);
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  auto start = s->get_data();
+  auto end = start + s->get_size();
+  res = bm_ascii(pattern, (const unsigned char *)start, (const unsigned char *)end, ptrdiff_t(start - s->get_address()));
+  if ( !res )
+   ST(0) = &PL_sv_undef;
+  else
+   ST(0) = newRV_noinc((SV*)res);
+  XSRETURN(1);
+
+void
+bmz_idx(SV *self, SV *pattern, IV section_idx)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(self, 1, &Elf_magic_vt);
+   AV *res = nullptr;
+ PPCODE:
+  auto *s = e->rdr->sections[section_idx];
+  if ( !s ) {
+    my_warn("bmz_idx - no section with index %d", section_idx);
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  if ( s->get_type() != ELFIO::SHT_PROGBITS ) {
+    my_warn("bmz_idx - section with index %d has no content", section_idx);
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  auto start = s->get_data();
+  auto end = start + s->get_size();
+  res = bm_asciiz(pattern, (const unsigned char *)start, (const unsigned char *)end, ptrdiff_t(start - s->get_address()));
+  if ( !res )
+   ST(0) = &PL_sv_undef;
+  else
+   ST(0) = newRV_noinc((SV*)res);
   XSRETURN(1);
 
 void

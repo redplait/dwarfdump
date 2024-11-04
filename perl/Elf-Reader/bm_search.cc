@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "bm_search.h"
+#include <algorithm>
 
 static int suffix_match(const unsigned char *needle, size_t nlen, size_t offset, size_t suffixlen)
 {
@@ -82,7 +83,7 @@ const unsigned char* bm_search::search(const unsigned char* mem, size_t mlen)
         --i;
     }
     /* no matching */
-    hpos += max(LONG(m_skip[i]), LONG(i - occ[mem[i + hpos]]));
+    hpos += std::max(long(m_skip[i]), long(i - occ[mem[i + hpos]]));
   }
   return NULL;
 }
