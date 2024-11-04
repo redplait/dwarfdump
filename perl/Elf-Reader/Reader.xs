@@ -727,6 +727,26 @@ void find(SV *arg, unsigned long addr)
    }
    XSRETURN(1);
 
+void asciiz(SV *arg, unsigned long addr)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+   auto *s = find_section(e, addr);
+   std::string res;
+   const char *start, *end;
+   char c;
+ PPCODE:
+   if ( !s )
+     ST(0) = &PL_sv_undef;
+   else {
+     end = s->get_data() + s->get_size();
+     start = s->get_data() + addr - s->get_address();
+     while( start < end && (c = *start) ) {
+       res.push_back(c); start++;
+     }
+     ST(0)= sv_2mortal( newSVpv(res.c_str(), res.size()) );
+   }
+   XSRETURN(1);
+
 void byte(SV *arg, unsigned long addr)
  INIT:
    struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
