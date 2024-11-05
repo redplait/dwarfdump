@@ -8,7 +8,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 7;
+use Test::More tests => 10;
 BEGIN { use_ok('Interval::Tree') };
 
 #########################
@@ -26,3 +26,10 @@ $n1 = $t->next(12);
 ok( $n1 == 14, 'next14');
 $n1 = $t->next(19);
 ok( $n1 == 0, 'no right');
+# now test Tree::SV
+my $st = Interval::Tree::SV->new();
+ok( defined $st, 'new sv');
+$st->insert(14, 4, 'test value');
+my $res = $st->in_tree(15);
+ok( defined($res), 'in_svtree');
+ok( $res eq 'test value' );
