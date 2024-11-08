@@ -326,6 +326,31 @@ sub simple_symbols
   return $res;
 }
 
+# the same as above but read System.map
+# first map is key - name, value - [ address, 0 bcs System.map don't provide sizes]
+# second map is key - addr, value - [ name, type where tT is STT_FUNC and STT_OBJECT for anything else]
+sub parse_system_map
+{
+  my( $fn, $rsyms, $raddr ) = @_;
+  my($fh, $str, $name, $addr, $type);
+  open($fh, '<', $fn) or die("Cannot open $fn, error $!");
+  my $res = 0;
+  while( $str = <$fh> )
+  {
+    chomp $str;
+    # addr letter name
+    next if ( $str !~ /^([0-9a-f]+) (\S) (\S+)$/i );
+    $addr = hex($1);
+    $type = ( $2 eq 't' || $2 eq 'T' ) ? STT_FUNC : STT_OBJECT;
+    $name = $3;
+    $res++;
+    $raddr->{ $addr } = [ $name, $type ] if ( $addr );
+    $rsyms->{ $name } = [ $addr, 0 ] if ( $type == STT_FUNC );
+  }
+  close($fh);
+  return $res;
+}
+
 our @EXPORT = qw(
  ET_NONE
  ET_REL
@@ -498,6 +523,7 @@ DT_LOPROC
 DT_HIPROC
 get_dtag_name
 simple_symbols
+parse_system_map
 );
 
 our $VERSION = '0.01';
