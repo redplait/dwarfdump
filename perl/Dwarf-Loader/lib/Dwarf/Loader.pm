@@ -155,6 +155,44 @@ some tags keeping in smaller types:
 and keep lists of nested elements in structure Compound (sizeof is 200 bytes). Can't say I'm satisfied with the result -
 in typical DWARF lots of xxx_type tags occupy only several bytes vs 224 in my library
 
+=head3 Element
+
+Wrapper for DIE, methods:
+ tag - returns ID
+ type - type of Element (TArray ... TVariant)
+ name - DW_AT_name
+ link_name - DW_AT_linkage_name, mostly used in C++
+ fname - full name of source file where Element was defined
+ size of Element
+ bit_size & bit_offset of bitfields
+ type_id - ID of type Element, like members type or return type for TSub etc
+ offset of member Element
+ align of Element
+ inlined, noret, decl, const_expr, enum_class - boolean attributes of Element
+ abs - return ID of DW_AT_abstract_origin, see below by_id
+ owner - return Element owning this one (like Struct from member/method)
+ ns - Dwarf::Loader::Namespace
+ foff - for classes/structures try to find member at some offset
+
+=head4 Methods for specific types:
+ 
+
+=head3 Getting Elements
+
+You can try to find some elements using following Dwarf::Loader methods:
+ by_id(tag_id)
+ by_name(name), for C++ you must pass mangled name
+ by_addr(addr)  Beware - some addresses can be just unnamed DIE with DW_AT_abstract_origin
+ <1><44700>: Abbrev Number: 51 (DW_TAG_subprogram)
+    <44701>   DW_AT_abstract_origin: <0x446af>
+    <44705>   DW_AT_object_pointer: <0x44723>
+    <4470b>   DW_AT_low_pc      : 0x4068f2
+  so check abs of returned Element and then by_id to find prototype
+
+Also there are some select-like methods:
+ named(type) - to get all named Types (like TStruct), returns ref to array of IDs
+ addressable(type) - to get Elements with address of some Type, returns ref to hash where key is address and value is ID
+
 =head2 EXPORT
 
 None by default.
