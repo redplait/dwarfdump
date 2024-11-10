@@ -331,6 +331,7 @@ sub simple_symbols
 # second map is key - addr, value - [ name, type where tT is STT_FUNC and STT_OBJECT for anything else]
 sub parse_system_map
 {
+  no warnings "portable";
   my( $fn, $rsyms, $raddr ) = @_;
   my($fh, $str, $name, $addr, $type);
   open($fh, '<', $fn) or die("Cannot open $fn, error $!");
@@ -340,6 +341,7 @@ sub parse_system_map
     chomp $str;
     # addr letter name
     next if ( $str !~ /^([0-9a-f]+) (\S) (\S+)$/i );
+    use integer;
     $addr = hex($1);
     $type = ( $2 eq 't' || $2 eq 'T' ) ? STT_FUNC : STT_OBJECT;
     $name = $3;
