@@ -1,0 +1,6 @@
+Revision history for Perl extension Disasm::Capstone.
+
+0.01  Sun Nov 10 15:01:30 2024
+	- original version; created by h2xs 1.23 with options
+		-cfn Disasm::Capstone
+

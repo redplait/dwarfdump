@@ -1,0 +1,9 @@
+Capstone.xs
+Changes
+Makefile.PL
+MANIFEST
+ppport.h
+README
+t/Disasm-Capstone.t
+lib/Disasm/Capstone.pm
+lib/Disasm/Capstone/PPC.pm
