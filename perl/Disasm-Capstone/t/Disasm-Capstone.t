@@ -8,7 +8,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 5;
+use Test::More tests => 6;
 BEGIN { use_ok('Disasm::Capstone') };
 BEGIN { use_ok('Disasm::Capstone::PPC') };
 
@@ -22,7 +22,7 @@ ok( defined($d) && ref($d), 'new ppc');
 
 my $sres = $d->setup(0xC0000000003FD020);
 ok( $sres, 'setup');
-
+ok( $d->disasm(), 'disasm' );
 
 #########################
 

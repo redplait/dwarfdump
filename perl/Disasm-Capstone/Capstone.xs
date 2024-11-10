@@ -29,6 +29,7 @@ struct CaBase {
   // methods
   CaBase(IElf *_e): e(_e) {
     psp = end = nullptr;
+    addr = 0;
   }
   int alloc_insn() {
     if ( insn ) return 1;
@@ -76,6 +77,21 @@ struct CaBase {
  }
 };
 
+// ppc disasm
+struct ppc_disasm: public CaBase
+{
+  ppc_disasm(IElf *_e): CaBase(_e)
+  { }
+  int disasm() {
+    if ( !psp || psp >= end ) return 0;
+    size_t size = end - psp;
+    auto err = cs_disasm_iter(handle, (const unsigned char **)&psp, &size, &addr, insn);
+    if ( !err ) return 0;
+    succ = true;
+    return 1;
+  }
+};
+
 // magic
 static int cap_magic_free(pTHX_ SV* sv, MAGIC* mg) {
     if (mg->mg_ptr) {
@@ -100,6 +116,29 @@ static MGVTBL ppc_magic_vt = {
         ,0
 #endif
 };
+
+template <typename T>
+T *get_disasm(SV *obj, MGVTBL *tab)
+{
+  SV *sv;
+  MAGIC* magic;
+ 
+  if (!sv_isobject(obj)) {
+     if (die)
+        croak("Not an object");
+        return NULL;
+  }
+  sv= SvRV(obj);
+  if (SvMAGICAL(sv)) {
+     /* Iterate magic attached to this scalar, looking for one with our vtable */
+     for (magic= SvMAGIC(sv); magic; magic = magic->mg_moremagic)
+        if (magic->mg_type == PERL_MAGIC_ext && magic->mg_virtual == tab)
+          /* If found, the mg_ptr points to the fields structure. */
+            return (T*) magic->mg_ptr;
+    }
+  return NULL;
+}
+
 
 CaBase *cabase_get(SV *obj)
 {
@@ -217,12 +256,11 @@ new(obj_or_pkg, SV *elsv)
   SV *objref= NULL;
   MAGIC* magic;
   struct IElf *e= extract(elsv);
-  ELFIO::Elf_Half machine;
   CaBase *res = nullptr;
   int mod = 0;
  PPCODE:
   // check what we have
-  machine = e->rdr->get_machine();
+  ELFIO::Elf_Half machine = e->rdr->get_machine();
   if ( machine == ELFIO::EM_PPC ) mod = CS_MODE_32;
   else if ( machine == ELFIO::EM_PPC64 ) mod = CS_MODE_64;
   else {
@@ -278,6 +316,19 @@ PPCODE:
     ST(0) = sv_2mortal( newSViv(d->insn->detail->ppc.op_count ) );
    XSRETURN(1);
 
+void
+disasm(SV *self)
+ INIT:
+   auto *d = get_disasm<ppc_disasm>(self, &ppc_magic_vt);
+PPCODE:
+   if ( !d ) ST(0) = &PL_sv_undef;
+   else {
+     if ( d->disasm() )
+       ST(0) = &PL_sv_yes;
+     else
+       ST(0) = &PL_sv_no;
+  }
+  XSRETURN(1);
 
 BOOT:
  s_ppc_pkg = gv_stashpv(s_ppc_name, 0);
