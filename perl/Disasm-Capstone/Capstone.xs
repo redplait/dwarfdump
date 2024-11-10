@@ -42,7 +42,7 @@ struct CaBase {
     if ( handle ) cs_close(&handle);
   }
   inline int empty() const {
-    return (insn != nullptr) && succ;
+    return (insn == nullptr) || (psp == nullptr) || !succ;
   }
  int setup(unsigned long addr_)
  {
