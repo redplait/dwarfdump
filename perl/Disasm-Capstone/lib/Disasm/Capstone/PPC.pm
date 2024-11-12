@@ -1682,7 +1682,10 @@ sub is_bimm
  my $d = shift;
  my $op = $d->op();
  if ( $d->op_cnt() >= 2 && $d->op_type(1) == Disasm::Capstone::CS_OP_IMM ) {
-   return $d->op_imm(1) if ( $op == PPC_BC || $op == PPC_B );
+   return $d->op_imm(1) if ( $op == PPC_BC );
+ }
+ if ( $d->op_cnt() >= 1 && $d->op_type(0) == Disasm::Capstone::CS_OP_IMM ) {
+   return $d->op_imm(0) if ( $op == PPC_B );
  }
  0;
 }

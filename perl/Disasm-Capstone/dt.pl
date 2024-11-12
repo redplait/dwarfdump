@@ -16,10 +16,19 @@ my %g_syms;
 # key - addr, value - [ name, type ]
 my %g_addr;
 
+sub chsym
+{
+  my $addr = shift;
+  return $g_addr{ $addr }->[0] if exists $g_addr{ $addr };
+  # skip 8 bytes for TOC loading
+  $addr -= 8;
+  return $g_addr{ $addr }->[0] if exists $g_addr{ $addr };
+  undef;
+}
+
 sub dump_ops
 {
   my($d, $oc) = @_;
-  printf("\n");
   for ( my $i = 0; $i < $oc; $i++ ) {
     my $t = $d->op_type($i);
     printf("; %d %d %d ", $i, $t, $d->op_access($i));
@@ -56,9 +65,11 @@ sub disasm_func
       my $oc = $d->op_cnt();
       printf("%X: %s %s ; %d %d ops", $d->addr(), $d->mnem(), $d->text(), $d->op(), $oc);
       my $caddr = is_call($d);
-      if ( $caddr && exists($g_addr{ $caddr }) ) {
-        printf(" %s\n", $g_addr{ $caddr }->[0] );
-        next;
+      if ( $caddr ) {
+        my $sym = chsym($caddr);
+        if ( defined $sym ) {
+          printf(" %s\n", $sym ); next;
+        }
       }
       $caddr = is_bimm($d);
       if ( $caddr ) {
@@ -68,6 +79,7 @@ sub disasm_func
         next;
       }
       # dump details
+      printf("\n");
       dump_ops($d, $oc) if ( $oc );
     }
     # add to tree
