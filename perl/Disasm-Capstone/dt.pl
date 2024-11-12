@@ -19,6 +19,7 @@ my %g_addr;
 sub dump_ops
 {
   my($d, $oc) = @_;
+  printf("\n");
   for ( my $i = 0; $i < $oc; $i++ ) {
     my $t = $d->op_type($i);
     printf("; %d %d %d ", $i, $t, $d->op_access($i));
@@ -37,14 +38,41 @@ sub dump_ops
 sub disasm_func
 {
   my($d, $ar) = @_;
-  return if ( !$d->setup($ar->[0]) );
-  # dump first 5
-  while ( 1 ) {
-    last if ( !$d->disasm() );
-    my $oc = $d->op_cnt();
-    printf("%X: %s %s ; %d %d ops\n", $d->addr(), $d->mnem(), $d->text(), $d->op(), $oc);
-    # dump details
-    dump_ops($d, $oc) if ( $oc );
+  # branches
+  my @Q;
+  my $tree = Interval::Tree->new();
+  push @Q, $ar->[0];
+  while ( @Q )
+  {
+    my $adr = shift @Q;
+    next if ( $tree->in_tree($adr) );
+    my $next = $tree->next($adr);
+    if ( $next ) {
+      $d->setup2( $adr, $next - $adr );
+    } else {
+      $d->setup( $adr );
+    }
+    while ( $d->disasm() ) {
+      my $oc = $d->op_cnt();
+      printf("%X: %s %s ; %d %d ops", $d->addr(), $d->mnem(), $d->text(), $d->op(), $oc);
+      my $caddr = is_call($d);
+      if ( $caddr && exists($g_addr{ $caddr }) ) {
+        printf(" %s\n", $g_addr{ $caddr }->[0] );
+        next;
+      }
+      $caddr = is_bimm($d);
+      if ( $caddr ) {
+        my $p = $tree->in_tree($caddr);
+        if ( !$p ) { push(@Q, $caddr); printf(" add_branch\n"); }
+        else { printf(" ; [-]\n"); }
+        next;
+      }
+      # dump details
+      dump_ops($d, $oc) if ( $oc );
+    }
+    # add to tree
+    $tree->insert( $adr, $d->addr() - $adr );
+    printf("--\n");
   }
 }
 

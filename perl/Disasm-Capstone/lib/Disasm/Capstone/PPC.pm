@@ -1667,6 +1667,26 @@ use constant {
 # E X P O R T E D   N A M E S
 #
 ###
+sub is_call
+{
+ my $d = shift;
+ my $op = $d->op();
+ if ( $d->op_cnt() >= 1 && $d->op_type(0) == Disasm::Capstone::CS_OP_IMM ) {
+   return $d->op_imm(0) if ( $op == PPC_BL );
+ }
+ 0;
+}
+
+sub is_bimm
+{
+ my $d = shift;
+ my $op = $d->op();
+ if ( $d->op_cnt() >= 2 && $d->op_type(1) == Disasm::Capstone::CS_OP_IMM ) {
+   return $d->op_imm(1) if ( $op == PPC_BC || $op == PPC_B );
+ }
+ 0;
+}
+
 our @EXPORT = qw(
 PPC_INVALID
 PPC_CLRLSLDI
@@ -3319,8 +3339,9 @@ PPC_BCL
 PPC_BCLA
 PPC_BCLR
 PPC_BCLRL
+is_call
+is_bimm
 );
-
 
 1;
 

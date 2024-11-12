@@ -89,7 +89,7 @@ struct ppc_disasm: public CaBase
     if ( !err ) { succ = false; return 0; }
     succ = true;
     // check for end instructions
-    if ( insn->id == PPC_INS_B || insn->id == PPC_INS_BLR ||
+    if ( insn->id == PPC_INS_B || insn->id == PPC_INS_BLR || insn->id == PPC_INS_BCTR ||
       (insn->id == PPC_INS_BCLR && insn->alias_id == PPC_INS_ALIAS_BLR) )
       end = psp;
     return 1;
