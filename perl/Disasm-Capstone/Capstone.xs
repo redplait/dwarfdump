@@ -317,6 +317,69 @@ PPCODE:
    XSRETURN(1);
 
 void
+op_type(SV *self, IV idx)
+ INIT:
+   auto *d = cabase_get(self);
+PPCODE:
+   if ( !d || d->empty() || !d->insn->detail || idx >= d->insn->detail->ppc.op_count )
+    ST(0) = &PL_sv_undef;
+   else
+    ST(0) = sv_2mortal( newSViv(d->insn->detail->ppc.operands[idx].type) );
+   XSRETURN(1);
+
+void
+op_reg(SV *self, IV idx)
+ INIT:
+   auto *d = cabase_get(self);
+PPCODE:
+   if ( !d || d->empty() || !d->insn->detail || idx >= d->insn->detail->ppc.op_count )
+    ST(0) = &PL_sv_undef;
+   else
+    ST(0) = sv_2mortal( newSViv(d->insn->detail->ppc.operands[idx].reg) );
+   XSRETURN(1);
+
+void
+op_imm(SV *self, IV idx)
+ INIT:
+   auto *d = cabase_get(self);
+PPCODE:
+   if ( !d || d->empty() || !d->insn->detail || idx >= d->insn->detail->ppc.op_count )
+    ST(0) = &PL_sv_undef;
+   else
+    ST(0) = sv_2mortal( newSVuv(d->insn->detail->ppc.operands[idx].imm) );
+   XSRETURN(1);
+
+void
+op_mem(SV *self, IV idx)
+ INIT:
+   auto *d = cabase_get(self);
+   AV *av;
+PPCODE:
+   if ( !d || d->empty() || !d->insn->detail || idx >= d->insn->detail->ppc.op_count )
+    ST(0) = &PL_sv_undef;
+   else {
+     av = newAV();
+     // return ref to [ base disp offset]
+     av_push(av, newSViv( d->insn->detail->ppc.operands[idx].mem.base ));
+     av_push(av, newSViv( d->insn->detail->ppc.operands[idx].mem.disp ));
+     av_push(av, newSViv( d->insn->detail->ppc.operands[idx].mem.offset ));
+     ST(0) = newRV_noinc((SV*)av);
+   }
+   XSRETURN(1);
+
+void
+op_access(SV *self, IV idx)
+ INIT:
+   auto *d = cabase_get(self);
+PPCODE:
+   if ( !d || d->empty() || !d->insn->detail || idx >= d->insn->detail->ppc.op_count )
+    ST(0) = &PL_sv_undef;
+   else
+    ST(0) = sv_2mortal( newSViv(d->insn->detail->ppc.operands[idx].access) );
+   XSRETURN(1);
+
+
+void
 disasm(SV *self)
  INIT:
    auto *d = get_disasm<ppc_disasm>(self, &ppc_magic_vt);

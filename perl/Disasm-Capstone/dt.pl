@@ -16,14 +16,35 @@ my %g_syms;
 # key - addr, value - [ name, type ]
 my %g_addr;
 
+sub dump_ops
+{
+  my($d, $oc) = @_;
+  for ( my $i = 0; $i < $oc; $i++ ) {
+    my $t = $d->op_type($i);
+    printf("; %d %d %d ", $i, $t, $d->op_access($i));
+    if ( $t == CS_OP_REG ) {
+      printf("%d", $d->op_reg($i));
+    } elsif ( $t == CS_OP_IMM ) {
+      printf("%X", $d->op_imm($i));
+    } elsif ( $t == CS_OP_MEM ) {
+      my $m = $d->op_mem($i);
+      printf("%d %d %d", $m->[0], $m->[1], $m->[2]);
+    }
+    printf("\n");
+  }
+}
+
 sub disasm_func
 {
   my($d, $ar) = @_;
   return if ( !$d->setup($ar->[0]) );
   # dump first 5
-  for ( my $i = 0; $i < 5; $i++ ) {
+  for ( my $i = 0; $i < 15; $i++ ) {
     last if ( !$d->disasm() );
-    printf("%X: %s %s\n", $d->addr(), $d->mnem(), $d->text());
+    my $oc = $d->op_cnt();
+    printf("%X: %s %s ; %d %d ops\n", $d->addr(), $d->mnem(), $d->text(), $d->op(), $oc);
+    # dump details
+    dump_ops($d, $oc) if ( $oc );
   }
 }
 
