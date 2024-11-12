@@ -7,13 +7,15 @@
 #include "elfio/elfio.hpp"
 #include "../elf.inc"
 #include "capstone/capstone.h"
+#include <bitset>
 
 void my_warn(const char * pat, ...) {
  va_list args;
  vwarn(pat, &args);
 }
 
-static HV *s_ppc_pkg = nullptr;
+static HV *s_ppc_pkg = nullptr,
+ *s_ppc_regpad_pkg = nullptr;
 
 // base disasm class
 static const int s_sign = 0x63617073;
@@ -77,6 +79,74 @@ struct CaBase {
  }
 };
 
+// ppc regpad
+struct ppc_regs {
+  constexpr static int base = PPC_REG_R9;
+  constexpr static int size = 32;
+  int64_t regs[size];
+  std::bitset<size> pres;
+  // for moves
+  char m[size];
+  ppc_regs() {
+    memset(m, -1, size);
+  }
+  ppc_regs(ppc_regs &) = default;
+  int64_t get(int idx) const
+  {
+    if ( idx < base ) return 0;
+    idx -= base;
+    if ( idx >= size ) return 0;
+    if ( !pres[idx] ) return 0;
+    return regs[idx];
+  }
+  int64_t set(int idx, int64_t v)
+  {
+    if ( idx < base ) return 0;
+    idx -= base;
+    if ( idx >= size ) return 0;
+    pres[idx] = 1; m[idx] = -1;
+    regs[idx] = v;
+    return v;
+  }
+  int move(int idx, int src)
+  {
+    if ( idx < base || src < base ) return 0;
+    idx -= base; src -= base;
+    if ( idx >= size || src >= size ) return 0;
+    regs[idx] = regs[src];
+    pres[idx] = pres[src];
+    m[idx] = m[src];
+    return 1;
+  }
+  int arg(int idx) const {
+    if ( idx < base ) return -1;
+    idx -= base;
+    if ( idx >= size ) return -1;
+    return m[idx];
+  }
+  // addis reg1 = reg2 + int << 0x10
+  int addis(int idx, int src, int v) {
+    if ( idx < base || src < base ) return 0;
+    idx -= base; src -= base;
+    if ( !pres[src] ) return 0;
+    pres[idx] = 1;
+    if ( v < 0 )
+     regs[idx] = regs[src] - (-v) << 0x10;
+    else
+     regs[idx] = regs[src] + v << 0x10;
+    return 1;
+  }
+  // addi reg1 = reg2 + int
+  int addi(int idx, int src, int v) {
+    if ( idx < base || src < base ) return 0;
+    idx -= base; src -= base;
+    if ( !pres[src] ) return 0;
+    pres[idx] = 1;
+    regs[idx] = regs[src] + v;
+    return 1;
+  }
+};
+
 // ppc disasm
 struct ppc_disasm: public CaBase
 {
@@ -115,12 +185,20 @@ struct ppc_disasm: public CaBase
     if ( idx >= insn->detail->ppc.op_count || insn->detail->ppc.operands[idx].type != PPC_OP_REG ) return 0;
     return insn->detail->ppc.operands[idx].reg;
   }
+  int is_xxx(int num, int t0, int t1 = 0, int t2 = 0) const {
+    if ( insn->detail->ppc.op_count < num ) return 0;
+    if ( t0 != insn->detail->ppc.operands[0].type ) return 0;
+    if ( t1 && t1 != insn->detail->ppc.operands[1].type ) return 0;
+    if ( t2 && t2 != insn->detail->ppc.operands[2].type ) return 0;
+    return 1;
+  }
 };
 
 // magic
+template <typename T>
 static int cap_magic_free(pTHX_ SV* sv, MAGIC* mg) {
     if (mg->mg_ptr) {
-        auto *m = (CaBase *)mg->mg_ptr;
+        auto *m = (T *)mg->mg_ptr;
         delete m;
         mg->mg_ptr= NULL;
     }
@@ -134,7 +212,22 @@ static MGVTBL ppc_magic_vt = {
         0, /* write */
         0, /* length */
         0, /* clear */
-        cap_magic_free,
+        cap_magic_free<ppc_disasm>,
+        0, /* copy */
+        0 /* dup */
+#ifdef MGf_LOCAL
+        ,0
+#endif
+};
+
+// magic table for Disasm::Capstone::PPC::Regpad
+static const char *s_ppc_regpad_name = "Disasm::Capstone::PPC::Regpad";
+static MGVTBL ppc_regpad_magic_vt = {
+        0, /* get */
+        0, /* write */
+        0, /* length */
+        0, /* clear */
+        cap_magic_free<ppc_regs>,
         0, /* copy */
         0 /* dup */
 #ifdef MGf_LOCAL
@@ -428,10 +521,54 @@ PPCODE:
   }
   XSRETURN(1);
 
+MODULE = Disasm::Capstone		PACKAGE = Disasm::Capstone::PPC::Regpad
+
+void
+clone(SV *self)
+ INIT:
+   auto *d = get_disasm<ppc_regs>(self, &ppc_regpad_magic_vt);
+   SV *msv;
+   SV *objref= NULL;
+   MAGIC* magic;
+ PPCODE:
+   if ( !d ) ST(0) = &PL_sv_undef;
+   else {
+     ppc_regs *res = new ppc_regs(*d);
+     // make blessed obj
+     msv = newSViv(0);
+     objref= sv_2mortal(newRV_noinc(msv));
+     sv_bless(objref, s_ppc_regpad_pkg);
+     ST(0)= objref;
+     // attach magic
+     magic = sv_magicext(msv, NULL, PERL_MAGIC_ext, &ppc_regpad_magic_vt, (const char*)res, 0);
+#ifdef USE_ITHREADS
+     magic->mg_flags |= MGf_DUP;
+#endif
+   }
+   XSRETURN(1);
+
+void
+get(SV *self, int idx)
+ INIT:
+   auto *d = get_disasm<ppc_regs>(self, &ppc_regpad_magic_vt);
+ PPCODE:
+   UV v = d->get(idx);
+   ST(0) = sv_2mortal( newSVuv(v) );
+   XSRETURN(1);
+
+void
+arg(SV *self, int idx)
+ INIT:
+   auto *d = get_disasm<ppc_regs>(self, &ppc_regpad_magic_vt);
+ PPCODE:
+
 BOOT:
  s_ppc_pkg = gv_stashpv(s_ppc_name, 0);
  if ( !s_ppc_pkg )
     croak("Package %s does not exists", s_ppc_name);
+ s_ppc_regpad_pkg = gv_stashpv(s_ppc_regpad_name, 0);
+ if ( !s_ppc_regpad_pkg )
+    croak("Package %s does not exists", s_ppc_regpad_name);
  cs_arch_register_powerpc();
  // export some enums
  HV *stash= gv_stashpvn("Disasm::Capstone", 16, 1);
@@ -445,3 +582,6 @@ BOOT:
  EXPORT_ENUM(CS_OP_MEM)
  EXPORT_ENUM(CS_OP_MEM_REG)
  EXPORT_ENUM(CS_OP_MEM_IMM)
+ EXPORT_ENUM(CS_AC_READ)
+ EXPORT_ENUM(CS_AC_WRITE)
+ EXPORT_ENUM(CS_AC_READ_WRITE)
