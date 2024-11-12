@@ -39,7 +39,7 @@ sub disasm_func
   my($d, $ar) = @_;
   return if ( !$d->setup($ar->[0]) );
   # dump first 5
-  for ( my $i = 0; $i < 15; $i++ ) {
+  while ( 1 ) {
     last if ( !$d->disasm() );
     my $oc = $d->op_cnt();
     printf("%X: %s %s ; %d %d ops\n", $d->addr(), $d->mnem(), $d->text(), $d->op(), $oc);

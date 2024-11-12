@@ -86,9 +86,34 @@ struct ppc_disasm: public CaBase
     if ( !psp || psp >= end ) return 0;
     size_t size = end - psp;
     auto err = cs_disasm_iter(handle, (const unsigned char **)&psp, &size, &addr, insn);
-    if ( !err ) return 0;
+    if ( !err ) { succ = false; return 0; }
     succ = true;
+    // check for end instructions
+    if ( insn->id == PPC_INS_B || insn->id == PPC_INS_BLR ||
+      (insn->id == PPC_INS_BCLR && insn->alias_id == PPC_INS_ALIAS_BLR) )
+      end = psp;
     return 1;
+  }
+  // getters
+  inline int is_reg(int idx) const
+  {
+    if ( idx >= insn->detail->ppc.op_count ) return 0;
+    return insn->detail->ppc.operands[idx].type == PPC_OP_REG;
+  }
+  inline int is_imm(int idx) const
+  {
+    if ( idx >= insn->detail->ppc.op_count ) return 0;
+    return insn->detail->ppc.operands[idx].type == PPC_OP_IMM;
+  }
+  inline int is_mem(int idx) const
+  {
+    if ( idx >= insn->detail->ppc.op_count ) return 0;
+    return insn->detail->ppc.operands[idx].type == PPC_OP_MEM;
+  }
+  inline int get_reg(int idx) const
+  {
+    if ( idx >= insn->detail->ppc.op_count || insn->detail->ppc.operands[idx].type != PPC_OP_REG ) return 0;
+    return insn->detail->ppc.operands[idx].reg;
   }
 };
 
@@ -182,6 +207,17 @@ op(SV *self)
     ST(0) = &PL_sv_undef;
    else
     ST(0) = sv_2mortal( newSVuv(d->insn->id) );
+   XSRETURN(1);
+
+void
+alias(SV *self)
+ INIT:
+   auto *d = cabase_get(self);
+ PPCODE:
+   if ( !d || d->empty() )
+    ST(0) = &PL_sv_undef;
+   else
+    ST(0) = sv_2mortal( newSVuv(d->insn->alias_id) );
    XSRETURN(1);
 
 void
@@ -377,7 +413,6 @@ PPCODE:
    else
     ST(0) = sv_2mortal( newSViv(d->insn->detail->ppc.operands[idx].access) );
    XSRETURN(1);
-
 
 void
 disasm(SV *self)
