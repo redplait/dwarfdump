@@ -81,6 +81,7 @@ struct CaBase {
 // ppc regpad
 struct ppc_regs {
   constexpr static int base = PPC_REG_R0;
+  constexpr static int xbase = PPC_REG_X0;
   constexpr static int size = 32;
   uint64_t regs[size];
   std::bitset<size> pres;
@@ -118,8 +119,12 @@ struct ppc_regs {
     return 1;
   }
   void clean(int idx) {
-    if ( idx < base ) return;
-    idx -= base;
+    if ( idx >= xbase )
+      idx -= xbase;
+    else {
+      if ( idx < base ) return;
+      idx -= base;
+    }
     if ( idx >= size ) return;
     pres[idx] = 0; regs[idx] = 0;
     m[idx] = 0;
@@ -136,6 +141,13 @@ struct ppc_regs {
     idx -= base;
     if ( idx >= size ) return -1;
     return m[idx];
+  }
+  uint64_t add(int idx, int v) {
+    if ( idx < base ) return 0;
+    idx -= base;
+    if ( idx >= size ) return 0;
+    if ( !pres[idx] ) return 0;
+    return regs[idx] + v;
   }
   // addis reg1 = reg2 + int << 0x10
   int addis(int idx, int src, int v) {
@@ -158,6 +170,7 @@ struct ppc_regs {
     idx -= base; src -= base;
     if ( idx >= size || src >= size ) return 0;
     if ( !pres[src] ) return 0;
+// printf("ADDI %d %d %lX\n", idx, src, regs[src]);
     pres[idx] = 1;
     regs[idx] = regs[src] + v;
     m[idx] = 0;
@@ -233,6 +246,24 @@ struct ppc_disasm: public CaBase
     if ( t2 && t2 != insn->detail->ppc.operands[2].type ) return 0;
     return 1;
   }
+  // 1 - load, 2 - store
+  int is_ls() const {
+    switch(insn->id) {
+      case PPC_INS_LBZ:
+      case PPC_INS_LHZ:
+      case PPC_INS_LWZ:
+      case PPC_INS_LD:
+       if ( is_xxx(2, PPC_OP_REG, PPC_OP_MEM) ) return 1;
+       return 0;
+      case PPC_INS_STB:
+      case PPC_INS_STH:
+      case PPC_INS_STW:
+      case PPC_INS_STD:
+       if ( is_xxx(2, PPC_OP_REG, PPC_OP_MEM) ) return 2;
+       return 0;
+      default: return 0;
+    }
+  }
   uint64_t apply(ppc_regs *r) {
     // addis
     if ( insn->id == PPC_INS_ADDIS && is_xxx(3, PPC_OP_REG, PPC_OP_REG, PPC_OP_IMM) )
@@ -252,11 +283,16 @@ struct ppc_disasm: public CaBase
       r->move(get_reg(0), get_reg(1));
       return 0;
     }
+    uint64_t res = 0;
+    int ls = is_ls();
+    if ( ls )
+      res = r->add(insn->detail->ppc.operands[1].mem.base, insn->detail->ppc.operands[1].mem.disp);
     // must be final
     if ( is_reg(0) && insn->detail->ppc.operands[0].access & CS_AC_WRITE ) {
       r->clean(get_reg(0));
+// printf("CLEAR %d %lX\n", get_reg(0), r->get(get_reg(0)));
     }
-    return 0;
+    return res;
   }
 };
 

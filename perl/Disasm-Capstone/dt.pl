@@ -76,7 +76,7 @@ sub disasm_func
       if ( $caddr ) {
         my $p = $tree->in_tree($caddr);
         if ( !$p ) { push(@Q, [ $caddr, $pad->clone() ] ); printf(" add_branch\n"); }
-        else { printf(" ; [-]\n"); }
+        else { printf(" [-]\n"); }
         next;
       }
       $caddr = $d->apply($pad);
