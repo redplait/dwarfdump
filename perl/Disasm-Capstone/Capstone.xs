@@ -118,6 +118,13 @@ struct ppc_regs {
     m[idx] = m[src];
     return 1;
   }
+  // see details https://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi.html
+  void abi()
+  {
+    char v = 1;
+    for ( int i = PPC_REG_R4 - base; i <= PPC_REG_R10 - base; i++, v++ )
+      m[i] = v;
+  }
   int arg(int idx) const {
     if ( idx < base ) return -1;
     idx -= base;
@@ -511,7 +518,7 @@ void
 disasm(SV *self)
  INIT:
    auto *d = get_disasm<ppc_disasm>(self, &ppc_magic_vt);
-PPCODE:
+ PPCODE:
    if ( !d ) ST(0) = &PL_sv_undef;
    else {
      if ( d->disasm() )
@@ -520,6 +527,37 @@ PPCODE:
        ST(0) = &PL_sv_no;
   }
   XSRETURN(1);
+
+void
+regpad(SV *self)
+ ALIAS:
+  Disasm::Capstone::PPC::abi = 1
+ INIT:
+   auto *d = get_disasm<ppc_disasm>(self, &ppc_magic_vt);
+   SV *msv;
+   SV *objref= NULL;
+   MAGIC* magic;
+ PPCODE:
+   if ( !d || !d->addr ) ST(0) = &PL_sv_undef;
+   else {
+     ppc_regs *res = new ppc_regs();
+     if ( ix == 1 ) {
+       // for abi set r2 to addr + args
+       res->set(PPC_REG_R2, d->addr);
+       res->abi();
+     }
+     // make blessed obj
+     msv = newSViv(0);
+     objref= sv_2mortal(newRV_noinc(msv));
+     sv_bless(objref, s_ppc_regpad_pkg);
+     ST(0)= objref;
+     // attach magic
+     magic = sv_magicext(msv, NULL, PERL_MAGIC_ext, &ppc_regpad_magic_vt, (const char*)res, 0);
+#ifdef USE_ITHREADS
+     magic->mg_flags |= MGf_DUP;
+#endif
+     XSRETURN(1);
+   }
 
 MODULE = Disasm::Capstone		PACKAGE = Disasm::Capstone::PPC::Regpad
 
@@ -561,6 +599,10 @@ arg(SV *self, int idx)
  INIT:
    auto *d = get_disasm<ppc_regs>(self, &ppc_regpad_magic_vt);
  PPCODE:
+   int res = d->arg(idx);
+   if ( res == -1 ) ST(0) = &PL_sv_undef;
+   else sv_2mortal( newSViv(res) );
+   XSRETURN(1);
 
 BOOT:
  s_ppc_pkg = gv_stashpv(s_ppc_name, 0);

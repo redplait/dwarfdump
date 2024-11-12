@@ -50,10 +50,10 @@ sub disasm_func
   # branches
   my @Q;
   my $tree = Interval::Tree->new();
-  push @Q, $ar->[0];
+  push @Q, [ $ar->[0], undef ];
   while ( @Q )
   {
-    my $adr = shift @Q;
+    my($adr, $pad) = @{ shift @Q };
     next if ( $tree->in_tree($adr) );
     my $next = $tree->next($adr);
     if ( $next ) {
@@ -61,6 +61,7 @@ sub disasm_func
     } else {
       $d->setup( $adr );
     }
+    $pad = $d->abi() if !defined($pad);
     while ( $d->disasm() ) {
       my $oc = $d->op_cnt();
       printf("%X: %s %s ; %d %d ops", $d->addr(), $d->mnem(), $d->text(), $d->op(), $oc);
@@ -74,7 +75,7 @@ sub disasm_func
       $caddr = is_bimm($d);
       if ( $caddr ) {
         my $p = $tree->in_tree($caddr);
-        if ( !$p ) { push(@Q, $caddr); printf(" add_branch\n"); }
+        if ( !$p ) { push(@Q, [ $caddr, $pad->clone() ] ); printf(" add_branch\n"); }
         else { printf(" ; [-]\n"); }
         next;
       }
