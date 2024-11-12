@@ -79,6 +79,13 @@ sub disasm_func
         else { printf(" ; [-]\n"); }
         next;
       }
+      $caddr = $d->apply($pad);
+      if ( $caddr ) {
+        my $sym = chsym($caddr);
+        if ( defined $sym ) { printf(" %s\n", $sym ); }
+        else { printf(" %X\n", $caddr ); }
+        next;
+      }
       # dump details
       printf("\n");
       dump_ops($d, $oc) if ( $oc );

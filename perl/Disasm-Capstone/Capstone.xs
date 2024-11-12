@@ -23,7 +23,7 @@ static const int s_sign = 0x63617073;
 struct CaBase {
   int sign = s_sign;
   const char *psp, *end;
-  unsigned long addr;
+  unsigned long addr = 0;
   IElf *e;
   bool succ = false;
   cs_insn *insn = nullptr;
@@ -31,7 +31,6 @@ struct CaBase {
   // methods
   CaBase(IElf *_e): e(_e) {
     psp = end = nullptr;
-    addr = 0;
   }
   int alloc_insn() {
     if ( insn ) return 1;
@@ -81,9 +80,9 @@ struct CaBase {
 
 // ppc regpad
 struct ppc_regs {
-  constexpr static int base = PPC_REG_R9;
+  constexpr static int base = PPC_REG_R0;
   constexpr static int size = 32;
-  int64_t regs[size];
+  uint64_t regs[size];
   std::bitset<size> pres;
   // for moves
   char m[size];
@@ -91,7 +90,7 @@ struct ppc_regs {
     memset(m, -1, size);
   }
   ppc_regs(ppc_regs &) = default;
-  int64_t get(int idx) const
+  uint64_t get(int idx) const
   {
     if ( idx < base ) return 0;
     idx -= base;
@@ -99,7 +98,7 @@ struct ppc_regs {
     if ( !pres[idx] ) return 0;
     return regs[idx];
   }
-  int64_t set(int idx, int64_t v)
+  uint64_t set(int idx, uint64_t v)
   {
     if ( idx < base ) return 0;
     idx -= base;
@@ -118,6 +117,13 @@ struct ppc_regs {
     m[idx] = m[src];
     return 1;
   }
+  void clean(int idx) {
+    if ( idx < base ) return;
+    idx -= base;
+    if ( idx >= size ) return;
+    pres[idx] = 0; regs[idx] = 0;
+    m[idx] = 0;
+  }
   // see details https://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi.html
   void abi()
   {
@@ -135,21 +141,49 @@ struct ppc_regs {
   int addis(int idx, int src, int v) {
     if ( idx < base || src < base ) return 0;
     idx -= base; src -= base;
+    if ( idx >= size || src >= size ) return 0;
     if ( !pres[src] ) return 0;
     pres[idx] = 1;
     if ( v < 0 )
-     regs[idx] = regs[src] - (-v) << 0x10;
+     regs[idx] = regs[src] - (-v << 0x10);
     else
-     regs[idx] = regs[src] + v << 0x10;
+     regs[idx] = regs[src] + (v << 0x10);
+// printf("ADDIS %d %lX %d %lX %lX\n", idx, regs[idx], src, regs[src], v << 0x10);
+    m[idx] = 0;
     return 1;
   }
   // addi reg1 = reg2 + int
   int addi(int idx, int src, int v) {
     if ( idx < base || src < base ) return 0;
     idx -= base; src -= base;
+    if ( idx >= size || src >= size ) return 0;
     if ( !pres[src] ) return 0;
     pres[idx] = 1;
     regs[idx] = regs[src] + v;
+    m[idx] = 0;
+    return 1;
+  }
+  // li reg, int
+  int li(int idx, int v) {
+    if ( idx < base ) return 0;
+    idx -= base;
+    if ( idx >= size ) return 0;
+    pres[idx] = 1;
+    regs[idx] = v;
+    m[idx] = 0;
+    return 1;
+  }
+  // lis reg, v << 0x10
+  int lis(int idx, int v) {
+    if ( idx < base ) return 0;
+    idx -= base;
+    if ( idx >= size ) return 0;
+    pres[idx] = 1;
+    if ( v < 0 )
+     regs[idx] = (-v) << 0x10;
+    else
+     regs[idx] = v << 0x10;
+    m[idx] = 0;
     return 1;
   }
 };
@@ -198,6 +232,31 @@ struct ppc_disasm: public CaBase
     if ( t1 && t1 != insn->detail->ppc.operands[1].type ) return 0;
     if ( t2 && t2 != insn->detail->ppc.operands[2].type ) return 0;
     return 1;
+  }
+  uint64_t apply(ppc_regs *r) {
+    // addis
+    if ( insn->id == PPC_INS_ADDIS && is_xxx(3, PPC_OP_REG, PPC_OP_REG, PPC_OP_IMM) )
+    {
+      r->addis(get_reg(0), get_reg(1), (int)insn->detail->ppc.operands[2].imm);
+      return 0;
+    }
+    if ( insn->id == PPC_INS_ADDI && is_xxx(3, PPC_OP_REG, PPC_OP_REG, PPC_OP_IMM) )
+    {
+      if ( r->addi(get_reg(0), get_reg(1), (int)insn->detail->ppc.operands[2].imm) )
+        return r->get(get_reg(0));
+      return 0;
+    }
+    // mr
+    if ( insn->alias_id == PPC_INS_ALIAS_MR && is_xxx(2, PPC_OP_REG, PPC_OP_REG) )
+    {
+      r->move(get_reg(0), get_reg(1));
+      return 0;
+    }
+    // must be final
+    if ( is_reg(0) && insn->detail->ppc.operands[0].access & CS_AC_WRITE ) {
+      r->clean(get_reg(0));
+    }
+    return 0;
   }
 };
 
@@ -380,7 +439,6 @@ setup2(SV *sv, unsigned long addr, unsigned long len)
    ST(0) = sv_2mortal( newSVuv( d->setup(addr, len) ) );
    XSRETURN(1);
 
-
 MODULE = Disasm::Capstone		PACKAGE = Disasm::Capstone::PPC
 
 void
@@ -439,6 +497,18 @@ new(obj_or_pkg, SV *elsv)
 #ifdef USE_ITHREADS
   magic->mg_flags |= MGf_DUP;
 #endif
+  XSRETURN(1);
+
+void
+apply(SV *self, SV *pad)
+ INIT:
+   auto *d = get_disasm<ppc_disasm>(self, &ppc_magic_vt);
+   auto *rp = get_disasm<ppc_regs>(pad, &ppc_regpad_magic_vt);
+PPCODE:
+   if ( !d || !rp || d->empty() || !d->insn->detail )
+    ST(0) = &PL_sv_undef;
+   else
+    ST(0) = sv_2mortal( newSVuv( d->apply(rp) ) );
   XSRETURN(1);
 
 void
@@ -542,8 +612,8 @@ regpad(SV *self)
    else {
      ppc_regs *res = new ppc_regs();
      if ( ix == 1 ) {
-       // for abi set r2 to addr + args
-       res->set(PPC_REG_R2, d->addr);
+       // for abi set r12 to addr + args
+       res->set(PPC_REG_R12, d->addr);
        res->abi();
      }
      // make blessed obj
