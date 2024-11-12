@@ -343,7 +343,7 @@ sub parse_system_map
     next if ( $str !~ /^([0-9a-f]+) (\S) (\S+)$/i );
     use integer;
     $addr = hex($1);
-    $type = ( $2 eq 't' || $2 eq 'T' ) ? STT_FUNC : STT_OBJECT;
+    $type = ( $2 eq 't' || $2 eq 'T' || $2 eq 'W' ) ? STT_FUNC : STT_OBJECT;
     $name = $3;
     $res++;
     $raddr->{ $addr } = [ $name, $type ] if ( $addr );
