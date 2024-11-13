@@ -187,7 +187,7 @@ struct ppc_regs {
     return 1;
   }
   // lis reg, v << 0x10
-  int lis(int idx, int v) {
+  uint64_t lis(int idx, int v) {
     if ( idx < base ) return 0;
     idx -= base;
     if ( idx >= size ) return 0;
@@ -197,10 +197,10 @@ struct ppc_regs {
     else
      regs[idx] = v << 0x10;
     m[idx] = 0;
-    return 1;
+    return regs[idx];
   }
   // ori reg, reg, v
-  uint64_t ori(int idx, int src, int v)
+  uint64_t ori(int idx, int src, int64_t v)
   {
     if ( idx < base || src < base ) return 0;
     idx -= base; src -= base;
@@ -210,7 +210,7 @@ struct ppc_regs {
     pres[idx] = 1;
     regs[idx] = regs[src] | (unsigned short)v;
     m[idx] = 0;
-    return 1;
+    return regs[idx];
   }
 };
 
@@ -278,6 +278,19 @@ struct ppc_disasm: public CaBase
     }
   }
   uint64_t apply(ppc_regs *r) {
+    // li/lis/ori - for constants, must be before addi/addis bcs those are aliases
+    if ( insn->alias_id == PPC_INS_ALIAS_LI && is_xxx(2, PPC_OP_REG, PPC_OP_IMM) ) {
+      auto v = insn->detail->ppc.operands[1].imm;
+      r->li(get_reg(0), v);
+      return v;
+    }
+    if ( insn->alias_id == PPC_INS_ALIAS_LIS && is_xxx(2, PPC_OP_REG, PPC_OP_IMM) ) {
+      r->lis(get_reg(0), insn->detail->ppc.operands[1].imm);
+      return 0;
+    }
+    if ( insn->id == PPC_INS_ORI && is_xxx(3, PPC_OP_REG, PPC_OP_REG, PPC_OP_IMM) ) {
+      return r->ori(get_reg(0), get_reg(1), (int)insn->detail->ppc.operands[2].imm);
+    }
     // addis
     if ( insn->id == PPC_INS_ADDIS && is_xxx(3, PPC_OP_REG, PPC_OP_REG, PPC_OP_IMM) )
     {
@@ -296,6 +309,7 @@ struct ppc_disasm: public CaBase
       r->move(get_reg(0), get_reg(1));
       return 0;
     }
+    // load/store
     uint64_t res = 0;
     int ls = is_ls();
     if ( ls )
