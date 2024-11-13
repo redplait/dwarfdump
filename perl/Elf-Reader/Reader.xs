@@ -397,6 +397,18 @@ const ELFIO::section *find_section(IElf *e, unsigned long addr)
   return nullptr;
 }
 
+// unlike find_section try to search any section including NOBITS (e.g. .bss)
+const ELFIO::section *find_any(IElf *e, unsigned long addr)
+{
+  for ( auto *s: e->rdr->sections ) {
+    auto a = s->get_address();
+    if ( !a ) continue;
+    if ( addr >= a && addr < a + s->get_size() )
+      return s;
+  }
+  return nullptr;
+}
+
 static AV *fill_section(const ELFIO::section *s)
 {
   auto name = s->get_name();
@@ -498,7 +510,7 @@ AV *bm_asciiz(SV *pattern, const unsigned char *start, const unsigned char *end,
 }
 
 
-MODULE = Elf::Reader		PACKAGE = Elf::Reader		
+MODULE = Elf::Reader		PACKAGE = Elf::Reader
 
 void
 new(obj_or_pkg, const char *fname)
@@ -630,6 +642,16 @@ bmz_from(SV *self, SV *pattern, UV addr)
   else
    ST(0) = newRV_noinc((SV*)res);
   XSRETURN(1);
+
+void
+in_elf(SV *self, UV addr)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(self, 1, &Elf_magic_vt);
+ PPCODE:
+   auto *s = find_any(e, addr);
+   if ( s ) ST(0) = &PL_sv_yes;
+   else     ST(0) = &PL_sv_no;
+   XSRETURN(1);
 
 void
 secs(SV *arg)

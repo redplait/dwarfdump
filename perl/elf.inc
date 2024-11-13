@@ -14,3 +14,4 @@ protected:
 
 IElf *extract(SV *);
 const ELFIO::section *find_section(IElf *e, unsigned long addr);
+const ELFIO::section *find_any(IElf *e, unsigned long addr);
