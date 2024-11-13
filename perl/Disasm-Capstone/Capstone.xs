@@ -127,13 +127,14 @@ struct ppc_regs {
     }
     if ( idx >= size ) return;
     pres[idx] = 0; regs[idx] = 0;
-    m[idx] = 0;
+    m[idx] = -1;
   }
   // see details https://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi.html
   void abi()
   {
     char v = 1;
-    for ( int i = PPC_REG_R4 - base; i <= PPC_REG_R10 - base; i++, v++ )
+    // r3 - 1, r4 - 2, ... up tp r10
+    for ( int i = PPC_REG_R3 - base; i <= PPC_REG_R10 - base; i++, v++ )
       m[i] = v;
   }
   int arg(int idx) const {
@@ -141,6 +142,13 @@ struct ppc_regs {
     idx -= base;
     if ( idx >= size ) return -1;
     return m[idx];
+  }
+  inline int has(int idx) const
+  {
+    if ( idx < base ) return 0;
+    idx -= base;
+    if ( idx >= size ) return 0;
+    return pres[idx];
   }
   uint64_t add(int idx, int v) {
     if ( idx < base ) return 0;
@@ -161,7 +169,7 @@ struct ppc_regs {
     else
      regs[idx] = regs[src] + (v << 0x10);
 // printf("ADDIS %d %lX %d %lX %lX\n", idx, regs[idx], src, regs[src], v << 0x10);
-    m[idx] = 0;
+    m[idx] = -1;
     return 1;
   }
   // addi reg1 = reg2 + int
@@ -173,7 +181,7 @@ struct ppc_regs {
 // printf("ADDI %d %d %lX\n", idx, src, regs[src]);
     pres[idx] = 1;
     regs[idx] = regs[src] + v;
-    m[idx] = 0;
+    m[idx] = -1;
     return 1;
   }
   // li reg, int
@@ -183,7 +191,7 @@ struct ppc_regs {
     if ( idx >= size ) return 0;
     pres[idx] = 1;
     regs[idx] = v;
-    m[idx] = 0;
+    m[idx] = -1;
     return 1;
   }
   // lis reg, v << 0x10
@@ -196,7 +204,7 @@ struct ppc_regs {
      regs[idx] = (-v) << 0x10;
     else
      regs[idx] = v << 0x10;
-    m[idx] = 0;
+    m[idx] = -1;
     return regs[idx];
   }
   // ori reg, reg, v
@@ -209,7 +217,7 @@ struct ppc_regs {
 // printf("ORI %d %d %lX\n", idx, src, regs[src]);
     pres[idx] = 1;
     regs[idx] = regs[src] | (unsigned short)v;
-    m[idx] = 0;
+    m[idx] = -1;
     return regs[idx];
   }
 };
@@ -304,7 +312,7 @@ struct ppc_disasm: public CaBase
       return 0;
     }
     // mr
-    if ( insn->alias_id == PPC_INS_ALIAS_MR && is_xxx(2, PPC_OP_REG, PPC_OP_REG) )
+    if ( (insn->alias_id == PPC_INS_ALIAS_MR || insn->alias_id == PPC_INS_ALIAS_MR_) && is_xxx(2, PPC_OP_REG, PPC_OP_REG) )
     {
       r->move(get_reg(0), get_reg(1));
       return 0;
@@ -573,6 +581,34 @@ PPCODE:
    else
     ST(0) = sv_2mortal( newSVuv( d->apply(rp) ) );
   XSRETURN(1);
+
+void
+is_ls(SV *self, SV *pad)
+ INIT:
+   auto *d = get_disasm<ppc_disasm>(self, &ppc_magic_vt);
+   auto *rp = get_disasm<ppc_regs>(pad, &ppc_regpad_magic_vt);
+PPCODE:
+   if ( !d || !rp || d->empty() || !d->insn->detail )
+    ST(0) = &PL_sv_undef;
+   else {
+     int kind = d->is_ls();
+     if ( !kind ) ST(0) = &PL_sv_undef;
+     else {
+       // like mips - in case of success return ref to array [ kind arg_idx off ]
+       auto arg_idx = rp->arg( d->insn->detail->ppc.operands[1].mem.base );
+       if ( -1 == arg_idx || rp->has(d->insn->detail->ppc.operands[1].mem.base) ) ST(0) = &PL_sv_undef;
+       else {
+         AV *av = newAV();
+         av_push(av, newSViv( kind ));
+         av_push(av, newSViv( arg_idx ));
+         av_push(av, newSViv( d->insn->detail->ppc.operands[1].mem.disp ));
+         ST(0) = newRV_noinc((SV*)av);
+         // for load clear dst register
+         if ( kind == 1 ) rp->clean( d->get_reg(0) );
+       }
+     }
+   }
+   XSRETURN(1);
 
 void
 op_cnt(SV *self)

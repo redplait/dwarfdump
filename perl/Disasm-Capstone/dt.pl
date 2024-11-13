@@ -1,7 +1,6 @@
 #!perl -w
 # test for mips disasm binding
-# 18 oct 2024 (c) redp
-# 25 oct 2024 - add regpads, is_ls & apply
+# 12 nov 2024 (c) redp
 use strict;
 use warnings;
 
@@ -74,6 +73,12 @@ sub disasm_func
         my $p = $tree->in_tree($caddr);
         if ( !$p ) { push(@Q, [ $caddr, $pad->clone() ] ); printf(" add_branch\n"); }
         else { printf(" [-]\n"); }
+        next;
+      }
+      # is_ls should be called before apply
+      my $ls = $d->is_ls($pad);
+      if ( defined($ls) ) {
+        printf(" %s %d -> %d\n", $ls->[0] == 1 ? 'load' : 'store', $ls->[1], $ls->[2]);
         next;
       }
       $caddr = $d->apply($pad);
