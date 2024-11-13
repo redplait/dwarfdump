@@ -56,21 +56,18 @@ sub disasm_func
     my($adr, $pad) = @{ shift @Q };
     next if ( $tree->in_tree($adr) );
     my $next = $tree->next($adr);
-    if ( $next ) {
-      $d->setup2( $adr, $next - $adr );
-    } else {
-      $d->setup( $adr );
-    }
+    if ( $next ) { $d->setup2( $adr, $next - $adr ); } 
+    else { $d->setup( $adr ); }
     $pad = $d->abi() if !defined($pad);
     while ( $d->disasm() ) {
       my $oc = $d->op_cnt();
-      printf("%X: %s %s ; %d %d ops", $d->addr(), $d->mnem(), $d->text(), $d->op(), $oc);
+      printf("%X: %s %s ; %d", $d->addr(), $d->mnem(), $d->text(), $d->op());
       my $caddr = is_call($d);
       if ( $caddr ) {
         my $sym = chsym($caddr);
-        if ( defined $sym ) {
-          printf(" %s\n", $sym ); next;
-        }
+        if ( defined $sym ) { printf(" %s\n", $sym ); }
+        else { printf(" call %X\n", $caddr ); }
+        next;
       }
       $caddr = is_bimm($d);
       if ( $caddr ) {
@@ -87,8 +84,9 @@ sub disasm_func
         next;
       }
       # dump details
+      printf(" %d ops", $oc) if $oc;
       printf("\n");
-      dump_ops($d, $oc) if ( $oc );
+      dump_ops($d, $oc) if $oc;
     }
     # add to tree
     $tree->insert( $adr, $d->addr() - $adr );
@@ -104,7 +102,7 @@ if ( scalar( @ARGV) < 2 ) {
 my $e = Elf::Reader->new($ARGV[0]);
 die("Cannot load $ARGV[0]") if ( !defined($e) ) ;
 my $scount = Elf::Reader::parse_system_map($ARGV[1], \%g_syms, \%g_addr);
-die("cannot find symbols") if ( !$scount ) ;
+die("cannot find symbols from $ARGV[1]") if ( !$scount ) ;
 # make disasm
 my $d = Disasm::Capstone::PPC->new($e);
 # process remaining symbols

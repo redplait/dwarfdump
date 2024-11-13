@@ -199,6 +199,19 @@ struct ppc_regs {
     m[idx] = 0;
     return 1;
   }
+  // ori reg, reg, v
+  uint64_t ori(int idx, int src, int v)
+  {
+    if ( idx < base || src < base ) return 0;
+    idx -= base; src -= base;
+    if ( idx >= size || src >= size ) return 0;
+    if ( !pres[src] ) return 0;
+// printf("ORI %d %d %lX\n", idx, src, regs[src]);
+    pres[idx] = 1;
+    regs[idx] = regs[src] | (unsigned short)v;
+    m[idx] = 0;
+    return 1;
+  }
 };
 
 // ppc disasm
@@ -338,7 +351,7 @@ static MGVTBL ppc_regpad_magic_vt = {
 };
 
 template <typename T>
-T *get_disasm(SV *obj, MGVTBL *tab)
+static T *get_disasm(SV *obj, MGVTBL *tab)
 {
   SV *sv;
   MAGIC* magic;
