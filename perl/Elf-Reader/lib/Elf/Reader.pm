@@ -333,7 +333,7 @@ sub parse_system_map
 {
   no warnings "portable";
   my( $fn, $rsyms, $raddr ) = @_;
-  my($fh, $str, $name, $addr, $type);
+  my($fh, $str, $name, $addr, $type, @W);
   open($fh, '<', $fn) or die("Cannot open $fn, error $!");
   my $res = 0;
   while( $str = <$fh> )
@@ -343,13 +343,25 @@ sub parse_system_map
     next if ( $str !~ /^([0-9a-f]+) (\S) (\S+)$/i );
     use integer;
     $addr = hex($1);
-    $type = ( $2 eq 't' || $2 eq 'T' || $2 eq 'W' ) ? STT_FUNC : STT_OBJECT;
+    next if ( !$addr );
+    if ( $2 eq 'W' ) { # postpone processing of weak symbols
+      push @W, [ $addr, $3 ]; next;
+    }
+    $type = ( $2 eq 't' || $2 eq 'T' ) ? STT_FUNC : STT_OBJECT;
     $name = $3;
     $res++;
-    $raddr->{ $addr } = [ $name, $type ] if ( $addr );
+    $raddr->{ $addr } = [ $name, $type ];
     $rsyms->{ $name } = [ $addr, 0 ] if ( $type == STT_FUNC );
   }
   close($fh);
+  # add weak symbols only if it was not added by addr and name
+  foreach ( @W ) {
+    next if exists( $raddr->{ $_->[0] } );
+    next if exists( $rsyms->{ $_->[1] } );
+    $res++;
+    $raddr->{ $_->[0] } = [ $_->[1], STT_FUNC ];
+    $rsyms->{ $_->[1] } = [ $_->[0], 0 ]
+  }
   return $res;
 }
 
