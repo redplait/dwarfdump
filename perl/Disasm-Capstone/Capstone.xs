@@ -268,18 +268,23 @@ struct ppc_disasm: public CaBase
     return 1;
   }
   // 1 - load, 2 - store
+  // see https://wiki.raptorcs.com/w/images/f/f5/PowerISA_public.v3.1.pdf
   int is_ls() const {
     switch(insn->id) {
       case PPC_INS_LBZ:
+      case PPC_INS_LHA:
       case PPC_INS_LHZ:
+      case PPC_INS_LWA:
       case PPC_INS_LWZ:
       case PPC_INS_LD:
+      case PPC_INS_LQ:
        if ( is_xxx(2, PPC_OP_REG, PPC_OP_MEM) ) return 1;
        return 0;
       case PPC_INS_STB:
       case PPC_INS_STH:
       case PPC_INS_STW:
       case PPC_INS_STD:
+      case PPC_INS_STQ:
        if ( is_xxx(2, PPC_OP_REG, PPC_OP_MEM) ) return 2;
        return 0;
       default: return 0;
