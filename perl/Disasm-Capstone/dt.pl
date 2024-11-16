@@ -1,5 +1,5 @@
 #!perl -w
-# test for mips disasm binding
+# test for powerpc disasm binding
 # 12 nov 2024 (c) redp
 use strict;
 use warnings;
