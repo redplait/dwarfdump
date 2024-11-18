@@ -433,6 +433,13 @@ static SV * new_enum_dualvar(pTHX_ IV ival, SV *name) {
 
 MODULE = Disasm::Capstone		PACKAGE = Disasm::Capstone
 
+IV
+version(SV *self)
+ CODE:
+   RETVAL= cs_version(NULL, NULL);
+  OUTPUT:
+    RETVAL
+
 void
 op(SV *self)
  INIT:
