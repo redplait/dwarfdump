@@ -441,6 +441,17 @@ version(SV *self)
     RETVAL
 
 void
+grp_cnt(SV *self)
+ INIT:
+   auto *d = cabase_get(self);
+ PPCODE:
+   if ( !d || d->empty() )
+    ST(0) = &PL_sv_undef;
+   else
+    ST(0) = sv_2mortal( newSVuv(d->insn->detail->groups_count) );
+   XSRETURN(1);
+
+void
 op(SV *self)
  INIT:
    auto *d = cabase_get(self);
