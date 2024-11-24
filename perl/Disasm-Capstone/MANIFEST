@@ -7,3 +7,4 @@ README
 t/Disasm-Capstone.t
 lib/Disasm/Capstone.pm
 lib/Disasm/Capstone/PPC.pm
+lib/Disasm/Capstone/RiscV.pm

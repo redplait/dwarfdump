@@ -15,6 +15,7 @@ void my_warn(const char * pat, ...) {
 }
 
 static HV *s_ppc_pkg = nullptr,
+ *s_riscv_pkg = nullptr,
  *s_ppc_regpad_pkg = nullptr;
 
 // base disasm class
@@ -336,6 +337,58 @@ struct ppc_disasm: public CaBase
   }
 };
 
+// risc-v disasm
+struct riscv_disasm: public CaBase
+{
+  riscv_disasm(IElf *_e): CaBase(_e)
+  { }
+  int disasm() {
+    if ( !psp || psp >= end ) return 0;
+    size_t size = end - psp;
+// __asm__ volatile("int $0x03");
+    bool berr = cs_disasm_iter(handle, (const unsigned char **)&psp, &size, &addr, insn);
+    if ( !berr ) {
+      auto err_ = cs_errno(handle);
+printf("psp %p size %d err %d insn %d\n", psp, size, err_, insn->id);
+      succ = false;
+      return 0;
+    }
+    succ = true;
+    // check for end instructions
+    if ( insn->id == RISCV_INS_SRET || insn->id == RISCV_INS_MRET || insn->id == RISCV_INS_URET )
+      end = psp;
+    return 1;
+  }
+  // getters
+  inline int is_reg(int idx) const
+  {
+    if ( idx >= insn->detail->riscv.op_count ) return 0;
+    return insn->detail->riscv.operands[idx].type == RISCV_OP_REG;
+  }
+  inline int is_imm(int idx) const
+  {
+    if ( idx >= insn->detail->riscv.op_count ) return 0;
+    return insn->detail->riscv.operands[idx].type == RISCV_OP_IMM;
+  }
+  inline int is_mem(int idx) const
+  {
+    if ( idx >= insn->detail->riscv.op_count ) return 0;
+    return insn->detail->riscv.operands[idx].type == RISCV_OP_MEM;
+  }
+  inline int get_reg(int idx) const
+  {
+    if ( idx >= insn->detail->riscv.op_count || insn->detail->riscv.operands[idx].type != RISCV_OP_REG ) return 0;
+    return insn->detail->riscv.operands[idx].reg;
+  }
+  int is_xxx(int num, int t0, int t1 = 0, int t2 = 0) const {
+    if ( insn->detail->riscv.op_count < num ) return 0;
+    if ( t0 != insn->detail->riscv.operands[0].type ) return 0;
+    if ( t1 && t1 != insn->detail->riscv.operands[1].type ) return 0;
+    if ( t2 && t2 != insn->detail->riscv.operands[2].type ) return 0;
+    return 1;
+  }
+};
+
 // magic
 template <typename T>
 static int cap_magic_free(pTHX_ SV* sv, MAGIC* mg) {
@@ -376,6 +429,22 @@ static MGVTBL ppc_regpad_magic_vt = {
         ,0
 #endif
 };
+
+// magic table for Disasm::Capstone::PPC
+static const char *s_riscv_name = "Disasm::Capstone::RiscV";
+static MGVTBL riscv_magic_vt = {
+        0, /* get */
+        0, /* write */
+        0, /* length */
+        0, /* clear */
+        cap_magic_free<riscv_disasm>,
+        0, /* copy */
+        0 /* dup */
+#ifdef MGf_LOCAL
+        ,0
+#endif
+};
+
 
 template <typename T>
 static T *get_disasm(SV *obj, MGVTBL *tab)
@@ -439,6 +508,17 @@ version(SV *self)
    RETVAL= cs_version(NULL, NULL);
   OUTPUT:
     RETVAL
+
+void
+err(SV *self)
+ INIT:
+   auto *d = cabase_get(self);
+ PPCODE:
+   if ( !d || !d->handle )
+    ST(0) = &PL_sv_undef;
+   else
+    ST(0) = sv_2mortal( newSVuv(cs_errno(d->handle)) );
+   XSRETURN(1);
 
 void
 grp_cnt(SV *self)
@@ -796,14 +876,151 @@ arg(SV *self, int idx)
    else sv_2mortal( newSViv(res) );
    XSRETURN(1);
 
+MODULE = Disasm::Capstone		PACKAGE = Disasm::Capstone::RiscV
+
+void
+new(obj_or_pkg, SV *elsv)
+  SV *obj_or_pkg
+ INIT:
+  HV *pkg = NULL;
+  SV *msv;
+  SV *objref= NULL;
+  MAGIC* magic;
+  struct IElf *e= extract(elsv);
+  riscv_disasm *res = nullptr;
+  int mod = 0;
+ PPCODE:
+  // check what we have
+  ELFIO::Elf_Half machine = e->rdr->get_machine();
+  if ( machine != ELFIO::EM_RISCV ) {
+    my_warn("new: not RiscV elf");
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  auto cl = e->rdr->get_class();
+  if ( cl == ELFIO::ELFCLASS32 ) mod = CS_MODE_RISCV32 | CS_MODE_RISCVC;
+  else mod = CS_MODE_RISCV64 | CS_MODE_RISCVC;
+  if (SvPOK(obj_or_pkg) && (pkg= gv_stashsv(obj_or_pkg, 0))) {
+    if (!sv_derived_from(obj_or_pkg, "Disasm::Capstone"))
+        croak("Package %s does not derive from Disasm::Capstone", SvPV_nolen(obj_or_pkg));
+  } else
+    croak("new: first arg must be package name or blessed object");
+  // make real disasm object
+  e->add_ref();
+  res = new riscv_disasm( e );
+  if ( e->rdr->get_encoding() == ELFIO::ELFDATA2MSB ) mod |= CS_MODE_BIG_ENDIAN;
+  // try to open
+  cs_err err = cs_open(CS_ARCH_RISCV, (cs_mode)mod, &res->handle);
+  if ( err ) {
+    my_warn("new: cs_open failed, err %d", err);
+    delete res;
+    ST(0) = sv_2mortal( newSViv(err) );
+    XSRETURN(1);
+  }
+  err = cs_option(res->handle, CS_OPT_DETAIL, CS_OPT_ON);
+  if ( err ) {
+    my_warn("new: cs_option failed, err %d", err);
+    delete res;
+    ST(0) = sv_2mortal( newSViv(err) );
+    XSRETURN(1);
+  }
+  res->alloc_insn();
+  // make blessed obj
+  msv = newSViv(0);
+  objref= sv_2mortal(newRV_noinc(msv));
+  sv_bless(objref, s_riscv_pkg);
+  ST(0)= objref;
+// attach magic
+  magic = sv_magicext(msv, NULL, PERL_MAGIC_ext, &riscv_magic_vt, (const char*)res, 0);
+#ifdef USE_ITHREADS
+  magic->mg_flags |= MGf_DUP;
+#endif
+  XSRETURN(1);
+
+void
+disasm(SV *self)
+ INIT:
+   auto *d = get_disasm<riscv_disasm>(self, &riscv_magic_vt);
+ PPCODE:
+   if ( !d ) {
+     my_warn("riscv disasm: cannot get disasm");
+     ST(0) = &PL_sv_undef;
+   } else {
+     if ( d->disasm() )
+       ST(0) = &PL_sv_yes;
+     else
+       ST(0) = &PL_sv_no;
+  }
+  XSRETURN(1);
+
+void
+op_cnt(SV *self)
+ INIT:
+   auto *d = cabase_get(self);
+PPCODE:
+   if ( !d || d->empty() || !d->insn->detail )
+    ST(0) = &PL_sv_undef;
+   else
+    ST(0) = sv_2mortal( newSViv(d->insn->detail->riscv.op_count ) );
+   XSRETURN(1);
+
+void
+op_type(SV *self, IV idx)
+ INIT:
+   auto *d = cabase_get(self);
+PPCODE:
+   if ( !d || d->empty() || !d->insn->detail || idx >= d->insn->detail->riscv.op_count )
+    ST(0) = &PL_sv_undef;
+   else
+    ST(0) = sv_2mortal( newSViv(d->insn->detail->riscv.operands[idx].type) );
+   XSRETURN(1);
+
+void
+op_access(SV *self, IV idx)
+ INIT:
+   auto *d = cabase_get(self);
+PPCODE:
+   if ( !d || d->empty() || !d->insn->detail || idx >= d->insn->detail->riscv.op_count )
+    ST(0) = &PL_sv_undef;
+   else
+    ST(0) = sv_2mortal( newSViv(d->insn->detail->riscv.operands[idx].access) );
+   XSRETURN(1);
+
+void
+op_reg(SV *self, IV idx)
+ INIT:
+   auto *d = cabase_get(self);
+PPCODE:
+   if ( !d || d->empty() || !d->insn->detail || idx >= d->insn->detail->riscv.op_count )
+    ST(0) = &PL_sv_undef;
+   else
+    ST(0) = sv_2mortal( newSViv(d->insn->detail->riscv.operands[idx].reg) );
+   XSRETURN(1);
+
+void
+op_imm(SV *self, IV idx)
+ INIT:
+   auto *d = cabase_get(self);
+PPCODE:
+   if ( !d || d->empty() || !d->insn->detail || idx >= d->insn->detail->riscv.op_count )
+    ST(0) = &PL_sv_undef;
+   else
+    ST(0) = sv_2mortal( newSVuv(d->insn->detail->riscv.operands[idx].imm) );
+   XSRETURN(1);
+
 BOOT:
  s_ppc_pkg = gv_stashpv(s_ppc_name, 0);
  if ( !s_ppc_pkg )
     croak("Package %s does not exists", s_ppc_name);
+ s_riscv_pkg = gv_stashpv(s_riscv_name, 0);
+ if ( !s_riscv_pkg )
+    croak("Package %s does not exists", s_riscv_name);
  s_ppc_regpad_pkg = gv_stashpv(s_ppc_regpad_name, 0);
  if ( !s_ppc_regpad_pkg )
     croak("Package %s does not exists", s_ppc_regpad_name);
+ // register archs
  cs_arch_register_powerpc();
+ cs_arch_register_riscv();
  // export some enums
  HV *stash= gv_stashpvn("Disasm::Capstone", 16, 1);
  EXPORT_ENUM(CS_OP_INVALID)
