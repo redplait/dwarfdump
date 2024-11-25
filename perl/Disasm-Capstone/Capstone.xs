@@ -348,8 +348,8 @@ struct riscv_disasm: public CaBase
 // __asm__ volatile("int $0x03");
     bool berr = cs_disasm_iter(handle, (const unsigned char **)&psp, &size, &addr, insn);
     if ( !berr ) {
-      auto err_ = cs_errno(handle);
-printf("psp %p size %d err %d insn %d\n", psp, size, err_, insn->id);
+//      auto err_ = cs_errno(handle);
+// printf("psp %p size %d err %d insn %d\n", psp, size, err_, insn->id);
       succ = false;
       return 0;
     }
@@ -954,6 +954,21 @@ disasm(SV *self)
   XSRETURN(1);
 
 void
+ea(SV *self)
+ INIT:
+   auto *d = get_disasm<riscv_disasm>(self, &riscv_magic_vt);
+ PPCODE:
+   if ( !d ) {
+     ST(0) = &PL_sv_undef;
+   } else {
+     if ( d->insn->detail->riscv.need_effective_addr )
+       ST(0) = &PL_sv_yes;
+     else
+       ST(0) = &PL_sv_no;
+  }
+  XSRETURN(1);
+
+void
 op_cnt(SV *self)
  INIT:
    auto *d = cabase_get(self);
@@ -1005,7 +1020,24 @@ PPCODE:
    if ( !d || d->empty() || !d->insn->detail || idx >= d->insn->detail->riscv.op_count )
     ST(0) = &PL_sv_undef;
    else
-    ST(0) = sv_2mortal( newSVuv(d->insn->detail->riscv.operands[idx].imm) );
+    ST(0) = sv_2mortal( newSViv(d->insn->detail->riscv.operands[idx].imm) ); // imm is signed so return IV
+   XSRETURN(1);
+
+void
+op_mem(SV *self, IV idx)
+ INIT:
+   auto *d = cabase_get(self);
+   AV *av;
+PPCODE:
+   if ( !d || d->empty() || !d->insn->detail || idx >= d->insn->detail->riscv.op_count )
+    ST(0) = &PL_sv_undef;
+   else {
+     av = newAV();
+     // return ref to [ base disp ], disp is signed
+     av_push(av, newSViv( d->insn->detail->riscv.operands[idx].mem.base ));
+     av_push(av, newSViv( d->insn->detail->riscv.operands[idx].mem.disp ));
+     ST(0) = newRV_noinc((SV*)av);
+   }
    XSRETURN(1);
 
 BOOT:
