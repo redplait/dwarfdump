@@ -355,9 +355,13 @@ struct riscv_disasm: public CaBase
     }
     succ = true;
     // check for end instructions
-    if ( insn->id == RISCV_INS_SRET || insn->id == RISCV_INS_MRET || insn->id == RISCV_INS_URET )
+    if ( insn->id == RISCV_INS_SRET || insn->id == RISCV_INS_MRET || insn->id == RISCV_INS_URET || is_ret() )
       end = psp;
     return 1;
+  }
+  inline int is_ret() const
+  {
+    return (insn->id == RISCV_INS_C_JR) && (get_reg(0) == RISCV_REG_RA);
   }
   // getters
   inline int is_reg(int idx) const
