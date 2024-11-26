@@ -355,7 +355,10 @@ struct riscv_disasm: public CaBase
     }
     succ = true;
     // check for end instructions
-    if ( insn->id == RISCV_INS_SRET || insn->id == RISCV_INS_MRET || insn->id == RISCV_INS_URET || is_ret() )
+    if ( insn->id == RISCV_INS_SRET || insn->id == RISCV_INS_MRET || insn->id == RISCV_INS_URET || is_ret() ||
+         insn->id == RISCV_INS_C_JR || insn->id == RISCV_INS_C_J || // jmp reg/jmp imm
+         insn->id == RISCV_INS_C_EBREAK || insn->id == RISCV_INS_EBREAK
+       )
       end = psp;
     return 1;
   }
@@ -390,6 +393,33 @@ struct riscv_disasm: public CaBase
     if ( t1 && t1 != insn->detail->riscv.operands[1].type ) return 0;
     if ( t2 && t2 != insn->detail->riscv.operands[2].type ) return 0;
     return 1;
+  }
+  bool is_jxx(unsigned long &addr) const {
+    switch(insn->id) {
+      case RISCV_INS_BEQ:
+      case RISCV_INS_BGE:
+      case RISCV_INS_BGEU:
+      case RISCV_INS_BLT:
+      case RISCV_INS_BLTU:
+      case RISCV_INS_BNE:
+        if ( is_imm(1) ) {
+          addr = insn->address + insn->detail->riscv.operands[1].imm;
+          return true;
+        }
+        if ( is_imm(2) ) {
+          addr = insn->address + insn->detail->riscv.operands[2].imm;
+          return true;
+        }
+        return false;
+
+      case RISCV_INS_C_J:
+        if ( is_imm(0) ) {
+          addr = insn->address + insn->detail->riscv.operands[0].imm;
+          return true;
+        }
+        return false;
+      default: return false;
+    }
   }
 };
 
@@ -956,6 +986,22 @@ disasm(SV *self)
        ST(0) = &PL_sv_no;
   }
   XSRETURN(1);
+
+void
+is_jxx(SV *self)
+ INIT:
+   auto *d = get_disasm<riscv_disasm>(self, &riscv_magic_vt);
+ PPCODE:
+   if ( !d || d->empty() || !d->insn->detail ) {
+     ST(0) = &PL_sv_undef;
+   } else {
+     unsigned long addr = 0;
+     if ( d->is_jxx(addr) ) {
+       ST(0) = sv_2mortal( newSVuv(addr) );
+     } else
+      ST(0) = &PL_sv_undef;
+   }
+   XSRETURN(1);
 
 void
 ea(SV *self)
