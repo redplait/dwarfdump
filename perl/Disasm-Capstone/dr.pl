@@ -96,18 +96,18 @@ sub disasm_func
 }
 
 # main
-if ( scalar( @ARGV) < 1 ) {
+if ( scalar( @ARGV) < 2 ) {
   printf("Usage: file system.map symbols ...\n");
   return 6;
 }
 my $e = Elf::Reader->new($ARGV[0]);
 die("Cannot load $ARGV[0]") if ( !defined($e) ) ;
-my $scount = simple_symbols($e, \%g_syms, \%g_addr);
+my $scount = parse_system_mapff64($ARGV[1], \%g_syms, \%g_addr, 0x2000);
 die("cannot find symbols from $ARGV[1]") if ( !$scount ) ;
 # make disasm
 my $d = Disasm::Capstone::RiscV->new($e);
 # process remaining symbols
-shift @ARGV;
+shift @ARGV; shift @ARGV;
 foreach ( @ARGV ) {
   my $addr;
   if ( !exists $g_syms{ $_ } )

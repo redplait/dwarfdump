@@ -402,6 +402,8 @@ struct riscv_disasm: public CaBase
       case RISCV_INS_BLT:
       case RISCV_INS_BLTU:
       case RISCV_INS_BNE:
+      case RISCV_INS_C_BEQZ:
+      case RISCV_INS_C_BNEZ:
         if ( is_imm(1) ) {
           addr = insn->address + insn->detail->riscv.operands[1].imm;
           return true;
