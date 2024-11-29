@@ -495,6 +495,27 @@ struct riscv_disasm: public CaBase
       default: return false;
     }
   }
+  int is_ls() const {
+    switch(insn->id) {
+      case RISCV_INS_LB:
+      case RISCV_INS_LBU:
+      case RISCV_INS_LH:
+      case RISCV_INS_LHU:
+      case RISCV_INS_LW:
+      case RISCV_INS_LWU:
+      case RISCV_INS_LD:
+       if ( is_xxx(2, RISCV_OP_REG, RISCV_OP_MEM) ) return 1;
+       return 0;
+      case RISCV_INS_SB:
+      case RISCV_INS_SH:
+      case RISCV_INS_SW:
+      case RISCV_INS_SD:
+       if ( is_xxx(2, RISCV_OP_REG, RISCV_OP_MEM) ) return 2;
+       return 0;
+      default: return 0;
+    }
+  }
+
 };
 
 // magic
@@ -1074,6 +1095,36 @@ disasm(SV *self)
        ST(0) = &PL_sv_no;
   }
   XSRETURN(1);
+
+void
+regpad(SV *self)
+ ALIAS:
+  Disasm::Capstone::RiscV::abi = 1
+ INIT:
+   auto *d = get_disasm<riscv_disasm>(self, &riscv_magic_vt);
+   SV *msv;
+   SV *objref= NULL;
+   MAGIC* magic;
+ PPCODE:
+   if ( !d || !d->addr ) ST(0) = &PL_sv_undef;
+   else {
+     riscv_regs *res = new riscv_regs();
+     if ( ix == 1 ) {
+       // for abi set args
+       res->abi();
+     }
+     // make blessed obj
+     msv = newSViv(0);
+     objref= sv_2mortal(newRV_noinc(msv));
+     sv_bless(objref, s_riscv_regpad_pkg);
+     ST(0)= objref;
+     // attach magic
+     magic = sv_magicext(msv, NULL, PERL_MAGIC_ext, &riscv_regpad_magic_vt, (const char*)res, 0);
+#ifdef USE_ITHREADS
+     magic->mg_flags |= MGf_DUP;
+#endif
+     XSRETURN(1);
+   }
 
 void
 is_jxx(SV *self)
