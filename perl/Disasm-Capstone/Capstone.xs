@@ -16,7 +16,8 @@ void my_warn(const char * pat, ...) {
 
 static HV *s_ppc_pkg = nullptr,
  *s_riscv_pkg = nullptr,
- *s_ppc_regpad_pkg = nullptr;
+ *s_ppc_regpad_pkg = nullptr,
+ *s_riscv_regpad_pkg = nullptr;
 
 // base disasm class
 static const int s_sign = 0x63617073;
@@ -337,6 +338,77 @@ struct ppc_disasm: public CaBase
   }
 };
 
+// risc-v regpad
+struct riscv_regs {
+  constexpr static int base = RISCV_REG_X0;
+  constexpr static int size = 32;
+  uint64_t regs[size];
+  std::bitset<size> pres;
+  // for moves
+  char m[size];
+  riscv_regs() {
+    memset(m, -1, size);
+    // zero
+    regs[0] = 0;
+    pres[0] = 1;
+  }
+  riscv_regs(riscv_regs &) = default;
+  uint64_t get(int idx) const
+  {
+    if ( idx < base ) return 0;
+    idx -= base;
+    if ( idx >= size ) return 0;
+    if ( !pres[idx] ) return 0;
+    return regs[idx];
+  }
+  uint64_t set(int idx, uint64_t v)
+  {
+    if ( idx < base ) return 0;
+    idx -= base;
+    if ( idx >= size ) return 0;
+    pres[idx] = 1; m[idx] = -1;
+    regs[idx] = v;
+    return v;
+  }
+  int move(int idx, int src)
+  {
+    if ( idx < base || src < base ) return 0;
+    idx -= base; src -= base;
+    if ( idx >= size || src >= size ) return 0;
+    regs[idx] = regs[src];
+    pres[idx] = pres[src];
+    m[idx] = m[src];
+    return 1;
+  }
+  void clean(int idx) {
+    idx -= base;
+    if ( idx >= size ) return;
+    pres[idx] = 0; regs[idx] = 0;
+    m[idx] = -1;
+  }
+  // see details https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc
+  void abi()
+  {
+    char v = 1;
+    // a0 - 1, a1 - 2, ... up tp a7
+    for ( int i = RISCV_REG_A0 - base; i <= RISCV_REG_A7 - base; i++, v++ )
+      m[i] = v;
+  }
+  int arg(int idx) const {
+    if ( idx < base ) return -1;
+    idx -= base;
+    if ( idx >= size ) return -1;
+    return m[idx];
+  }
+  inline int has(int idx) const
+  {
+    if ( idx < base ) return 0;
+    idx -= base;
+    if ( idx >= size ) return 0;
+    return pres[idx];
+  }
+};
+
 // risc-v disasm
 struct riscv_disasm: public CaBase
 {
@@ -466,7 +538,7 @@ static MGVTBL ppc_regpad_magic_vt = {
 #endif
 };
 
-// magic table for Disasm::Capstone::PPC
+// magic table for Disasm::Capstone::RiscV
 static const char *s_riscv_name = "Disasm::Capstone::RiscV";
 static MGVTBL riscv_magic_vt = {
         0, /* get */
@@ -481,6 +553,20 @@ static MGVTBL riscv_magic_vt = {
 #endif
 };
 
+// magic table for Disasm::Capstone::RiscV::Regpad
+static const char *s_riscv_regpad_name = "Disasm::Capstone::RiscV::Regpad";
+static MGVTBL riscv_regpad_magic_vt = {
+        0, /* get */
+        0, /* write */
+        0, /* length */
+        0, /* clear */
+        cap_magic_free<riscv_regs>,
+        0, /* copy */
+        0 /* dup */
+#ifdef MGf_LOCAL
+        ,0
+#endif
+};
 
 template <typename T>
 static T *get_disasm(SV *obj, MGVTBL *tab)
@@ -1092,6 +1178,52 @@ PPCODE:
    }
    XSRETURN(1);
 
+MODULE = Disasm::Capstone		PACKAGE = Disasm::Capstone::RiscV::Regpad
+
+void
+clone(SV *self)
+ INIT:
+   auto *d = get_disasm<riscv_regs>(self, &riscv_regpad_magic_vt);
+   SV *msv;
+   SV *objref= NULL;
+   MAGIC* magic;
+ PPCODE:
+   if ( !d ) ST(0) = &PL_sv_undef;
+   else {
+     riscv_regs *res = new riscv_regs(*d);
+     // make blessed obj
+     msv = newSViv(0);
+     objref= sv_2mortal(newRV_noinc(msv));
+     sv_bless(objref, s_riscv_regpad_pkg);
+     ST(0)= objref;
+     // attach magic
+     magic = sv_magicext(msv, NULL, PERL_MAGIC_ext, &riscv_regpad_magic_vt, (const char*)res, 0);
+#ifdef USE_ITHREADS
+     magic->mg_flags |= MGf_DUP;
+#endif
+   }
+   XSRETURN(1);
+
+void
+get(SV *self, int idx)
+ INIT:
+   auto *d = get_disasm<riscv_regs>(self, &riscv_regpad_magic_vt);
+ PPCODE:
+   UV v = d->get(idx);
+   ST(0) = sv_2mortal( newSVuv(v) );
+   XSRETURN(1);
+
+void
+arg(SV *self, int idx)
+ INIT:
+   auto *d = get_disasm<riscv_regs>(self, &riscv_regpad_magic_vt);
+ PPCODE:
+   int res = d->arg(idx);
+   if ( res == -1 ) ST(0) = &PL_sv_undef;
+   else sv_2mortal( newSViv(res) );
+   XSRETURN(1);
+
+
 BOOT:
  s_ppc_pkg = gv_stashpv(s_ppc_name, 0);
  if ( !s_ppc_pkg )
@@ -1102,6 +1234,9 @@ BOOT:
  s_ppc_regpad_pkg = gv_stashpv(s_ppc_regpad_name, 0);
  if ( !s_ppc_regpad_pkg )
     croak("Package %s does not exists", s_ppc_regpad_name);
+ s_riscv_regpad_pkg = gv_stashpv(s_riscv_regpad_name, 0);
+ if ( !s_riscv_regpad_pkg )
+    croak("Package %s does not exists", s_riscv_regpad_name);
  // register archs
  cs_arch_register_powerpc();
  cs_arch_register_riscv();
