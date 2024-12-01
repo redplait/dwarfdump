@@ -238,6 +238,8 @@ namespace Dwarf32 {
     DW_AT_language_version = 0x91,
     DW_AT_bias = 0x92,
     DW_AT_tensor = 0x93, // flag
+    // https://dwarfstd.org/issues/230530.1.html
+    DW_AT_data_sharing = 0x94,
 
     DW_AT_MIPS_linkage_name = 0x2007,
     DW_AT_GNU_vector = 0x2107, // flag
@@ -375,6 +377,26 @@ namespace Dwarf32 {
     DW_LANG_Fortran18 = 0x2d,
     DW_LANG_Ada2005 = 0x2e,
     DW_LANG_Ada2012 = 0x2f,
+    // https://dwarfstd.org/languages.html
+    DW_LANG_HIP = 0x30,
+    DW_LANG_Assembly = 0x31,
+    DW_LANG_C_sharp = 0x32,
+    DW_LANG_Mojo = 0x33,
+    DW_LANG_GLSL = 0x34,
+    DW_LANG_GLSL_ES = 0x35,
+    DW_LANG_HLSL = 0x36,
+    DW_LANG_OpenCL_CPP = 0x37,
+    DW_LANG_CPP_for_OpenCL = 0x38,
+    DW_LANG_SYCL = 0x39,
+    DW_LANG_C_plus_plus_23 = 0x3a,
+    DW_LANG_Odin = 0x3b,
+    DW_LANG_P4 = 0x3c,
+    DW_LANG_Metal = 0x3d,
+    DW_LANG_C23 = 0x3e,
+    DW_LANG_Fortran23 = 0x3f,
+    DW_LANG_Ruby = 0x40,
+    DW_LANG_Move = 0x41,
+    DW_LANG_Hylo = 0x42,
 
     DW_LANG_lo_user = 0x8000,	/* Implementation-defined range start.  */
     DW_LANG_hi_user = 0xffff,	/* Implementation-defined range start.  */
