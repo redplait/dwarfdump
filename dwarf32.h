@@ -306,6 +306,8 @@ namespace Dwarf32 {
     DW_FORM_addrx2 = 0x2a,
     DW_FORM_addrx3 = 0x2b,
     DW_FORM_addrx4 = 0x2c,
+// https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/BinaryFormat/Dwarf.def#L696
+    DW_FORM_LLVM_addrx_offset = 0x2001,
   };
 
   enum Accessibility {

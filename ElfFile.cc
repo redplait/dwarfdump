@@ -1388,6 +1388,11 @@ void ElfFile::PassData(Dwarf32::Form form, const unsigned char* &data, size_t& b
       data += length;
       bytes_available -= length;
       break;
+    case Dwarf32::Form::DW_FORM_LLVM_addrx_offset:
+      ElfFile::ULEB128(data, bytes_available);
+      data += 4;
+      bytes_available -= 4;
+      break;
 
     // Line offset
     case Dwarf32::Form::DW_FORM_line_strp:
@@ -2134,6 +2139,12 @@ uint64_t ElfFile::FormDataValue(Dwarf32::Form form, const unsigned char* &info, 
     case Dwarf32::Form::DW_FORM_addrx:
       value = ElfFile::ULEB128(info, bytes_available);
       return get_indexed_addr(value, address_size_);
+    case Dwarf32::Form::DW_FORM_LLVM_addrx_offset:
+      value = ElfFile::ULEB128(info, bytes_available) << 32;
+      value |= endc(*reinterpret_cast<const uint32_t*>(info));
+      info += 4;
+      bytes_available -= 4;
+      break;
     case Dwarf32::Form::DW_FORM_sdata:
     case Dwarf32::Form::DW_FORM_udata:
     case Dwarf32::Form::DW_FORM_ref_udata:
