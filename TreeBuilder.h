@@ -86,6 +86,15 @@ struct param_loc
   {
     return 1 == locs.size() && locs.front().type == tls_index;
   }
+  // nvcc produces strange locations for DW_AT_data_member_location - like (DW_OP_plus_uconst XXX)
+  inline bool is_plus_uconst(uint64_t &value) const
+  {
+    if ( 1 == locs.size() && locs.front().type == plus_uconst ) {
+      value = locs.front().offset;
+      return true;
+    }
+    return false;
+  }
   // for DW_OP_form_tls_address - like push_tls but checks for svalue/uvalue in stack
   inline bool push_tls_addr()
   {
@@ -487,7 +496,7 @@ protected:
       return *this;
     }
     Element& operator=(const Element &) = delete;
-    ~Element()
+    virtual ~Element()
     {
       if ( m_comp != nullptr )
       {

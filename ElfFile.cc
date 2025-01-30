@@ -2892,8 +2892,22 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     }
     // Offset
     case Dwarf32::Attribute::DW_AT_data_member_location: {
-      uint64_t offset = FormDataValue(form, info, info_bytes);
-      tree_builder->SetElementOffset(offset);
+      uint64_t offset;
+      // nvcc produces strange locations for DW_AT_data_member_location
+      if ( form == Dwarf32::Form::DW_FORM_block ||
+           form == Dwarf32::Form::DW_FORM_block1 ||
+           form == Dwarf32::Form::DW_FORM_block2 ||
+           form == Dwarf32::Form::DW_FORM_block4 ) {
+        param_loc pl;
+        DecodeAddrLocation(form, info, info_bytes, &pl, debug_info_.s_);
+        if ( pl.is_plus_uconst(offset) ) {
+          tree_builder->SetElementOffset(offset);
+        }
+        return false; // bcs DecodeAddrLocation don't changes info & info_bytes
+      } else {
+        offset = FormDataValue(form, info, info_bytes);
+        tree_builder->SetElementOffset(offset);
+      }
       return true;
     }
 
