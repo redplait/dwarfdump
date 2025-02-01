@@ -208,6 +208,11 @@ void ElfFile::cmn_read(bool& success)
       is_eh = true;
       debug_frame_.asgn(s);
       check_compressed_section(s, debug_frame_);
+    // in go binaries .eh_frame section called .gopclntab
+    } else if ( g_opt_f && !strcmp(name, ".gopclntab") && debug_frame_.empty()) {
+      is_eh = true;
+      debug_frame_.asgn(s);
+      check_compressed_section(s, debug_frame_);
     } else if (g_opt_f && !strcmp(name, ".debug_ranges")) {
       debug_ranges_.asgn(s);
       check_compressed_section(s, debug_ranges_);
