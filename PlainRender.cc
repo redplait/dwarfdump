@@ -828,7 +828,9 @@ void PlainRender::dump_one_var(Element *e, int local)
   if ( e->addr_class_ ) {
     auto ac_name = get_addr_class(e->addr_class_);
     if ( ac_name )
-      fprintf(g_outf, "// %sAddrClass 0x%d %s\n", margin, e->addr_class_, ac_name);
+      fprintf(g_outf, "// %sAddrClass %d (%s)\n", margin, e->addr_class_, ac_name);
+    else
+      fprintf(g_outf, "// %sAddrClass %d\n", margin, e->addr_class_);
   }
   if ( g_opt_v )
     fprintf(g_outf, "// %sTypeId %lX\n", margin, e->id_);
