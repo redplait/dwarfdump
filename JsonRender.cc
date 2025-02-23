@@ -278,6 +278,8 @@ std::string JsonRender::GenerateJson(Element &e) {
     put(result, "noreturn", e.noret_);
   if ( e.align_ )
     put(result, "alignment", e.align_);
+  if ( e.addr_class_ )
+    put(result, "addr_class", e.addr_class_);
   if (e.type_id_)
     put(result, "type_id", e.type_id_);
   if (e.name_) {

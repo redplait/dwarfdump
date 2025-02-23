@@ -825,6 +825,11 @@ void PlainRender::dump_one_var(Element *e, int local)
   auto ti = m_tls.find(e->id_);
   if ( ti != m_tls.end() )
     fprintf(g_outf, "// %sTlsIndex 0x%X\n", margin, ti->second);
+  if ( e->addr_class_ ) {
+    auto ac_name = get_addr_class(e->addr_class_);
+    if ( ac_name )
+      fprintf(g_outf, "// %sAddrClass 0x%d %s\n", margin, e->addr_class_, ac_name);
+  }
   if ( g_opt_v )
     fprintf(g_outf, "// %sTypeId %lX\n", margin, e->id_);
   if ( e->name_ )

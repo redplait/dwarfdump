@@ -504,10 +504,30 @@ bool TreeBuilder::is_go() const
   return cu.cu_lang == Dwarf32::dwarf_source_language::DW_LANG_Go;
 }
 
+const char *get_addr_class(int c)
+{
+  // from https://docs.nvidia.com/cuda/ptx-writers-guide-to-interoperability/index.html
+ switch(c) {
+  case 1: return "Code storage";
+  case 2: return "Register storage";
+  case 3: return "Special register storage";
+  case 4: return "Constant storage";
+  case 5: return "Global storage";
+  case 6: return "Local storage";
+  case 7: return "Parameter storage";
+  case 8: return "Shared storage";
+  case 9: return "Surface storage";
+  case 10: return "Texture storage";
+  case 11: return "Texture sampler storage";
+  case 12: return "Generic-address storage";
+  default: return nullptr;
+ }
+}
+
 const char *get_cu_name(int c)
 {
   switch (c)
-	{
+  {
 	  /* Ordered by the numeric value of these constants.  */
 	case Dwarf32::dwarf_source_language::DW_LANG_C89: return "ANSI C";
 	case Dwarf32::dwarf_source_language::DW_LANG_C:	 return "non-ANSI C";
