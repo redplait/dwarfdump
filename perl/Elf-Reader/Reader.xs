@@ -397,6 +397,15 @@ const ELFIO::section *find_section(IElf *e, unsigned long addr)
   return nullptr;
 }
 
+// get section by index, check if it has non-zero size
+const ELFIO::section *get_nonzero(IElf *e, int s_idx) {
+  auto n = e->rdr->sections.size();
+  if ( s_idx >= n ) return nullptr;
+  auto *s = e->rdr->sections[s_idx];
+  if ( !s->get_size() ) return nullptr;
+  return s;
+}
+
 // unlike find_section try to search any section including NOBITS (e.g. .bss)
 const ELFIO::section *find_any(IElf *e, unsigned long addr)
 {
@@ -965,9 +974,30 @@ void byte(SV *arg, unsigned long addr)
      ST(0) = &PL_sv_undef;
    else {
      auto *body = s->get_data() + addr - s->get_address();
-     ST(0)= sv_2mortal( newSVuv( *body ) );
+     // check if we have this byte
+     if ( body + 1 > s->get_data() + s->get_size() )
+       ST(0) = &PL_sv_undef;
+     else
+       ST(0)= sv_2mortal( newSVuv( *body ) );
    }
    XSRETURN(1);
+
+void sbyte(SV *arg, int s_idx, unsigned long off)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+   auto *s = get_nonzero(e, s_idx);
+ PPCODE:
+   if ( !s )
+     ST(0) = &PL_sv_undef;
+   else {
+     auto *body = s->get_data() + off;
+     if ( off + 1 > s->get_size() )
+       ST(0) = &PL_sv_undef;
+     else
+       ST(0)= sv_2mortal( newSVuv( *body ) );
+   }
+   XSRETURN(1);
+
 
 void word(SV *arg, unsigned long addr)
  INIT:
@@ -979,7 +1009,26 @@ void word(SV *arg, unsigned long addr)
    else {
      auto *body = s->get_data() + addr - s->get_address();
      // check if we have size to read word
-     if ( body + 2 >= s->get_data() + s->get_size() )
+     if ( body + 2 > s->get_data() + s->get_size() )
+       ST(0) = &PL_sv_undef;
+     else {
+       uint16_t val = *(uint16_t *)body;
+       if ( e->needswap ) val = __builtin_bswap16(val);
+       ST(0)= sv_2mortal( newSVuv( val ) );
+     }
+   }
+   XSRETURN(1);
+
+void sword(SV *arg, int s_idx, unsigned long off)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+   auto *s = get_nonzero(e, s_idx);
+ PPCODE:
+   if ( !s )
+     ST(0) = &PL_sv_undef;
+   else {
+     auto *body = s->get_data() + off;
+     if ( off + 2 > s->get_size() )
        ST(0) = &PL_sv_undef;
      else {
        uint16_t val = *(uint16_t *)body;
@@ -999,7 +1048,26 @@ void dword(SV *arg, unsigned long addr)
    else {
      auto *body = s->get_data() + addr - s->get_address();
      // check if we have size to read dword
-     if ( body + 4 >= s->get_data() + s->get_size() )
+     if ( body + 4 > s->get_data() + s->get_size() )
+       ST(0) = &PL_sv_undef;
+     else {
+       uint32_t val = *(uint32_t *)body;
+       if ( e->needswap ) val = __builtin_bswap32(val);
+       ST(0)= sv_2mortal( newSVuv( val ) );
+     }
+   }
+   XSRETURN(1);
+
+void sdword(SV *arg, int s_idx, unsigned long off)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+   auto *s = get_nonzero(e, s_idx);
+ PPCODE:
+   if ( !s )
+     ST(0) = &PL_sv_undef;
+   else {
+     auto *body = s->get_data() + off;
+     if ( off + 4 > s->get_size() )
        ST(0) = &PL_sv_undef;
      else {
        uint32_t val = *(uint32_t *)body;
@@ -1019,7 +1087,7 @@ void qword(SV *arg, unsigned long addr)
    else {
      auto *body = s->get_data() + addr - s->get_address();
      // check if we have size to read qword
-     if ( body + 8 >= s->get_data() + s->get_size() )
+     if ( body + 8 > s->get_data() + s->get_size() )
        ST(0) = &PL_sv_undef;
      else {
        uint64_t val = *(uint64_t *)body;
@@ -1028,6 +1096,26 @@ void qword(SV *arg, unsigned long addr)
      }
    }
    XSRETURN(1);
+
+void sqword(SV *arg, int s_idx, unsigned long off)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+   auto *s = get_nonzero(e, s_idx);
+ PPCODE:
+   if ( !s )
+     ST(0) = &PL_sv_undef;
+   else {
+     auto *body = s->get_data() + off;
+     if ( off + 8 > s->get_size() )
+       ST(0) = &PL_sv_undef;
+     else {
+       uint64_t val = *(uint64_t *)body;
+       if ( e->needswap ) val = __builtin_bswap64(val);
+       ST(0)= sv_2mortal( newSVuv( val ) );
+     }
+   }
+   XSRETURN(1);
+
 
 void readN(SV *arg, unsigned long addr, int size)
  INIT:
@@ -1038,13 +1126,34 @@ void readN(SV *arg, unsigned long addr, int size)
      ST(0) = &PL_sv_undef;
    else {
      auto *body = s->get_data() + addr - s->get_address();
-     // check if we have size to read word
-     if ( body + size >= s->get_data() + s->get_size() )
+     // check if we have size to read N bytes
+     if ( body + size > s->get_data() + s->get_size() )
        ST(0) = &PL_sv_undef;
      else {
        AV *av = newAV();
        for ( int i = 0; i < size; ++i )
-         av_push(av, newSVuv( body[i] ) );
+         av_push(av, newSViv( body[i] ) );
+       mXPUSHs(newRV_noinc((SV*)av));
+     }
+   }
+   XSRETURN(1);
+
+void sreadN(SV *arg, int s_idx, unsigned long off, int size)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+   auto *s = get_nonzero(e, s_idx);
+ PPCODE:
+   if ( !s )
+     ST(0) = &PL_sv_undef;
+   else {
+     auto *body = s->get_data() + off;
+     // check if we have size to read 
+     if ( off + size > s->get_size() )
+       ST(0) = &PL_sv_undef;
+     else {
+       AV *av = newAV();
+       for ( int i = 0; i < size; ++i )
+         av_push(av, newSViv( body[i] ) );
        mXPUSHs(newRV_noinc((SV*)av));
      }
    }
