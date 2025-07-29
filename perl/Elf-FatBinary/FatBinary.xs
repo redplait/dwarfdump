@@ -386,5 +386,101 @@ int CFatBin::_extract(const FBItems::iterator &ii, const char *of, FILE *ofp)
   return 1;
 }
 
+template <typename T>
+static int magic_del(pTHX_ SV* sv, MAGIC* mg) {
+    if (mg->mg_ptr) {
+        auto *m = (T *)mg->mg_ptr;
+        if ( m ) delete m;
+        mg->mg_ptr= NULL;
+    }
+    return 0; // ignored anyway
+}
+
+#ifdef MGf_LOCAL
+#define TAB_TAIL ,0
+#else
+#define TAB_TAIL
+#endif
+
+// magic table for Elf::FatBinary
+static const char *s_fatbin = "Elf::FatBinary";
+static HV *s_fatbin_pkg = nullptr;
+static MGVTBL fb_magic_vt = {
+        0, /* get */
+        0, /* write */
+        0, /* length */
+        0, /* clear */
+        magic_del<CFatBin>,
+        0, /* copy */
+        0 /* dup */
+        TAB_TAIL
+};
+
+// blessing macros
+#define DWARF_EXT(vtab, pkg, what) \
+  msv = newSViv(0); \
+  objref = newRV_noinc((SV*)msv); \
+  sv_bless(objref, pkg); \
+  magic = sv_magicext((SV*)msv, NULL, PERL_MAGIC_ext, &vtab, (const char *)what, 0); \
+  SvREADONLY_on((SV*)msv); \
+  ST(0) = objref; \
+  XSRETURN(1);
+
+#define DWARF_TIE(vtab, pkg, what) \
+  fake = newAV(); \
+  objref = newRV_noinc((SV*)fake); \
+  sv_bless(objref, pkg); \
+  magic = sv_magicext((SV*)fake, NULL, PERL_MAGIC_tied, &vtab, (const char *)what, 0); \
+  SvREADONLY_on((SV*)fake); \
+  ST(0) = objref; \
+  XSRETURN(1);
+
+template <typename T>
+static T *dwarf_magic_tied(SV *obj, int die, MGVTBL *tab)
+{
+  SV *sv;
+  MAGIC* magic;
+ 
+  if (!sv_isobject(obj)) {
+     if (die)
+        croak("Not an object");
+        return NULL;
+  }
+  sv= SvRV(obj);
+  if (SvMAGICAL(sv)) {
+     /* Iterate magic attached to this scalar, looking for one with our vtable */
+     for (magic= SvMAGIC(sv); magic; magic = magic->mg_moremagic)
+        if (magic->mg_type == PERL_MAGIC_tied && magic->mg_virtual == tab)
+          /* If found, the mg_ptr points to the fields structure. */
+            return (T*) magic->mg_ptr;
+    }
+  return NULL;
+}
+
 MODULE = Elf::FatBinary		PACKAGE = Elf::FatBinary
 
+void
+new(obj_or_pkg, SV *elsv, const char *fname)
+  SV *obj_or_pkg
+ INIT:
+  HV *pkg = NULL;
+  SV *msv;
+  SV *objref= NULL;
+  MAGIC* magic;
+  struct IElf *e= extract(elsv);
+  CFatBin *res = nullptr;
+  AV *fake;
+ PPCODE:
+  if (SvPOK(obj_or_pkg) && (pkg= gv_stashsv(obj_or_pkg, 0))) {
+    if (!sv_derived_from(obj_or_pkg, s_fatbin))
+        croak("Package %s does not derive from Elf::FatBinary", SvPV_nolen(obj_or_pkg));
+  } else
+    croak("new: first arg must be package name or blessed object");
+  // make new CFatBin
+  res = new CFatBin(e, fname);
+  DWARF_TIE(fb_magic_vt, s_fatbin_pkg, res)
+
+BOOT:
+ s_fatbin_pkg = gv_stashpv(s_fatbin, 0);
+ if ( !s_fatbin_pkg )
+    croak("Package %s does not exists", s_fatbin);
