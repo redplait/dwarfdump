@@ -403,7 +403,25 @@ SV *CFatBin::fetch(int idx)
   HV *hv = newHV();
   hv_store(hv, "kind", 4, newSViv(ii->second.second.kind), 0);
   if ( ii->second.second.unknown1 )
-    hv_store(hv, "unk", 3, newSViv(ii->second.second.unknown1), 0);
+    hv_store(hv, "unk1", 4, newSViv(ii->second.second.unknown1), 0);
+  hv_store(hv, "hsize", 5, newSViv(ii->second.second.header_size), 0);
+  hv_store(hv, "size", 4, newSVuv(ii->second.second.size), 0);
+  if ( ii->second.second.compressed_size )
+    hv_store(hv, "csize", 5, newSVuv(ii->second.second.compressed_size), 0);
+  if ( ii->second.second.unknown2 )
+    hv_store(hv, "unk2", 4, newSViv(ii->second.second.unknown2), 0);
+  hv_store(hv, "minor", 5, newSViv(ii->second.second.minor), 0);
+  hv_store(hv, "major", 5, newSViv(ii->second.second.major), 0);
+  hv_store(hv, "arch", 4, newSViv(ii->second.second.arch), 0);
+  if ( ii->second.second.obj_name_offset )
+    hv_store(hv, "name_off", 8, newSViv(ii->second.second.obj_name_offset), 0);
+  if ( ii->second.second.obj_name_len )
+    hv_store(hv, "name_len", 8, newSViv(ii->second.second.obj_name_len), 0);
+  hv_store(hv, "flags", 5, newSVuv(ii->second.second.flags), 0);
+  if ( ii->second.second.zero )
+    hv_store(hv, "zero", 4, newSVuv(ii->second.second.zero), 0);
+  if ( ii->second.second.decompressed_size )
+    hv_store(hv, "decsize", 7, newSVuv(ii->second.second.decompressed_size), 0);
   return newRV_noinc((SV*)hv);
 }
 
