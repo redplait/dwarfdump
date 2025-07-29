@@ -97,6 +97,8 @@ class CFatBin {
    int extract(int idx, const char *of);
    // try to replace file at index idx to file rf
    int try_replace(int idx, const char *rf);
+   // perl specific methods
+   SV *fetch(int idx);
  protected:
    typedef std::unordered_map<int, std::pair<ptrdiff_t, fat_text_header> > FBItems;
    FBItems m_map;
@@ -389,6 +391,22 @@ int CFatBin::_extract(const FBItems::iterator &ii, const char *of, FILE *ofp)
   return 1;
 }
 
+SV *CFatBin::fetch(int idx)
+{
+  // check idx
+  auto ii = m_map.find(idx);
+  if ( ii == m_map.end() ) {
+    my_warn("invalid index %d\n", idx);
+    return &PL_sv_undef;
+  }
+  // create and fill HV
+  HV *hv = newHV();
+  hv_store(hv, "kind", 4, newSViv(ii->second.second.kind), 0);
+  if ( ii->second.second.unknown1 )
+    hv_store(hv, "unk", 3, newSViv(ii->second.second.unknown1), 0);
+  return newRV_noinc((SV*)hv);
+}
+
 template <typename T>
 static int magic_del(pTHX_ SV* sv, MAGIC* mg) {
     if (mg->mg_ptr) {
@@ -500,6 +518,34 @@ count(SV *self)
   RETVAL = d->count();
  OUTPUT:
   RETVAL
+
+IV
+extract(SV *self, int idx, const char *out_fn)
+ INIT:
+  auto *d = dwarf_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+ CODE:
+  RETVAL = d->extract(idx, out_fn);
+ OUTPUT:
+  RETVAL
+
+IV
+replace(SV *self, int idx, const char *in_fn)
+ INIT:
+  auto *d = dwarf_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+ CODE:
+  RETVAL = d->extract(idx, in_fn);
+ OUTPUT:
+  RETVAL
+
+SV *
+FETCH(SV *self, int idx)
+ INIT:
+  auto *d = dwarf_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+ CODE:
+  RETVAL = d->fetch(idx);
+ OUTPUT:
+  RETVAL
+
 
 BOOT:
  s_fatbin_pkg = gv_stashpv(s_fatbin, 0);
