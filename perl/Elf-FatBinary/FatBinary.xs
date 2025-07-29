@@ -88,6 +88,9 @@ class CFatBin {
    ~CFatBin() {
      m_e->release();
    }
+   size_t count() const {
+     return m_map.size();
+   }
    // returns non-zero when succeed
    int open();
    // extract file at index idx to file of
@@ -479,6 +482,24 @@ new(obj_or_pkg, SV *elsv, const char *fname)
   // make new CFatBin
   res = new CFatBin(e, fname);
   DWARF_TIE(fb_magic_vt, s_fatbin_pkg, res)
+
+UV
+read(SV *self)
+ INIT:
+  auto *d = dwarf_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+ CODE:
+  RETVAL = d->open();
+ OUTPUT:
+  RETVAL
+
+UV
+count(SV *self)
+ INIT:
+  auto *d = dwarf_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+ CODE:
+  RETVAL = d->count();
+ OUTPUT:
+  RETVAL
 
 BOOT:
  s_fatbin_pkg = gv_stashpv(s_fatbin, 0);
