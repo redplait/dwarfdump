@@ -1,0 +1,6 @@
+Revision history for Perl extension Elf::FatBinary.
+
+0.01  Tue Jul 29 15:41:17 2025
+	- original version; created by h2xs 1.23 with options
+		-cfn Elf::FatBinary
+
