@@ -447,13 +447,15 @@ static int magic_del(pTHX_ SV* sv, MAGIC* mg) {
 #define TAB_TAIL
 #endif
 
+static U32 my_len(pTHX_ SV *sv, MAGIC* mg);
+
 // magic table for Elf::FatBinary
 static const char *s_fatbin = "Elf::FatBinary";
 static HV *s_fatbin_pkg = nullptr;
 static MGVTBL fb_magic_vt = {
         0, /* get */
         0, /* write */
-        0, /* length */
+        my_len, /* length */
         0, /* clear */
         magic_del<CFatBin>,
         0, /* copy */
@@ -481,7 +483,7 @@ static MGVTBL fb_magic_vt = {
   XSRETURN(1);
 
 template <typename T>
-static T *dwarf_magic_tied(SV *obj, int die, MGVTBL *tab)
+static T *fb_magic_tied(SV *obj, int die, MGVTBL *tab)
 {
   SV *sv;
   MAGIC* magic;
@@ -501,6 +503,25 @@ static T *dwarf_magic_tied(SV *obj, int die, MGVTBL *tab)
     }
   return NULL;
 }
+
+static U32 my_len(pTHX_ SV *sv, MAGIC* mg)
+{
+  CFatBin *d = nullptr;
+  if (SvMAGICAL(sv)) {
+    MAGIC* magic;
+    for (magic= SvMAGIC(sv); magic; magic = magic->mg_moremagic)
+      if (magic->mg_type == PERL_MAGIC_tied && magic->mg_virtual == &fb_magic_vt) {
+        d = (CFatBin*) magic->mg_ptr;
+        break;
+      }
+  }
+  if ( !d ) {
+    my_warn("my_len %d\n", SvTYPE(sv));
+    return 0;
+  }
+  return (U32)d->count();
+}
+
 
 MODULE = Elf::FatBinary		PACKAGE = Elf::FatBinary
 
@@ -528,7 +549,7 @@ new(obj_or_pkg, SV *elsv, const char *fname)
 UV
 read(SV *self)
  INIT:
-  auto *d = dwarf_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = fb_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
  CODE:
   RETVAL = d->open();
  OUTPUT:
@@ -537,7 +558,7 @@ read(SV *self)
 UV
 count(SV *self)
  INIT:
-  auto *d = dwarf_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = fb_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
  CODE:
   RETVAL = d->count();
  OUTPUT:
@@ -546,7 +567,7 @@ count(SV *self)
 IV
 extract(SV *self, int idx, const char *out_fn)
  INIT:
-  auto *d = dwarf_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = fb_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
  CODE:
   RETVAL = d->extract(idx, out_fn);
  OUTPUT:
@@ -555,7 +576,7 @@ extract(SV *self, int idx, const char *out_fn)
 IV
 replace(SV *self, int idx, const char *in_fn)
  INIT:
-  auto *d = dwarf_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = fb_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
  CODE:
   RETVAL = d->extract(idx, in_fn);
  OUTPUT:
@@ -564,7 +585,7 @@ replace(SV *self, int idx, const char *in_fn)
 SV *
 FETCH(SV *self, int idx)
  INIT:
-  auto *d = dwarf_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = fb_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
  CODE:
   RETVAL = d->fetch(idx);
  OUTPUT:
@@ -573,7 +594,7 @@ FETCH(SV *self, int idx)
 UV
 ctrl_idx(SV *self)
  INIT:
-  auto *d = dwarf_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = fb_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
  CODE:
   RETVAL = d->ctrl_idx();
  OUTPUT:
@@ -582,7 +603,7 @@ ctrl_idx(SV *self)
 UV
 fb_idx(SV *self)
  INIT:
-  auto *d = dwarf_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = fb_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
  CODE:
   RETVAL = d->fb_idx();
  OUTPUT:

@@ -8,7 +8,7 @@
 use strict;
 use warnings;
 use Elf::Reader;
-use Test::More tests => 8;
+use Test::More tests => 9;
 BEGIN { use_ok('Elf::FatBinary') };
 my $fname = '/home/redp/disc/src/cuda-ptx/src/cuda_latency_benchmark/cuda_task_queue.cpython-38-x86_64-linux-gnu.so';
 #########################
@@ -24,6 +24,7 @@ ok( defined($fb), 'fat binary');
 
 ok( $fb->read(), 'load fat binary');
 ok( 1 == $fb->count(), 'count');
+ok( 1 == scalar @$fb, 'scalar');
 # extract 0 entry
 my $i0 = $fb->[0];
 ok( defined($i0), 'entry 0');
