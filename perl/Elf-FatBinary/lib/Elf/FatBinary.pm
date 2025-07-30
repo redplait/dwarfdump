@@ -41,12 +41,21 @@ __END__
 
 =head1 NAME
 
-Elf::FatBinary - Perl extension for blah blah blah
+Elf::FatBinary - Perl extension for reading ELF Fat Binaries
 
 =head1 SYNOPSIS
 
+  use Elf::Reader;
   use Elf::FatBinary;
-  blah blah blah
+  my $e = Elf::Reader->new($fname);
+  my $fb = Elf::FatBinary->new($e, $fname);
+  # read content of fat binary
+  if ( $fb->read() ) {
+    printf("%d items:\n", $fb->count());
+    # you can extract them like $fb is ref to array
+    my $first = $fb->[0];
+    print $first->{'arch'};
+  }
 
 =head1 DESCRIPTION
 

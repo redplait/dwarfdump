@@ -99,6 +99,12 @@ class CFatBin {
    int try_replace(int idx, const char *rf);
    // perl specific methods
    SV *fetch(int idx);
+   inline unsigned int ctrl_idx() const {
+     return m_ctrl;
+   }
+   inline unsigned int fb_idx() const {
+     return m_fb;
+   }
  protected:
    typedef std::unordered_map<int, std::pair<ptrdiff_t, fat_text_header> > FBItems;
    FBItems m_map;
@@ -564,6 +570,23 @@ FETCH(SV *self, int idx)
  OUTPUT:
   RETVAL
 
+UV
+ctrl_idx(SV *self)
+ INIT:
+  auto *d = dwarf_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+ CODE:
+  RETVAL = d->ctrl_idx();
+ OUTPUT:
+  RETVAL
+
+UV
+fb_idx(SV *self)
+ INIT:
+  auto *d = dwarf_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+ CODE:
+  RETVAL = d->fb_idx();
+ OUTPUT:
+  RETVAL
 
 BOOT:
  s_fatbin_pkg = gv_stashpv(s_fatbin, 0);
