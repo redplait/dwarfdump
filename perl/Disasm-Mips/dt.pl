@@ -68,8 +68,9 @@ sub disasm_func
         next;
       }
       my $r = $d->apply($rp);
-      if ( defined($r) && exists($g_addr{ $r }) ) {
-        printf(" ; %s", $g_addr{ $r }->[0] );
+      if ( defined($r) && $r ) {
+        if ( exists($g_addr{ $r }) ) { printf(" ; %s", $g_addr{ $r }->[0] ); }
+        else { printf(" ; %X", $r); }
       }
 out:
       printf("\n");

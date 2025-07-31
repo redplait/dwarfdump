@@ -11,6 +11,7 @@
 
 void my_warn(const char * pat, ...) {
  va_list args;
+ va_start(args, pat);
  vwarn(pat, &args);
 }
 

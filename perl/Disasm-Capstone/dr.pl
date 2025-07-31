@@ -66,7 +66,7 @@ sub disasm_func
     my $next = $tree->next($adr);
     if ( $next ) { $d->setup2( $adr, $next - $adr ); } 
     else { $d->setup( $adr ); }
-#    $pad = $d->abi() if !defined($pad);
+    $pad = $d->abi() if !defined($pad);
     while ( $d->disasm() ) {
       my $oc = $d->op_cnt();
       printf("%X: %s %s ; %d %d", $d->addr(), $d->mnem(), $d->text(), $d->op(), $d->ea());
@@ -80,7 +80,7 @@ sub disasm_func
       $caddr = $d->is_jxx(); # check jmps
       if ( defined($caddr) ) {
         my $p = $tree->in_tree($caddr);
-        if ( !$p ) { push(@Q, [ $caddr, undef ] ); printf(" add_branch %X\n", $caddr); }
+        if ( !$p ) { push(@Q, [ $caddr, $pad->clone() ] ); printf(" add_branch %X\n", $caddr); }
         else { printf(" [-]\n"); }
         next;
       }

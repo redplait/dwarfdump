@@ -691,6 +691,7 @@ versyms items are arrays with indexes
  5 - dep_name, string
 
 =head3 Boyer Moore string search methods
+
  bm_idx(self, pattern, section_index)
  bmz_idx - the same as bm_idx but includes trailing zero
  bm_from(self, pattern, address)

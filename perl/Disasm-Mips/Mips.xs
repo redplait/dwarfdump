@@ -11,6 +11,7 @@
 
 void my_warn(const char * pat, ...) {
  va_list args;
+ va_start(args, pat);
  vwarn(pat, &args);
 }
 
@@ -711,7 +712,7 @@ apply(SV *a, SV *r)
    if ( d->empty() )
     ST(0) = &PL_sv_undef;
    else
-    ST(0) = sv_2mortal( newSViv( (unsigned long)d->apply(rp) ) );
+    ST(0) = sv_2mortal( newSVuv( (unsigned long)d->apply(rp) ) );
    XSRETURN(1);
 
 void
