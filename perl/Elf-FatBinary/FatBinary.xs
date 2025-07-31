@@ -321,7 +321,7 @@ int CFatBin::_replace(ptrdiff_t off, const fat_text_header &ft, FILE *inf)
     return 0;
   }
   // alloc buffer
-  char *buf = (char *)malloc(ft.size);
+  char *buf = (char *)safemalloc(ft.size);
   if ( !buf ) {
     my_warn("cannot alloc %lX bytes\n", ft.size);
     fclose(outf);
@@ -331,7 +331,7 @@ int CFatBin::_replace(ptrdiff_t off, const fat_text_header &ft, FILE *inf)
   if ( 1 != fread(buf, ft.size, 1, inf) ) {
     my_warn("read error %d (%s)\n", errno, strerror(errno));
     fclose(outf);
-    free(buf);
+    Safefree(buf);
     return 0;
   }
   int res = 0;
@@ -342,7 +342,7 @@ int CFatBin::_replace(ptrdiff_t off, const fat_text_header &ft, FILE *inf)
   else
     my_warn("write error %d (%s)\n", errno, strerror(errno));
   fclose(outf);
-  free(buf);
+  Safefree(buf);
   return res;
 }
 
@@ -371,7 +371,7 @@ int CFatBin::_extract(const FBItems::iterator &ii, const char *of, FILE *ofp)
   auto sec = m_e->rdr->sections[m_fb];
   auto data = sec->get_data() + ii->second.first + ii->second.second.header_size;
   if ( compressed(ii->second.second) ) {
-    uint8_t *out_buf = (uint8_t *)malloc(ii->second.second.decompressed_size);
+    uint8_t *out_buf = (uint8_t *)safemalloc(ii->second.second.decompressed_size);
     if ( !out_buf ) {
       my_warn("cannot alloc %lX bytes for decompressed buffer\n", ii->second.second.decompressed_size);
       return 0;
@@ -379,15 +379,15 @@ int CFatBin::_extract(const FBItems::iterator &ii, const char *of, FILE *ofp)
     int res = decompress((const uint8_t*)data, ii->second.second.compressed_size, out_buf, ii->second.second.decompressed_size);
     if ( !res ) {
       my_warn("cannot decompress\n");
-      free(out_buf);
+      Safefree(out_buf);
       return 0;
     }
     if ( 1 != fwrite(out_buf, ii->second.second.decompressed_size, 1, ofp) ) {
       my_warn("fwrite decompressed failed, error %d (%s)\n", errno, strerror(errno));
-      free(out_buf);
+      Safefree(out_buf);
       return 0;
     }
-    free(out_buf);
+    Safefree(out_buf);
   } else {
     if ( 1 != fwrite(data, ii->second.second.size, 1, ofp) ) {
       my_warn("fwrite failed, error %d (%s)\n", errno, strerror(errno));
@@ -539,7 +539,7 @@ new(obj_or_pkg, SV *elsv, const char *fname)
  PPCODE:
   if (SvPOK(obj_or_pkg) && (pkg= gv_stashsv(obj_or_pkg, 0))) {
     if (!sv_derived_from(obj_or_pkg, s_fatbin))
-        croak("Package %s does not derive from Elf::FatBinary", SvPV_nolen(obj_or_pkg));
+        croak("Package %s does not derive from %s", SvPV_nolen(obj_or_pkg), s_fatbin);
   } else
     croak("new: first arg must be package name or blessed object");
   // make new CFatBin
@@ -578,7 +578,7 @@ replace(SV *self, int idx, const char *in_fn)
  INIT:
   auto *d = fb_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
  CODE:
-  RETVAL = d->extract(idx, in_fn);
+  RETVAL = d->try_replace(idx, in_fn);
  OUTPUT:
   RETVAL
 
