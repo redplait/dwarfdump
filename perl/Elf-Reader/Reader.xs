@@ -561,7 +561,7 @@ int patch_sect(struct IElf *e, int idx, F &&func)
     return 0;
   }
   auto is32 = e->rdr->get_class() == ELFIO::ELFCLASS32;
-  unsigned long off = e->rdr->get_segments_offset();
+  unsigned long off = e->rdr->get_sections_offset();
   off += idx * (is32 ? sizeof(ELFIO::Elf32_Shdr) : sizeof(ELFIO::Elf64_Shdr));
   int res = is32 ?
     patch_s<ELFIO::Elf32_Shdr>(fp, off, func) :
