@@ -617,7 +617,7 @@ patch_sec_flag(SV *self, IV section_idx, UV flag)
  INIT:
    struct IElf *e= Elf_get_magic<IElf>(self, 1, &Elf_magic_vt);
  CODE:
-  if ( section_idx < 0 || section_idx >= e->rdr->segments.size() )
+  if ( section_idx < 0 || section_idx >= e->rdr->sections.size() )
     RETVAL = 0;
   else {
    auto patch_flag = [&,flag](auto &p) -> bool {
@@ -660,7 +660,7 @@ patch_sec_type(SV *self, IV section_idx, UV flag)
  INIT:
    struct IElf *e= Elf_get_magic<IElf>(self, 1, &Elf_magic_vt);
  CODE:
-  if ( section_idx < 0 || section_idx >= e->rdr->segments.size() )
+  if ( section_idx < 0 || section_idx >= e->rdr->sections.size() )
     RETVAL = 0;
   else {
    auto patch_type = [&,flag](auto &p) -> bool {
