@@ -519,6 +519,57 @@ AV *bm_asciiz(SV *pattern, const unsigned char *start, const unsigned char *end,
   return av;
 }
 
+template <typename T, typename F>
+int patch_s(FILE *fp, unsigned long off, F &&func)
+{
+  T data;
+  fseek(fp, off, SEEK_SET);
+  if ( 1 != fread(&data, sizeof(T), 1, fp) ) return 0;
+  if ( func(data) ) {
+    fseek(fp, off, SEEK_SET);
+    if ( 1 != fwrite(&data, sizeof(T), 1, fp) ) return 0;
+  }
+  return 1;
+}
+
+template <typename F>
+int patch_segm(struct IElf *e, int idx, F &&func)
+{
+  // open file
+  FILE *fp = fopen(e->fname.c_str(), "r+b");
+  if ( !fp ) {
+    my_warn("patch_segm: cannot open ELF file %s\n", e->fname.c_str());
+    return 0;
+  }
+  auto is32 = e->rdr->get_class() == ELFIO::ELFCLASS32;
+  unsigned long off = e->rdr->get_segments_offset();
+  off += idx * (is32 ? sizeof(ELFIO::Elf32_Phdr) : sizeof(ELFIO::Elf64_Phdr));
+  int res = is32 ?
+    patch_s<ELFIO::Elf32_Phdr>(fp, off, func) :
+    patch_s<ELFIO::Elf64_Phdr>(fp, off, func);
+  fclose(fp);
+  return res;
+}
+
+template <typename F>
+int patch_sect(struct IElf *e, int idx, F &&func)
+{
+  // open file
+  FILE *fp = fopen(e->fname.c_str(), "r+b");
+  if ( !fp ) {
+    my_warn("patch_sect: cannot open ELF file %s\n", e->fname.c_str());
+    return 0;
+  }
+  auto is32 = e->rdr->get_class() == ELFIO::ELFCLASS32;
+  unsigned long off = e->rdr->get_segments_offset();
+  off += idx * (is32 ? sizeof(ELFIO::Elf32_Shdr) : sizeof(ELFIO::Elf64_Shdr));
+  int res = is32 ?
+    patch_s<ELFIO::Elf32_Shdr>(fp, off, func) :
+    patch_s<ELFIO::Elf64_Shdr>(fp, off, func);
+  fclose(fp);
+  return res;
+}
+
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader
 
@@ -551,6 +602,7 @@ new(obj_or_pkg, const char *fname)
     // attach magic to msv
     e = new IElf();
     e->rdr = rde;
+    e->fname = fname;
     e->needswap = rde->get_encoding() != s_host_encoding;
     magic = sv_magicext(msv, NULL, PERL_MAGIC_ext, &Elf_magic_vt, (const char*)e, 0);
 #ifdef USE_ITHREADS
@@ -558,6 +610,92 @@ new(obj_or_pkg, const char *fname)
 #endif
   }
   XSRETURN(1);
+
+
+IV
+patch_sec_flag(SV *self, IV section_idx, UV flag)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(self, 1, &Elf_magic_vt);
+ CODE:
+  if ( section_idx < 0 || section_idx >= e->rdr->segments.size() )
+    RETVAL = 0;
+  else {
+   auto patch_flag = [&,flag](auto &p) -> bool {
+    if ( e->needswap ) {
+      const auto& convertor = e->rdr->get_convertor();
+      p.sh_flags = convertor(flag);
+    } else
+      p.sh_flags = flag;
+    return 1;
+   };
+   RETVAL = patch_sect(e, section_idx, patch_flag);
+  }
+ OUTPUT:
+  RETVAL
+
+IV
+patch_seg_flag(SV *self, IV section_idx, UV flag)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(self, 1, &Elf_magic_vt);
+ CODE:
+  if ( section_idx < 0 || section_idx >= e->rdr->segments.size() )
+    RETVAL = 0;
+  else {
+   auto patch_flag = [&,flag](auto &p) -> bool {
+    if ( e->needswap ) {
+      const auto& convertor = e->rdr->get_convertor();
+      p.p_flags = convertor(flag);
+    } else
+      p.p_flags = flag;
+    return 1;
+   };
+   RETVAL = patch_segm(e, section_idx, patch_flag);
+  }
+ OUTPUT:
+  RETVAL
+
+
+IV
+patch_sec_type(SV *self, IV section_idx, UV flag)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(self, 1, &Elf_magic_vt);
+ CODE:
+  if ( section_idx < 0 || section_idx >= e->rdr->segments.size() )
+    RETVAL = 0;
+  else {
+   auto patch_type = [&,flag](auto &p) -> bool {
+    if ( e->needswap ) {
+      const auto& convertor = e->rdr->get_convertor();
+      p.sh_type = convertor(flag);
+    } else
+      p.sh_type = flag;
+    return 1;
+   };
+   RETVAL = patch_sect(e, section_idx, patch_type);
+  }
+ OUTPUT:
+  RETVAL
+
+IV
+patch_seg_type(SV *self, IV section_idx, UV flag)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(self, 1, &Elf_magic_vt);
+ CODE:
+  if ( section_idx < 0 || section_idx >= e->rdr->segments.size() )
+    RETVAL = 0;
+  else {
+   auto patch_type = [&,flag](auto &p) -> bool {
+    if ( e->needswap ) {
+      const auto& convertor = e->rdr->get_convertor();
+      p.p_type = convertor(flag);
+    } else
+      p.p_type = flag;
+    return 1;
+   };
+   RETVAL = patch_segm(e, section_idx, patch_type);
+  }
+ OUTPUT:
+  RETVAL
 
 void
 bm_idx(SV *self, SV *pattern, IV section_idx)

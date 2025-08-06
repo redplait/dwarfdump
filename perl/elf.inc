@@ -8,6 +8,7 @@ struct IElf {
  };
  ~IElf();
   int needswap;
+  std::string fname;
 protected:
   int ref_cnt = 1;
 };
