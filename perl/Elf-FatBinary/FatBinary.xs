@@ -426,16 +426,6 @@ SV *CFatBin::fetch(int idx)
   return newRV_noinc((SV*)hv);
 }
 
-template <typename T>
-static int magic_del(pTHX_ SV* sv, MAGIC* mg) {
-    if (mg->mg_ptr) {
-        auto *m = (T *)mg->mg_ptr;
-        if ( m ) delete m;
-        mg->mg_ptr= NULL;
-    }
-    return 0; // ignored anyway
-}
-
 #ifdef MGf_LOCAL
 #define TAB_TAIL ,0
 #else
@@ -476,28 +466,6 @@ static MGVTBL fb_magic_vt = {
   SvREADONLY_on((SV*)fake); \
   ST(0) = objref; \
   XSRETURN(1);
-
-template <typename T>
-static T *fb_magic_tied(SV *obj, int die, MGVTBL *tab)
-{
-  SV *sv;
-  MAGIC* magic;
- 
-  if (!sv_isobject(obj)) {
-     if (die)
-        croak("Not an object");
-        return NULL;
-  }
-  sv= SvRV(obj);
-  if (SvMAGICAL(sv)) {
-     /* Iterate magic attached to this scalar, looking for one with our vtable */
-     for (magic= SvMAGIC(sv); magic; magic = magic->mg_moremagic)
-        if (magic->mg_type == PERL_MAGIC_tied && magic->mg_virtual == tab)
-          /* If found, the mg_ptr points to the fields structure. */
-            return (T*) magic->mg_ptr;
-    }
-  return NULL;
-}
 
 static U32 my_len(pTHX_ SV *sv, MAGIC* mg)
 {
@@ -544,7 +512,7 @@ new(obj_or_pkg, SV *elsv, const char *fname)
 UV
 read(SV *self)
  INIT:
-  auto *d = fb_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = magic_tied<CFatBin>(self, 1, &fb_magic_vt);
  CODE:
   RETVAL = d->open();
  OUTPUT:
@@ -553,7 +521,7 @@ read(SV *self)
 UV
 count(SV *self)
  INIT:
-  auto *d = fb_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = magic_tied<CFatBin>(self, 1, &fb_magic_vt);
  CODE:
   RETVAL = d->count();
  OUTPUT:
@@ -562,7 +530,7 @@ count(SV *self)
 IV
 extract(SV *self, int idx, const char *out_fn)
  INIT:
-  auto *d = fb_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = magic_tied<CFatBin>(self, 1, &fb_magic_vt);
  CODE:
   RETVAL = d->extract(idx, out_fn);
  OUTPUT:
@@ -571,7 +539,7 @@ extract(SV *self, int idx, const char *out_fn)
 IV
 replace(SV *self, int idx, const char *in_fn)
  INIT:
-  auto *d = fb_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = magic_tied<CFatBin>(self, 1, &fb_magic_vt);
  CODE:
   RETVAL = d->try_replace(idx, in_fn);
  OUTPUT:
@@ -580,7 +548,7 @@ replace(SV *self, int idx, const char *in_fn)
 SV *
 FETCH(SV *self, int idx)
  INIT:
-  auto *d = fb_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = magic_tied<CFatBin>(self, 1, &fb_magic_vt);
  CODE:
   RETVAL = d->fetch(idx);
  OUTPUT:
@@ -589,7 +557,7 @@ FETCH(SV *self, int idx)
 UV
 ctrl_idx(SV *self)
  INIT:
-  auto *d = fb_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = magic_tied<CFatBin>(self, 1, &fb_magic_vt);
  CODE:
   RETVAL = d->ctrl_idx();
  OUTPUT:
@@ -598,7 +566,7 @@ ctrl_idx(SV *self)
 UV
 fb_idx(SV *self)
  INIT:
-  auto *d = fb_magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = magic_tied<CFatBin>(self, 1, &fb_magic_vt);
  CODE:
   RETVAL = d->fb_idx();
  OUTPUT:

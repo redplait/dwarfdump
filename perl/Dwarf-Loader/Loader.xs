@@ -378,16 +378,6 @@ static int dwarf_magic_release(pTHX_ SV* sv, MAGIC* mg) {
     return 0; // ignored anyway
 }
 
-template <typename T>
-static int dwarf_magic_del(pTHX_ SV* sv, MAGIC* mg) {
-    if (mg->mg_ptr) {
-        auto *m = (T *)mg->mg_ptr;
-        if ( m ) delete m;
-        mg->mg_ptr= NULL;
-    }
-    return 0; // ignored anyway
-}
-
 #ifdef MGf_LOCAL
 #define TAB_TAIL ,0
 #else
@@ -413,7 +403,7 @@ static MGVTBL delem_magic_vt = {
         0, /* write */
         0, /* length */
         0, /* clear */
-        dwarf_magic_del<PerlRenderer::DElem>,
+        magic_del<PerlRenderer::DElem>,
         0, /* copy */
         0 /* dup */
         TAB_TAIL
@@ -426,7 +416,7 @@ static MGVTBL dparam_magic_vt = {
         0, /* write */
         0, /* length */
         0, /* clear */
-        dwarf_magic_del<PerlRenderer::DParam>,
+        magic_del<PerlRenderer::DParam>,
         0, /* copy */
         0 /* dup */
         TAB_TAIL
@@ -439,7 +429,7 @@ static MGVTBL dparent_magic_vt = {
         0, /* write */
         0, /* length */
         0, /* clear */
-        dwarf_magic_del<PerlRenderer::DParent>,
+        magic_del<PerlRenderer::DParent>,
         0, /* copy */
         0 /* dup */
         TAB_TAIL
@@ -452,7 +442,7 @@ static MGVTBL dns_magic_vt = {
         0, /* write */
         0, /* length */
         0, /* clear */
-        dwarf_magic_del<PerlRenderer::DNS>,
+        magic_del<PerlRenderer::DNS>,
         0, /* copy */
         0 /* dup */
         TAB_TAIL
@@ -475,7 +465,7 @@ static MGVTBL tab_name##_iter_vt = { \
         0, /* write */ \
         dwarf_magic_size<PerlRenderer::cname>, /* length */ \
         0, /* clear */ \
-        dwarf_magic_del<PerlRenderer::cname>, \
+        magic_del<PerlRenderer::cname>, \
         0, /* copy */ \
         0 /* dup */ \
         TAB_TAIL };
@@ -539,28 +529,6 @@ static T *dwarf_magic_ext(SV *obj, int die, MGVTBL *tab)
      /* Iterate magic attached to this scalar, looking for one with our vtable */
      for (magic= SvMAGIC(sv); magic; magic = magic->mg_moremagic)
         if (magic->mg_type == PERL_MAGIC_ext && magic->mg_virtual == tab)
-          /* If found, the mg_ptr points to the fields structure. */
-            return (T*) magic->mg_ptr;
-    }
-  return NULL;
-}
-
-template <typename T>
-static T *dwarf_magic_tied(SV *obj, int die, MGVTBL *tab)
-{
-  SV *sv;
-  MAGIC* magic;
- 
-  if (!sv_isobject(obj)) {
-     if (die)
-        croak("Not an object");
-        return NULL;
-  }
-  sv= SvRV(obj);
-  if (SvMAGICAL(sv)) {
-     /* Iterate magic attached to this scalar, looking for one with our vtable */
-     for (magic= SvMAGIC(sv); magic; magic = magic->mg_moremagic)
-        if (magic->mg_type == PERL_MAGIC_tied && magic->mg_virtual == tab)
           /* If found, the mg_ptr points to the fields structure. */
             return (T*) magic->mg_ptr;
     }
@@ -1365,7 +1333,7 @@ FETCH(self, key)
   SV *msv;
   SV *objref= NULL;
   MAGIC* magic;
-  auto *d = dwarf_magic_tied<PerlRenderer::DParamIter>(self, 1, &dparam_iter_vt);
+  auto *d = magic_tied<PerlRenderer::DParamIter>(self, 1, &dparam_iter_vt);
  PPCODE:
   if ( key >= d->t->size() ) {
     ST(0) = &PL_sv_undef;
@@ -1427,7 +1395,7 @@ FETCH(self, key)
   SV *msv;
   SV *objref= NULL;
   MAGIC* magic;
-  auto *d = dwarf_magic_tied<PerlRenderer::DParentIter>(self, 1, &dparent_iter_vt);
+  auto *d = magic_tied<PerlRenderer::DParentIter>(self, 1, &dparent_iter_vt);
  PPCODE:
   if ( key >= d->t->size() ) {
     ST(0) = &PL_sv_undef;
@@ -1451,7 +1419,7 @@ FETCH(self, key)
   SV *msv;
   SV *objref= NULL;
   MAGIC* magic;
-  auto *d = dwarf_magic_tied<PerlRenderer::DMemberIter>(self, 1, &dmember_iter_vt);
+  auto *d = magic_tied<PerlRenderer::DMemberIter>(self, 1, &dmember_iter_vt);
  PPCODE:
   if ( key >= d->t->size() ) {
     ST(0) = &PL_sv_undef;
@@ -1474,7 +1442,7 @@ FETCH(self, key)
   SV *msv;
   SV *objref= NULL;
   MAGIC* magic;
-  auto *d = dwarf_magic_tied<PerlRenderer::DMethodIter>(self, 1, &dmethod_iter_vt);
+  auto *d = magic_tied<PerlRenderer::DMethodIter>(self, 1, &dmethod_iter_vt);
  PPCODE:
   if ( key >= d->t->size() ) {
     ST(0) = &PL_sv_undef;
@@ -1497,7 +1465,7 @@ FETCH(self, key)
   SV *msv;
   SV *objref= NULL;
   MAGIC* magic;
-  auto *d = dwarf_magic_tied<PerlRenderer::DLVarIter>(self, 1, &dlvar_iter_vt);
+  auto *d = magic_tied<PerlRenderer::DLVarIter>(self, 1, &dlvar_iter_vt);
  PPCODE:
   if ( key >= d->t->size() ) {
     ST(0) = &PL_sv_undef;
@@ -1518,7 +1486,7 @@ FETCH(self, key)
   IV key;
  INIT:
   AV *av;
-  auto *d = dwarf_magic_tied<PerlRenderer::DEnumIter>(self, 1, &denum_iter_vt);
+  auto *d = magic_tied<PerlRenderer::DEnumIter>(self, 1, &denum_iter_vt);
  PPCODE:
   if ( key >= d->t->size() ) {
     ST(0) = &PL_sv_undef;
@@ -1543,7 +1511,7 @@ IV
 ate(self)
   SV *self;
  INIT:
-  auto *d = dwarf_magic_tied<PerlRenderer::DEnumIter>(self, 1, &denum_iter_vt);
+  auto *d = magic_tied<PerlRenderer::DEnumIter>(self, 1, &denum_iter_vt);
  CODE:
   RETVAL = d->ate_;
  OUTPUT:
