@@ -8,12 +8,6 @@
 #include "../elf.inc"
 #include <unordered_map>
 
-void my_warn(const char * pat, ...) {
- va_list args;
- va_start(args, pat);
- vwarn(pat, &args);
-}
-
 // ripped from https://github.com/chei90/RemoteRendering/blob/master/inc/fatBinaryCtl.h
 #define FATBINC_MAGIC   0x466243B1
 typedef struct {
