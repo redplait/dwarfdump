@@ -1,0 +1,6 @@
+Revision history for Perl extension Cubin::Attrs.
+
+0.01  Fri Aug  8 13:50:33 2025
+	- original version; created by h2xs 1.23 with options
+		-cfn Cubin::Attrs
+

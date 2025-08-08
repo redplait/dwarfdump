@@ -1,0 +1,8 @@
+Attrs.xs
+Changes
+Makefile.PL
+MANIFEST
+ppport.h
+README
+t/Cubin-Attrs.t
+lib/Cubin/Attrs.pm
