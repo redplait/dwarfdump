@@ -38,7 +38,22 @@ struct CAttrs {
   unsigned short cb_offset = 0;
   // methods
   SV *fetch(int idx);
+  SV *fetch_cb(int idx);
 };
+
+SV *CAttrs::fetch_cb(int idx) {
+  // check idx
+  if ( idx < 0 || idx >= params.size() ) {
+    my_warn("invalid cb index %d\n", idx);
+    return &PL_sv_undef;
+  }
+  // create and fill HV
+  HV *hv = newHV();
+  hv_store(hv, "off", 3, newSVuv(params[idx].offset), 0);
+  hv_store(hv, "size", 4, newSVuv(params[idx].size), 0);
+  hv_store(hv, "ord", 3, newSVuv(params[idx].ordinal), 0);
+  return newRV_noinc((SV*)hv);
+}
 
 SV *CAttrs::fetch(int idx) {
   // check idx
@@ -53,6 +68,7 @@ SV *CAttrs::fetch(int idx) {
   hv_store(hv, "len", 3, newSVuv(m_attrs[idx].len), 0);
   return newRV_noinc((SV*)hv);
 }
+
 
 // check if we have real section with attributes
 static int check_section(ELFIO::elfio *rdr, int idx) {
@@ -156,6 +172,15 @@ FETCH(SV *self, int idx)
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
   RETVAL = d->fetch(idx);
+ OUTPUT:
+  RETVAL
+
+SV *
+get_cb(SV *self, int idx)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->fetch_cb(idx);
  OUTPUT:
   RETVAL
 
