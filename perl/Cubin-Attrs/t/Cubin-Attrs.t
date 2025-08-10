@@ -9,7 +9,7 @@ use strict;
 use warnings;
 use Elf::Reader;
 
-use Test::More tests => 3;
+use Test::More tests => 4;
 BEGIN { use_ok('Cubin::Attrs') };
 
 my $fname = '/home/redp/disc/src/cuda-ptx/src/denvdis/test/cv/libcvcuda.so.0.15.13.sm_70.cubin';
@@ -18,6 +18,8 @@ ok( defined($e), 'elf load');
 
 my $fb = Cubin::Attrs->new($e, 6);
 ok( defined($fb), 'Cubin::Attrs');
+ok( $fb->read(), 'read attrs');
+
 
 #########################
 
