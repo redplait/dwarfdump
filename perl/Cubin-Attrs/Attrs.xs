@@ -40,8 +40,16 @@ struct CAttrs {
   int read();
   SV *fetch(int idx);
   SV *fetch_cb(int idx);
+  SV *get_value(int idx);
+  SV *addr_list(const CAttr &a);
   inline void add_cparam(ELFIO::Elf_Word ordinal, unsigned short off, unsigned short size) {
     params.push_back( { ordinal, size, off } );
+  }
+  template <typename T>
+  T read(const CAttr &a) {
+   auto sec = m_e->rdr->sections[s_idx];
+   const char *data = sec->get_data() + 2 + a.offset;
+   return *(T *)data;
   }
 };
 
@@ -67,6 +75,7 @@ SV *CAttrs::fetch(int idx) {
   }
   // create and fill HV
   HV *hv = newHV();
+  hv_store(hv, "id", 2, newSViv(idx), 0);
   hv_store(hv, "attr", 4, newSViv(m_attrs[idx].attr), 0);
   hv_store(hv, "off", 3, newSVuv(m_attrs[idx].offset), 0);
   hv_store(hv, "len", 3, newSVuv(m_attrs[idx].len), 0);
@@ -85,6 +94,38 @@ static int is_addr_list(char attr) {
       return 1;
     default: return 0;
   }
+}
+
+SV *CAttrs::addr_list(const CAttr &a)
+{
+  if ( !a.len ) return &PL_sv_undef;
+  auto sec = m_e->rdr->sections[s_idx];
+  const char *data = sec->get_data() + 4 + a.offset;
+  AV *av = newAV();
+  for ( const char *bcurr = data; data + a.len - bcurr >= 0x4; bcurr += 0x4 )
+  {
+    uint32_t addr = *(uint32_t *)(bcurr);
+    av_push(av, newSVuv(addr));
+  }
+  return newRV_noinc((SV*)av);
+}
+
+SV *CAttrs::get_value(int idx) {
+  // check idx
+  if ( idx < 0 || idx >= m_attrs.size() ) {
+    my_warn("invalid index %d\n", idx);
+    return &PL_sv_undef;
+  }
+  auto &attr = m_attrs[idx];
+  if ( !attr.len ) return &PL_sv_yes;
+  if ( is_addr_list(attr.attr) ) return addr_list(attr);
+  if ( 1 == attr.len )
+    return newSViv( read<unsigned char>(attr) );
+  if ( attr.len == 2 )
+    return newSViv( read<unsigned short>(attr) );
+  if ( attr.len == 4 )
+    return newSVuv( read<uint32_t>(attr) );
+  return &PL_sv_undef;
 }
 
 int CAttrs::read()
@@ -278,6 +319,15 @@ read(SV *self)
  OUTPUT:
   RETVAL
 
+UV
+count(SV *self)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->m_attrs.size();
+ OUTPUT:
+  RETVAL
+
 SV *
 FETCH(SV *self, int idx)
  INIT:
@@ -295,6 +345,16 @@ param(SV *self, int idx)
   RETVAL = d->fetch_cb(idx);
  OUTPUT:
   RETVAL
+
+SV *
+value(SV *self, int idx)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->get_value(idx);
+ OUTPUT:
+  RETVAL
+
 
 UV
 params_cnt(SV *self)
