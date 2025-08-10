@@ -16,7 +16,7 @@ struct cb_param {
 };
 
 struct CAttr {
-  unsigned long offset;
+  ptrdiff_t offset;
   size_t len = 0;
   char attr;
 };
@@ -37,8 +37,12 @@ struct CAttrs {
   unsigned short cb_size = 0;
   unsigned short cb_offset = 0;
   // methods
+  int read();
   SV *fetch(int idx);
   SV *fetch_cb(int idx);
+  inline void add_cparam(ELFIO::Elf_Word ordinal, unsigned short off, unsigned short size) {
+    params.push_back( { ordinal, size, off } );
+  }
 };
 
 SV *CAttrs::fetch_cb(int idx) {
@@ -69,6 +73,105 @@ SV *CAttrs::fetch(int idx) {
   return newRV_noinc((SV*)hv);
 }
 
+static int is_addr_list(char attr) {
+  switch(attr) {
+    case 0x28: // EIATTR_COOP_GROUP_INSTR_OFFSETS
+    case 0x1c: // EIATTR_EXIT_INSTR_OFFSETS
+    case 0x1d: // EIATTR_S2RCTAID_INSTR_OFFSETS
+    case 0x25: // EIATTR_LD_CACHEMOD_INSTR_OFFSETS
+    case 0x31: // EIATTR_INT_WARP_WIDE_INSTR_OFFSETS
+    case 0x39: // EIATTR_MBARRIER_INSTR_OFFSETS
+    case 0x47: // EIATTR_SW_WAR_MEMBAR_SYS_INSTR_OFFSETS
+      return 1;
+    default: return 0;
+  }
+}
+
+int CAttrs::read()
+{
+  if ( s_idx < 0 ) return 0;
+  auto sec = m_e->rdr->sections[s_idx];
+  if ( sec->get_type() == ELFIO::SHT_NOBITS ) return 0;
+  auto size = sec->get_size();
+  if ( !size ) return 0;
+  const char *data = sec->get_data();
+  auto sidx = sec->get_info();
+  const char *start, *end = data + size;
+  start = data;
+  while( data < end )
+  {
+    if ( end - data < 2 ) {
+      my_warn("bad attrs data. section %d\n", s_idx);
+      return 0;
+    }
+    char format = data[0];
+    char attr = data[1];
+    unsigned short a_len;
+    const char *kp = nullptr;
+    bool skip = false;
+    switch (format)
+    {
+      case 1:
+        m_attrs.push_back( { data - start, 0, attr });
+        data += 2;
+        // check align
+        if ( (data - start) & 0x3 ) data += 4 - ((data - start) & 0x3);
+        break;
+      case 2:
+        m_attrs.push_back( { data - start, 1, attr });
+        data += 3;
+        // check align
+        if ( (data - start) & 0x1 ) data++;
+       break;
+      case 3:
+        m_attrs.push_back( { data - start, 2, attr });
+        data += 4;
+       break;
+     case 4:
+       a_len = *(unsigned short *)(data + 2);
+       kp = data + 4;
+       if ( attr == 0xa ) { // EIATTR_PARAM_CBANK
+          skip = true;
+          if ( a_len != 8 ) my_warn("invalid PARAM_CBANK size %X\n", a_len);
+          else {
+            uint32_t sec_id = *(uint32_t *)kp;
+            kp += 4;
+            unsigned short off = *(unsigned short *)kp;
+            kp += 2;
+            unsigned short size = *(unsigned short *)kp;
+            cb_size = size;
+            cb_offset = off;
+          }
+        } else if ( attr == 0x17 ) // EIATTR_KPARAM_INFO
+        {
+          skip = true;
+          // from https://github.com/VivekPanyam/cudaparsers/blob/main/src/cubin.rs
+          if ( a_len != 0xc ) my_warn("invalid KPARAM_INFO size %X\n", a_len);
+          else {
+            kp += 4;
+            unsigned short ord = *(unsigned short *)kp;
+            kp += 2;
+            unsigned short off = *(unsigned short *)kp;
+            kp += 2;
+            uint32_t tmp = *(uint32_t *)kp;
+            unsigned space = (tmp >> 0x8) & 0xf;
+            int is_cbank = ((tmp >> 0x10) & 2) == 0;
+            uint32_t csize = (((tmp >> 0x10) & 0xffff) >> 2);
+            if ( is_cbank ) add_cparam(ord, off, csize);
+          }
+        }
+        if ( !skip )
+          m_attrs.push_back( { data - start, a_len, attr } );
+        data += 4 + a_len;
+       break;
+     default:
+       my_warn("unknown format %d, section %d off %lX (%s)\n",
+        format, s_idx, data - start, sec->get_name().c_str());
+       return 0;
+    }
+  }
+  return !m_attrs.empty();
+}
 
 // check if we have real section with attributes
 static int check_section(ELFIO::elfio *rdr, int idx) {
@@ -166,6 +269,15 @@ new(obj_or_pkg, SV *elsv, int s_idx)
    DWARF_TIE(ca_magic_vt, s_ca_pkg, res)
  }
 
+int
+read(SV *self)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->read();
+ OUTPUT:
+  RETVAL
+
 SV *
 FETCH(SV *self, int idx)
  INIT:
@@ -176,7 +288,7 @@ FETCH(SV *self, int idx)
   RETVAL
 
 SV *
-get_cb(SV *self, int idx)
+param(SV *self, int idx)
  INIT:
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
