@@ -21,6 +21,20 @@ struct CAttr {
   char attr;
 };
 
+static int is_addr_list(char attr) {
+  switch(attr) {
+    case 0x28: // EIATTR_COOP_GROUP_INSTR_OFFSETS
+    case 0x1c: // EIATTR_EXIT_INSTR_OFFSETS
+    case 0x1d: // EIATTR_S2RCTAID_INSTR_OFFSETS
+    case 0x25: // EIATTR_LD_CACHEMOD_INSTR_OFFSETS
+    case 0x31: // EIATTR_INT_WARP_WIDE_INSTR_OFFSETS
+    case 0x39: // EIATTR_MBARRIER_INSTR_OFFSETS
+    case 0x47: // EIATTR_SW_WAR_MEMBAR_SYS_INSTR_OFFSETS
+      return 1;
+    default: return 0;
+  }
+}
+
 struct CAttrs {
   CAttrs(IElf *e, int idx) {
     m_e = e;
@@ -28,6 +42,7 @@ struct CAttrs {
   }
   ~CAttrs() {
     if ( m_e ) m_e->release();
+    if ( m_wf ) fclose(m_wf);
   }
   IElf *m_e = nullptr;
   int s_idx = -1;
@@ -36,6 +51,8 @@ struct CAttrs {
   std::vector<cb_param> params;
   unsigned short cb_size = 0;
   unsigned short cb_offset = 0;
+  // write file handle
+  FILE *m_wf = nullptr;
   // methods
   int read();
   SV *fetch(const CAttr &a, int idx);
@@ -51,6 +68,39 @@ struct CAttrs {
    auto sec = m_e->rdr->sections[s_idx];
    const char *data = sec->get_data() + 2 + a.offset;
    return *(T *)data;
+  }
+  // write-patch methods
+  inline bool check_wf() {
+    if ( m_wf ) return true;
+    m_wf = fopen(m_e->fname.c_str(), "r+b");
+    if ( !m_wf ) {
+      my_warn("Cannot open %d, errno %d (%s)\n", m_e->fname.c_str(), errno, strerror(errno));
+      return false;
+    }
+    return true;
+  }
+  template <typename T>
+  bool write(const CAttr &a, T value) {
+    if ( !check_wf() ) return false;
+    auto sec = m_e->rdr->sections[s_idx];
+    auto off = sec->get_offset() + 2 + a.offset;
+    fseek(m_wf, off, SEEK_SET);
+    return 1 == fwrite(&value, sizeof(value), 1, m_wf);
+  }
+  SV *patch(int idx, unsigned long v) {
+    // check idx
+    if ( idx < 0 || idx >= m_attrs.size() ) {
+      my_warn("patch: invalid index %d\n", idx);
+      return &PL_sv_undef;
+    }
+    auto &attr = m_attrs[idx];
+    if ( !attr.len ) return &PL_sv_yes;
+    if ( is_addr_list(attr.attr) ) return &PL_sv_no;
+    if ( 1 == attr.len && write(attr, (unsigned char)v) ) return &PL_sv_yes;
+    if ( attr.len == 2 && write(attr, (unsigned short)v) ) return &PL_sv_yes;
+    if ( attr.len == 4 && write(attr, (uint32_t)v) ) return &PL_sv_yes;
+    if ( attr.len == 8 && sizeof(unsigned long) == 8 && write(attr, v) ) return &PL_sv_yes;
+    return &PL_sv_no;
   }
 };
 
@@ -88,19 +138,6 @@ SV *CAttrs::fetch(int idx) {
   return fetch(m_attrs[idx], idx);
 }
 
-static int is_addr_list(char attr) {
-  switch(attr) {
-    case 0x28: // EIATTR_COOP_GROUP_INSTR_OFFSETS
-    case 0x1c: // EIATTR_EXIT_INSTR_OFFSETS
-    case 0x1d: // EIATTR_S2RCTAID_INSTR_OFFSETS
-    case 0x25: // EIATTR_LD_CACHEMOD_INSTR_OFFSETS
-    case 0x31: // EIATTR_INT_WARP_WIDE_INSTR_OFFSETS
-    case 0x39: // EIATTR_MBARRIER_INSTR_OFFSETS
-    case 0x47: // EIATTR_SW_WAR_MEMBAR_SYS_INSTR_OFFSETS
-      return 1;
-    default: return 0;
-  }
-}
 
 SV *CAttrs::addr_list(const CAttr &a)
 {
@@ -360,6 +397,15 @@ value(SV *self, int idx)
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
   RETVAL = d->get_value(idx);
+ OUTPUT:
+  RETVAL
+
+SV *
+patch(SV *self, int idx, unsigned long v)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->patch(idx, v);
  OUTPUT:
   RETVAL
 
