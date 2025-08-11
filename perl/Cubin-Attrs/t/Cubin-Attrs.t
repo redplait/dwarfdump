@@ -10,7 +10,7 @@ use warnings;
 use Elf::Reader;
 use Data::Dumper;
 
-use Test::More tests => 10;
+use Test::More tests => 11;
 BEGIN { use_ok('Cubin::Attrs') };
 
 my $fname = '/home/redp/disc/src/cuda-ptx/src/denvdis/test/cv/libcvcuda.so.0.15.13.sm_70.cubin';
@@ -23,14 +23,11 @@ ok( $fb->read(), 'read attrs');
 ok( 3 == $fb->params_cnt(), 'params count');
 ok( 10 == $fb->count(), 'count' );
 
-my $hooy;
-for ( my $i = 0; $i < $fb->count(); $i++ ) {
-  my $item = $fb->[$i];
-  $hooy = $item if ( $item->{'attr'} == 0x31 );
-}
-
-ok( defined($hooy), 'grep on attr' );
-my $id = $hooy->{'id'};
+my($wide) = $fb->grep(0x31);
+ok( defined $wide, 'grep on attr' );
+# print STDERR Dumper($wide);
+ok( exists $wide->{'id'}, 'has id' );
+my $id = $wide->{'id'};
 ok( $id, 'id' );
 my $wlist = $fb->[$id];
 ok( defined($wlist), 'wlist');

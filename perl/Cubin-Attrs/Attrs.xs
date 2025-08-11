@@ -38,6 +38,7 @@ struct CAttrs {
   unsigned short cb_offset = 0;
   // methods
   int read();
+  SV *fetch(const CAttr &a, int idx);
   SV *fetch(int idx);
   SV *fetch_cb(int idx);
   SV *get_value(int idx);
@@ -67,6 +68,16 @@ SV *CAttrs::fetch_cb(int idx) {
   return newRV_noinc((SV*)hv);
 }
 
+SV *CAttrs::fetch(const CAttr &a, int idx)
+{
+  HV *hv = newHV();
+  hv_store(hv, "id", 2, newSViv(idx), 0);
+  hv_store(hv, "attr", 4, newSViv(a.attr), 0);
+  hv_store(hv, "off", 3, newSVuv(a.offset), 0);
+  hv_store(hv, "len", 3, newSVuv(a.len), 0);
+  return newRV_noinc((SV*)hv);
+}
+
 SV *CAttrs::fetch(int idx) {
   // check idx
   if ( idx < 0 || idx >= m_attrs.size() ) {
@@ -74,12 +85,7 @@ SV *CAttrs::fetch(int idx) {
     return &PL_sv_undef;
   }
   // create and fill HV
-  HV *hv = newHV();
-  hv_store(hv, "id", 2, newSViv(idx), 0);
-  hv_store(hv, "attr", 4, newSViv(m_attrs[idx].attr), 0);
-  hv_store(hv, "off", 3, newSVuv(m_attrs[idx].offset), 0);
-  hv_store(hv, "len", 3, newSVuv(m_attrs[idx].len), 0);
-  return newRV_noinc((SV*)hv);
+  return fetch(m_attrs[idx], idx);
 }
 
 static int is_addr_list(char attr) {
@@ -125,6 +131,8 @@ SV *CAttrs::get_value(int idx) {
     return newSViv( read<unsigned short>(attr) );
   if ( attr.len == 4 )
     return newSVuv( read<uint32_t>(attr) );
+  if ( attr.len == 8 && sizeof(unsigned long) == 8 )
+    return newSVuv( read<unsigned long>(attr) );
   return &PL_sv_undef;
 }
 
@@ -276,7 +284,7 @@ static U32 my_len(pTHX_ SV *sv, MAGIC* mg)
       }
   }
   if ( !d ) {
-    my_warn("my_len %d\n", SvTYPE(sv));
+    my_warn("Cubin::Attrs: my_len %d\n", SvTYPE(sv));
     return 0;
   }
   return (U32)d->m_attrs.size();
@@ -382,6 +390,42 @@ cb_off(SV *self)
   RETVAL = d->cb_offset;
  OUTPUT:
   RETVAL
+
+void
+grep(SV *self, IV key)
+  U8 gimme = GIMME_V;
+ INIT:
+  SV *str;
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ PPCODE:
+  std::vector<std::pair<const CAttr*, int> > res;
+  // filter
+  for ( size_t i = 0; i < d->m_attrs.size(); i++ ) {
+    if ( d->m_attrs[i].attr == key ) {
+      res.push_back( { &d->m_attrs[i], int(i) });
+    }
+  }
+  if ( res.empty() ) {
+    if ( gimme == G_ARRAY) {
+      XSRETURN(0);
+    } else {
+      mXPUSHs(&PL_sv_undef);
+      XSRETURN(1);
+    }
+  } else {
+    if ( gimme == G_ARRAY) {
+      EXTEND(SP, res.size());
+      for ( auto &p: res )
+        mXPUSHs( d->fetch(*p.first, p.second) );
+      XSRETURN(res.size());
+    } else {
+      AV *av = newAV();
+      for ( auto &p: res )
+        av_push(av, d->fetch(*p.first, p.second) );
+      mXPUSHs(newRV_noinc((SV*)av));
+      XSRETURN(1);
+    }
+  }
 
 BOOT:
  s_ca_pkg = gv_stashpv(s_ca, 0);
