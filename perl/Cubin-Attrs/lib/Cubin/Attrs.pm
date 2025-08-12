@@ -41,12 +41,18 @@ __END__
 
 =head1 NAME
 
-Cubin::Attrs - Perl extension for blah blah blah
+Cubin::Attrs - Perl extension for reading/parsing/patching attributes section of cubin files
 
 =head1 SYNOPSIS
 
+  use Elf::Reader;
   use Cubin::Attrs;
-  blah blah blah
+  # read elf
+  my $e = Elf::Reader->new($fname);
+  # make cubin attrs object - here in section 6
+  my $fb = Cubin::Attrs->new($e, 6);
+  # and finally read
+  $fb->read();
 
 =head1 DESCRIPTION
 

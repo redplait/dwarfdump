@@ -60,6 +60,7 @@ struct CAttrs {
   SV *fetch_cb(int idx);
   SV *get_value(int idx);
   SV *addr_list(const CAttr &a);
+  SV *try_attr(int t_idx);
   inline void add_cparam(ELFIO::Elf_Word ordinal, unsigned short off, unsigned short size) {
     params.push_back( { ordinal, size, off } );
   }
@@ -278,6 +279,20 @@ static int check_section(ELFIO::elfio *rdr, int idx) {
   return (st == 0x70000000) || (st == 0x70000083);
 }
 
+SV *CAttrs::try_attr(int t_idx)
+{
+  for ( int idx = 0; idx < m_e->rdr->sections.size(); idx++ )
+  {
+    auto s = m_e->rdr->sections[idx];
+    auto st = s->get_type();
+    if ( st == ELFIO::SHT_NOBITS ) continue;
+    if ( (st == 0x70000000) || (st == 0x70000083) ) {
+      if ( s->get_info() == t_idx ) return newSViv(idx);
+    }
+  }
+  return &PL_sv_undef;
+}
+
 #ifdef MGf_LOCAL
 #define TAB_TAIL ,0
 #else
@@ -354,6 +369,15 @@ new(obj_or_pkg, SV *elsv, int s_idx)
    auto res = new CAttrs(e, s_idx);
    DWARF_TIE(ca_magic_vt, s_ca_pkg, res)
  }
+
+SV *
+try(SV *self, int t_idx)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->try_attr(t_idx);
+ OUTPUT:
+  RETVAL
 
 int
 read(SV *self)
