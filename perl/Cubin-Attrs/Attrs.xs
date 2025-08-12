@@ -36,9 +36,8 @@ static int is_addr_list(char attr) {
 }
 
 struct CAttrs {
-  CAttrs(IElf *e, int idx) {
+  CAttrs(IElf *e) {
     m_e = e;
-    s_idx = idx;
   }
   ~CAttrs() {
     if ( m_e ) m_e->release();
@@ -54,7 +53,12 @@ struct CAttrs {
   // write file handle
   FILE *m_wf = nullptr;
   // methods
-  int read();
+  void clear() {
+    m_attrs.clear();
+    params.clear();
+    cb_size = cb_offset = 0;
+  }
+  int read(int idx);
   SV *fetch(const CAttr &a, int idx);
   SV *fetch(int idx);
   SV *fetch_cb(int idx);
@@ -174,9 +178,31 @@ SV *CAttrs::get_value(int idx) {
   return &PL_sv_undef;
 }
 
-int CAttrs::read()
+// check if we have real section with attributes
+static int check_section(ELFIO::elfio *rdr, int idx) {
+  if ( idx < 0 || idx >= rdr->sections.size() ) {
+    my_warn("Cubin::Attrs: invalid section index %d\n", idx);
+    return 0;
+  }
+  auto s = rdr->sections[idx];
+  auto st = s->get_type();
+  if ( st == ELFIO::SHT_NOBITS ) {
+    my_warn("Cubin::Attrs: empty section %d\n", idx);
+    return 0;
+  }
+  if ( !s->get_size() ) {
+    my_warn("Cubin::Attrs: empty section index %d\n", idx);
+    return 0;
+  }
+  return (st == 0x70000000) || (st == 0x70000083);
+}
+
+int CAttrs::read(int idx)
 {
+  clear();
+  s_idx = idx;
   if ( s_idx < 0 ) return 0;
+  if ( !check_section(m_e->rdr, idx) ) return 0;
   auto sec = m_e->rdr->sections[s_idx];
   if ( sec->get_type() == ELFIO::SHT_NOBITS ) return 0;
   auto size = sec->get_size();
@@ -260,24 +286,6 @@ int CAttrs::read()
   return !m_attrs.empty();
 }
 
-// check if we have real section with attributes
-static int check_section(ELFIO::elfio *rdr, int idx) {
-  if ( idx < 0 || idx >= rdr->sections.size() ) {
-    my_warn("Cubin::Attrs: invalid section index %d\n", idx);
-    return 0;
-  }
-  auto s = rdr->sections[idx];
-  auto st = s->get_type();
-  if ( st == ELFIO::SHT_NOBITS ) {
-    my_warn("Cubin::Attrs: empty section %d\n", idx);
-    return 0;
-  }
-  if ( !s->get_size() ) {
-    my_warn("Cubin::Attrs: empty section index %d\n", idx);
-    return 0;
-  }
-  return (st == 0x70000000) || (st == 0x70000083);
-}
 
 SV *CAttrs::try_attr(int t_idx)
 {
@@ -345,7 +353,7 @@ static U32 my_len(pTHX_ SV *sv, MAGIC* mg)
 MODULE = Cubin::Attrs		PACKAGE = Cubin::Attrs
 
 void
-new(obj_or_pkg, SV *elsv, int s_idx)
+new(obj_or_pkg, SV *elsv)
   SV *obj_or_pkg
  INIT:
   HV *pkg = NULL;
@@ -360,15 +368,9 @@ new(obj_or_pkg, SV *elsv, int s_idx)
         croak("Package %s does not derive from %s", SvPV_nolen(obj_or_pkg), s_ca);
   } else
     croak("new: first arg must be package name or blessed object");
-  if ( !check_section(e->rdr, s_idx) ) {
-    my_warn("cannot create Cubin::Attrs for %s section %d\n", e->fname.c_str(), s_idx);
-    ST(0) = &PL_sv_undef;
-    XSRETURN(1);
-  } else {
-   // make new CAttrs
-   auto res = new CAttrs(e, s_idx);
-   DWARF_TIE(ca_magic_vt, s_ca_pkg, res)
- }
+  // make new CAttrs
+  auto res = new CAttrs(e);
+  DWARF_TIE(ca_magic_vt, s_ca_pkg, res)
 
 SV *
 try(SV *self, int t_idx)
@@ -380,11 +382,11 @@ try(SV *self, int t_idx)
   RETVAL
 
 int
-read(SV *self)
+read(SV *self, int idx)
  INIT:
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
-  RETVAL = d->read();
+  RETVAL = d->read(idx);
  OUTPUT:
   RETVAL
 

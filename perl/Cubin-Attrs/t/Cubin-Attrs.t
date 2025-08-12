@@ -17,9 +17,9 @@ my $fname = '/home/redp/disc/src/cuda-ptx/src/denvdis/test/cv/libcvcuda.so.0.15.
 my $e = Elf::Reader->new($fname);
 ok( defined($e), 'elf load');
 
-my $fb = Cubin::Attrs->new($e, 6);
+my $fb = Cubin::Attrs->new($e);
 ok( defined($fb), 'Cubin::Attrs');
-ok( $fb->read(), 'read attrs');
+ok( $fb->read(6), 'read attrs');
 ok( 3 == $fb->params_cnt(), 'params count');
 ok( 10 == $fb->count(), 'count' );
 

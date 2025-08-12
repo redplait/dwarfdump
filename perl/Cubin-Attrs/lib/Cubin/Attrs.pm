@@ -49,10 +49,10 @@ Cubin::Attrs - Perl extension for reading/parsing/patching attributes section of
   use Cubin::Attrs;
   # read elf
   my $e = Elf::Reader->new($fname);
-  # make cubin attrs object - here in section 6
-  my $fb = Cubin::Attrs->new($e, 6);
-  # and finally read
-  $fb->read();
+  # make cubin attrs object
+  my $fb = Cubin::Attrs->new($e);
+  # and finally read here section 6
+  $fb->read(6);
 
 =head1 DESCRIPTION
 
