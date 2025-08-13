@@ -72,7 +72,7 @@ struct CAttrs {
   T read(const CAttr &a) {
    auto sec = m_e->rdr->sections[s_idx];
    const char *data = sec->get_data() + 2 + a.offset;
-   if ( 4 == a.form ) data += 4;
+   if ( 4 == a.form ) data += 2;
    return *(T *)data;
   }
   // write-patch methods
@@ -90,7 +90,7 @@ struct CAttrs {
     if ( !check_wf() ) return false;
     auto sec = m_e->rdr->sections[s_idx];
     auto off = sec->get_offset() + 2 + a.offset;
-    if ( 4 == a.form ) off += 4;
+    if ( 4 == a.form ) off += 2;
     fseek(m_wf, off, SEEK_SET);
     return 1 == fwrite(&value, sizeof(value), 1, m_wf);
   }
@@ -109,6 +109,7 @@ struct CAttrs {
     if ( attr.len == 8 && sizeof(unsigned long) == 8 && write(attr, v) ) return &PL_sv_yes;
     return &PL_sv_no;
   }
+  SV *patch_addr(int idx, int a_idx, U32 off);
 };
 
 SV *CAttrs::fetch_cb(int idx) {
@@ -161,10 +162,36 @@ SV *CAttrs::addr_list(const CAttr &a)
   return newRV_noinc((SV*)av);
 }
 
+SV *CAttrs::patch_addr(int idx, int a_idx, U32 off_v)
+{
+  // check idx
+  if ( idx < 0 || idx >= m_attrs.size() ) {
+    my_warn("patch_addr: invalid index %d\n", idx);
+    return &PL_sv_undef;
+  }
+  auto &attr = m_attrs[idx];
+  if ( !is_addr_list(attr.attr) ) {
+    my_warn("patch_addr: bad index %d\n", idx);
+    return &PL_sv_no;
+  }
+  // check offset
+  auto addr_size = attr.len / 4;
+  if ( a_idx < 0 || a_idx >= addr_size ) {
+    my_warn("patch_addr: bad a_index %d\n", idx);
+    return &PL_sv_no;
+  }
+  // ok, lets patch
+  if ( !check_wf() ) return &PL_sv_undef;
+  auto sec = m_e->rdr->sections[s_idx];
+  auto off = sec->get_offset() + 4 + attr.offset + sizeof(U32) * a_idx;
+  fseek(m_wf, off, SEEK_SET);
+  return 1 == fwrite(&off_v, sizeof(off_v), 1, m_wf) ? &PL_sv_yes : &PL_sv_no;
+}
+
 SV *CAttrs::get_value(int idx) {
   // check idx
   if ( idx < 0 || idx >= m_attrs.size() ) {
-    my_warn("invalid index %d\n", idx);
+    my_warn("get_value: invalid index %d\n", idx);
     return &PL_sv_undef;
   }
   auto &attr = m_attrs[idx];
@@ -438,6 +465,14 @@ patch(SV *self, int idx, unsigned long v)
  OUTPUT:
   RETVAL
 
+SV *
+patch_addr(SV *self, int idx, int a_idx, U32 v)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->patch_addr(idx, a_idx, v);
+ OUTPUT:
+  RETVAL
 
 UV
 params_cnt(SV *self)
