@@ -18,7 +18,7 @@ struct cb_param {
 struct CAttr {
   ptrdiff_t offset;
   size_t len = 0;
-  char attr;
+  char attr, form;
 };
 
 static int is_addr_list(char attr) {
@@ -72,6 +72,7 @@ struct CAttrs {
   T read(const CAttr &a) {
    auto sec = m_e->rdr->sections[s_idx];
    const char *data = sec->get_data() + 2 + a.offset;
+   if ( 4 == a.form ) data += 4;
    return *(T *)data;
   }
   // write-patch methods
@@ -89,6 +90,7 @@ struct CAttrs {
     if ( !check_wf() ) return false;
     auto sec = m_e->rdr->sections[s_idx];
     auto off = sec->get_offset() + 2 + a.offset;
+    if ( 4 == a.form ) off += 4;
     fseek(m_wf, off, SEEK_SET);
     return 1 == fwrite(&value, sizeof(value), 1, m_wf);
   }
@@ -128,6 +130,7 @@ SV *CAttrs::fetch(const CAttr &a, int idx)
   HV *hv = newHV();
   hv_store(hv, "id", 2, newSViv(idx), 0);
   hv_store(hv, "attr", 4, newSViv(a.attr), 0);
+  hv_store(hv, "form", 4, newSViv(a.form), 0);
   hv_store(hv, "off", 3, newSVuv(a.offset), 0);
   hv_store(hv, "len", 3, newSVuv(a.len), 0);
   return newRV_noinc((SV*)hv);
@@ -225,19 +228,19 @@ int CAttrs::read(int idx)
     switch (format)
     {
       case 1:
-        m_attrs.push_back( { data - start, 0, attr });
+        m_attrs.push_back( { data - start, 0, attr, format });
         data += 2;
         // check align
         if ( (data - start) & 0x3 ) data += 4 - ((data - start) & 0x3);
         break;
       case 2:
-        m_attrs.push_back( { data - start, 1, attr });
+        m_attrs.push_back( { data - start, 1, attr, format });
         data += 3;
         // check align
         if ( (data - start) & 0x1 ) data++;
        break;
       case 3:
-        m_attrs.push_back( { data - start, 2, attr });
+        m_attrs.push_back( { data - start, 2, attr, format });
         data += 4;
        break;
      case 4:
@@ -274,7 +277,7 @@ int CAttrs::read(int idx)
           }
         }
         if ( !skip )
-          m_attrs.push_back( { data - start, a_len, attr } );
+          m_attrs.push_back( { data - start, a_len, attr, format } );
         data += 4 + a_len;
        break;
      default:
