@@ -110,6 +110,7 @@ struct CAttrs {
     return &PL_sv_no;
   }
   SV *patch_addr(int idx, int a_idx, U32 off);
+  SV *patch_addr(int idx, AV *);
 };
 
 SV *CAttrs::fetch_cb(int idx) {
@@ -180,12 +181,45 @@ SV *CAttrs::patch_addr(int idx, int a_idx, U32 off_v)
     my_warn("patch_addr: bad a_index %d\n", idx);
     return &PL_sv_no;
   }
-  // ok, lets patch
+  // lets patch
   if ( !check_wf() ) return &PL_sv_undef;
   auto sec = m_e->rdr->sections[s_idx];
   auto off = sec->get_offset() + 4 + attr.offset + sizeof(U32) * a_idx;
   fseek(m_wf, off, SEEK_SET);
   return 1 == fwrite(&off_v, sizeof(off_v), 1, m_wf) ? &PL_sv_yes : &PL_sv_no;
+}
+
+SV *CAttrs::patch_addr(int idx, AV *av)
+{
+  // check idx
+  if ( idx < 0 || idx >= m_attrs.size() ) {
+    my_warn("patch_alist: invalid index %d\n", idx);
+    return &PL_sv_undef;
+  }
+  auto &attr = m_attrs[idx];
+  if ( !is_addr_list(attr.attr) ) {
+    my_warn("patch_alist: bad index %d\n", idx);
+    return &PL_sv_no;
+  }
+  auto addr_size = attr.len / 4;
+  if ( addr_size != av_len(av) + 1 ) {
+    my_warn("patch_alist: size %d array len %d\n", addr_size, av_len(av));
+    return &PL_sv_no;
+  }
+  // lets patch
+  if ( !check_wf() ) return &PL_sv_undef;
+  auto sec = m_e->rdr->sections[s_idx];
+  auto off = sec->get_offset() + 4 + attr.offset;
+  fseek(m_wf, off, SEEK_SET);
+  for (int i = 0; i <= av_len(av); i++) {
+    SV** elem = av_fetch(av, i, 0);
+    U32 ov = SvIV(*elem);
+    if ( 1 == fwrite(&ov, sizeof(ov), 1, m_wf) ) {
+      my_warn("patch_alist: cannot write item %d\n", i);
+      return &PL_sv_no;
+    }
+  }
+  return &PL_sv_yes;
 }
 
 SV *CAttrs::get_value(int idx) {
@@ -471,6 +505,21 @@ patch_addr(SV *self, int idx, int a_idx, U32 v)
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
   RETVAL = d->patch_addr(idx, a_idx, v);
+ OUTPUT:
+  RETVAL
+
+SV *
+patch_alist(SV *self, int idx, SV *ar)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  AV* array;
+ CODE:
+  // Check if it's a valid array reference
+  if (!SvROK(ar) || SvTYPE(SvRV(ar)) != SVt_PVAV) {
+    croak("patch_alist: expected an ARRAY reference");
+  }
+  array = (AV*) SvRV(ar); // Dereference the SV to get the AV*
+  RETVAL = d->patch_addr(idx, array);
  OUTPUT:
   RETVAL
 
