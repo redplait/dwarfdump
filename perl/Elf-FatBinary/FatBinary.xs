@@ -7,6 +7,7 @@
 #include "elfio/elfio.hpp"
 #include "../elf.inc"
 #include <unordered_map>
+#include <zstd.h>
 
 // ripped from https://github.com/chei90/RemoteRendering/blob/master/inc/fatBinaryCtl.h
 #define FATBINC_MAGIC   0x466243B1
@@ -54,6 +55,7 @@ typedef enum {
 #define FATBIN_FLAG_OPT_MASK  0x0000000000000f00LL /* optimization level */
 #define FATBIN_FLAG_COMPRESS  0x0000000000001000LL
 #define FATBIN_FLAG_COMPRESS2 0x0000000000002000LL
+#define FATBIN_FLAG_ZCOMPRESS 0x0000000000008000LL
 
 struct  __attribute__((__packed__)) fat_text_header
 {
@@ -105,8 +107,11 @@ class CFatBin {
    FBItems m_map;
    int _extract(const FBItems::iterator &, const char *, FILE *);
    int _replace(ptrdiff_t, const fat_text_header&, FILE *);
+   inline bool z_compressed(const fat_text_header &ft) const {
+     return ft.flags & FATBIN_FLAG_ZCOMPRESS;
+   }
    inline bool compressed(const fat_text_header &ft) const {
-     return ft.flags & FATBIN_FLAG_COMPRESS || ft.flags & FATBIN_FLAG_COMPRESS2;
+     return ft.flags & FATBIN_FLAG_COMPRESS || ft.flags & FATBIN_FLAG_COMPRESS2 || z_compressed(ft);
    }
    // from https://zhuanlan.zhihu.com/p/29424681490
    size_t decompress(const uint8_t *input, size_t input_size, uint8_t *output, size_t output_size);
@@ -252,9 +257,9 @@ int CFatBin::open()
     }
     const char *next_fb = (const char *)(fb_hdr + 1) + fb_hdr->fatSize;
     const fat_text_header *fth = (const fat_text_header *)((const char *)fb_hdr + fb_hdr->headerSize);
-    while ( (const char *)(fth + 1) < next_fb )
+    while ( (const char *)fth + fth->header_size < next_fb )
     {
-      if ( fth->header_size != sizeof(fat_text_header) ) break;
+      if ( fth->header_size < sizeof(fat_text_header) ) break;
       // keep all fth data in single line for easy grepping
       //printf("[%d] kind %X flag %lX header_size %X size %lX arch %X major %d minor %d",
       //    idx, fth->kind, fth->flags, fth->header_size,
@@ -262,7 +267,7 @@ int CFatBin::open()
       //);
       m_map[idx] = { (const char *)fth - data, *fth };
       idx++;
-      fth = (const fat_text_header *)((const char *)(fth + 1) + fth->size);
+      fth = (const fat_text_header *)((const char *)fth + fth->header_size + fth->size);
     }
     fb_hdr = (const fatBinaryHeader *)next_fb;
   }
@@ -371,7 +376,12 @@ int CFatBin::_extract(const FBItems::iterator &ii, const char *of, FILE *ofp)
       my_warn("cannot alloc %lX bytes for decompressed buffer\n", ii->second.second.decompressed_size);
       return 0;
     }
-    int res = decompress((const uint8_t*)data, ii->second.second.compressed_size, out_buf, ii->second.second.decompressed_size);
+    int res = 0;
+    if ( z_compressed(ii->second.second) ) {
+      auto zres = ZSTD_decompress(out_buf, ii->second.second.decompressed_size, (const uint8_t*)data, ii->second.second.compressed_size);
+      res = zres == ii->second.second.decompressed_size;
+    } else
+      res = decompress((const uint8_t*)data, ii->second.second.compressed_size, out_buf, ii->second.second.decompressed_size);
     if ( !res ) {
       my_warn("cannot decompress\n");
       Safefree(out_buf);
