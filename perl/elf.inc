@@ -49,3 +49,25 @@ static T *magic_tied(SV *obj, int die, MGVTBL *tab)
     }
   return NULL;
 }
+
+template <typename T>
+static T *get_magic_ext(SV *obj, MGVTBL *tab)
+{
+  SV *sv;
+  MAGIC* magic;
+
+  if (!sv_isobject(obj)) {
+     if (die)
+        croak("Not an object");
+        return NULL;
+  }
+  sv= SvRV(obj);
+  if (SvMAGICAL(sv)) {
+     /* Iterate magic attached to this scalar, looking for one with our vtable */
+     for (magic= SvMAGIC(sv); magic; magic = magic->mg_moremagic)
+        if (magic->mg_type == PERL_MAGIC_ext && magic->mg_virtual == tab)
+          /* If found, the mg_ptr points to the fields structure. */
+            return (T*) magic->mg_ptr;
+    }
+  return NULL;
+}
