@@ -326,6 +326,23 @@ sub simple_symbols
   return $res;
 }
 
+sub read_symbols
+{
+  my $e = shift;
+  my $s = $e->secs();
+  my $sec;
+  foreach ( @$s ) {
+    if ( $_->[2] == SHT_SYMTAB ) {
+      $sec = $_->[0];
+      last;
+    }
+  }
+  return if ( !defined($sec) );
+  my $syms = $e->syms($sec);
+  return if ( !defined $syms );
+  $syms;
+}
+
 # the same as above but read System.map
 # first map is key - name, value - [ address, 0 bcs System.map don't provide sizes]
 # second map is key - addr, value - [ name, type where tT is STT_FUNC and STT_OBJECT for anything else]
@@ -571,6 +588,7 @@ DT_HIOS
 DT_LOPROC
 DT_HIPROC
 get_dtag_name
+read_symbols
 simple_symbols
 parse_system_map
 parse_system_mapff64
