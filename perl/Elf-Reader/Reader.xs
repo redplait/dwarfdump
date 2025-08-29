@@ -1307,11 +1307,10 @@ FETCH(self, key)
  PREINIT:
   U8 gimme = GIMME_V;
  INIT:
-  SV *str;
   auto *e = Elf_get_tmagic<IElf>(self, 1, &Elf_magic_sec);
  PPCODE:
   if ( key >= e->rdr->sections.size() )
-    str = &PL_sv_undef;
+    ST(0) = &PL_sv_undef;
   else {
     auto s = e->rdr->sections[key];
     auto name = s->get_name();
