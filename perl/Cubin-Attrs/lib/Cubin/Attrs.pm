@@ -41,7 +41,7 @@ __END__
 
 =head1 NAME
 
-Cubin::Attrs - Perl extension for reading/parsing/patching attributes section of cubin files
+ - Perl extension for reading/parsing/patching attributes section of cubin files
 
 =head1 SYNOPSIS
 
@@ -56,11 +56,91 @@ Cubin::Attrs - Perl extension for reading/parsing/patching attributes section of
 
 =head1 DESCRIPTION
 
-Stub documentation for Cubin::Attrs, created by h2xs. It looks like the
-author of the extension was negligent enough to leave the stub
-unedited.
+There are 3 groups of methods
 
-Blah blah blah.
+=over
+
+=item 1) selecting section and reading
+
+=item 2) extracting attributes
+
+=item 3) patching attributes
+
+=back
+
+=head3 Reading
+
+To read attributes section you should use 'read' method
+Also if you know only index of section with code you can try to find correspoding attributes section with method $fb->try(code_index)
+
+=head3 Extracting attributes
+
+First of all, it should be noted that the attribute format is not officially documented. So I made some reverse engeneering of them.
+Each attribute can be in 4 forms:
+
+=over
+
+=item 1) just boolean TRUE
+
+=item 2) 1-byte value
+
+=item 3) 2-byte value, presumable 16bit WORD
+
+=item 4) attributes with arbitrary length
+
+=back
+
+So after calling 'read' method you have list of attributes - size can be obtained with method 'count' and Cubin::Attrs is tiead array
+of them - so you can extract attribute by index with just $fb->[index], result is ref to hash
+
+=over
+
+=item id) index of this attribute
+
+=item attr) tag of attribute (exported as EIATTR_XXX)
+
+=item form) - form of this attribute
+
+=item off) - offset of this attribute
+
+=item len) - length of this attribute
+
+=back
+
+To extract value of specific attribute use methos $fb->value(index).
+To filter specific tags you can use method $fb->grep(tag) - results is ref to array with the same hashes as obtainded with indexing attributes
+
+Some attributes (XXX_INSTR_OFFSETS) are lists of offsets - in this case result is ref to array with offsets
+
+Also there is special processing of CB params - you can extract size of params with method 'params_cnt" and param itself with
+method $fn->param(param_index), result is ref to hash
+
+=over
+
+=item off) offset of param
+
+=item size) size of param
+
+=item ord) ordinal of param
+
+=back
+
+=head3 Patching attributes
+
+Unfortunately you can patch attributes only in-place - this means that for example size of patched lists of offsets must be the same as original.
+
+Also you can patch only limited set of attribures with methods:
+
+=over
+
+=item patch(index, value) to patch byte/word/dword values
+
+=item patch_addr(index, offset_index, offset_value) to replace offset with index offset_index to new offset_value
+
+=item patch_alist(index, \@offset_array) to fully replace array of offsets
+
+=back
+
 
 =head2 EXPORT
 
