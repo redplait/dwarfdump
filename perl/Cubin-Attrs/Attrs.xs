@@ -21,6 +21,14 @@ struct CAttr {
   char attr, form;
 };
 
+static SV *new_enum_dualvar(pTHX_ IV ival, SV *name) {
+        SvUPGRADE(name, SVt_PVNV);
+        SvIV_set(name, ival);
+        SvIOK_on(name);
+        SvREADONLY_on(name);
+        return name;
+}
+
 static int is_addr_list(char attr) {
   switch(attr) {
     case 0x28: // EIATTR_COOP_GROUP_INSTR_OFFSETS
@@ -587,6 +595,28 @@ grep(SV *self, IV key)
   }
 
 BOOT:
+ struct ei {
+   int val;
+   const char *name;
+ };
+ static ei s_ei[] = {
+#include "eiattrs.inc"
+};
  s_ca_pkg = gv_stashpv(s_ca, 0);
  if ( !s_ca_pkg )
     croak("Package %s does not exists", s_ca);
+ // export enums from eiattrs.inc
+ HV *stash = gv_stashpvn(s_ca, 12, 1);
+ for ( auto en: s_ei ) {
+   auto name = en.name;
+   auto len = strlen(name);
+   auto sv = newSVpvn_share(name, len, 0);
+   newCONSTSUB(stash, en.name, new_enum_dualvar(aTHX_ en.val, sv));
+   // and second - without EIATTR_ prefix
+   if ( len > 7 ) {
+     name += 7;
+     len -= 7;
+     sv = newSVpvn_share(name, len, 0);
+     newCONSTSUB(stash, name, new_enum_dualvar(aTHX_ en.val, sv));
+   }
+ }

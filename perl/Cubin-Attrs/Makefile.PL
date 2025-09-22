@@ -1,6 +1,18 @@
 use 5.030000;
 use ExtUtils::MakeMaker;
 use Config;
+
+# download eiattrs.inc
+use LWP::Simple;
+
+# download couple of files
+my $e_inc = 'eiattrs.inc';
+if ( !-f $e_inc ) {
+  my $url = 'https://raw.githubusercontent.com/redplait/denvdis/refs/heads/master/test/eiattrs.inc';
+  my $status = getstore($url, $e_inc);
+  die("cannot loaf $e_inc") if ( !is_success($status) );
+}
+
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 WriteMakefile(
