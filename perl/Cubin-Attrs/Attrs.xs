@@ -76,8 +76,11 @@ struct CAttrs {
   SV *try_attr(int t_idx);
   SV *try_rels(int t_idx, ELFIO::Elf_Word);
   bool patch_rels(int rs_idx, int r_idx, int reloc_type);
+  bool patch_relsif(int rs_idx, int r_idx, int reloc_type, int old_type);
   template <typename T>
   bool _patch_rels(int rs_idx, int r_idx, int reloc_type);
+  template <typename T>
+  bool _patch_relsif(int rs_idx, int r_idx, int reloc_type, int old_type);
   inline void add_cparam(ELFIO::Elf_Word ordinal, unsigned short off, unsigned short size) {
     params.push_back( { ordinal, size, off } );
   }
@@ -437,6 +440,54 @@ bool CAttrs::patch_rels(int rs_idx, int r_idx, int reloc_type)
     return false;
 }
 
+static bool patch_infoif(ELFIO::Elf_Word *r, int reloc_type, int old_reloc)
+{
+  auto old = ELF32_R_TYPE(*r);
+  if ( old != old_reloc ) return false;
+  auto sym = ELF32_R_SYM(*r);
+  *r = ELF32_R_INFO(sym, reloc_type);
+  return true;
+}
+
+static bool patch_infoif(ELFIO::Elf_Xword *r, int reloc_type, int old_reloc)
+{
+  auto old = ELF64_R_TYPE(*r);
+  if ( old != old_reloc ) return false;
+  auto sym = ELF64_R_SYM(*r);
+  *r = ELF64_R_INFO(sym, reloc_type);
+  return true;
+}
+
+
+template <typename T>
+bool CAttrs::_patch_relsif(int rs_idx, int r_idx, int reloc_type, int old_reloc)
+{
+  T rel;
+  if ( !read_rel(rel, rs_idx, r_idx) ) return false;
+  // patch info
+  if ( !patch_infoif(&rel.r_info, reloc_type, old_reloc) ) return false;
+  return write_rel(rel, rs_idx, r_idx);
+}
+
+bool CAttrs::patch_relsif(int rs_idx, int r_idx, int reloc_type, int old_type) {
+  // check if rs_idx is valid section
+  if ( rs_idx < 0 || rs_idx >= m_e->rdr->sections.size() ) return false;
+  auto s = m_e->rdr->sections[rs_idx];
+  auto st = s->get_type();
+  if ( st == ELFIO::SHT_REL ) {
+    if ( m_e->rdr->get_class() == ELFIO::ELFCLASS32 )
+      return _patch_relsif<ELFIO::Elf32_Rel>(rs_idx, r_idx, reloc_type, old_type);
+    else
+      return _patch_relsif<ELFIO::Elf64_Rel>(rs_idx, r_idx, reloc_type, old_type);
+  } else if ( st == ELFIO::SHT_RELA ) {
+    if ( m_e->rdr->get_class() == ELFIO::ELFCLASS32 )
+      return _patch_relsif<ELFIO::Elf32_Rela>(rs_idx, r_idx, reloc_type, old_type);
+    else
+      return _patch_relsif<ELFIO::Elf64_Rela>(rs_idx, r_idx, reloc_type, old_type);
+  } else
+    return false;
+}
+
 // try to find rel section linked with t_idx (info == t_idx)
 SV *CAttrs::try_rels(int t_idx, ELFIO::Elf_Word what)
 {
@@ -554,6 +605,15 @@ patch_ft(SV *self, int s_idx, int r_idx, int reloc_type)
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
   RETVAL = d->patch_rels(s_idx, r_idx, reloc_type) ? &PL_sv_yes : &PL_sv_no;
+ OUTPUT:
+  RETVAL
+
+SV *
+patch_ftif(SV *self, int s_idx, int r_idx, int reloc_type, int old_reloc)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->patch_relsif(s_idx, r_idx, reloc_type, old_reloc) ? &PL_sv_yes : &PL_sv_no;
  OUTPUT:
   RETVAL
 
