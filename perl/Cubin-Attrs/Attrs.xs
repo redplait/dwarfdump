@@ -73,6 +73,7 @@ struct CAttrs {
   SV *get_value(int idx);
   SV *addr_list(const CAttr &a);
   SV *try_attr(int t_idx);
+  SV *try_rels(int t_idx, ELFIO::Elf_Word);
   inline void add_cparam(ELFIO::Elf_Word ordinal, unsigned short off, unsigned short size) {
     params.push_back( { ordinal, size, off } );
   }
@@ -358,7 +359,7 @@ int CAttrs::read(int idx)
   return !m_attrs.empty();
 }
 
-
+// try to find attribs section linked with t_idx (info == t_idx)
 SV *CAttrs::try_attr(int t_idx)
 {
   for ( int idx = 0; idx < m_e->rdr->sections.size(); idx++ )
@@ -369,6 +370,19 @@ SV *CAttrs::try_attr(int t_idx)
     if ( (st == 0x70000000) || (st == 0x70000083) ) {
       if ( s->get_info() == t_idx ) return newSViv(idx);
     }
+  }
+  return &PL_sv_undef;
+}
+
+// try to find rel section linked with t_idx (info == t_idx)
+SV *CAttrs::try_rels(int t_idx, ELFIO::Elf_Word what)
+{
+  for ( int idx = 0; idx < m_e->rdr->sections.size(); idx++ )
+  {
+    auto s = m_e->rdr->sections[idx];
+    auto st = s->get_type();
+    if ( st != what ) continue;
+    if ( s->get_info() == t_idx ) return newSViv(idx);
   }
   return &PL_sv_undef;
 }
@@ -452,6 +466,25 @@ try(SV *self, int t_idx)
   RETVAL = d->try_attr(t_idx);
  OUTPUT:
   RETVAL
+
+SV *
+try_rel(SV *self, int t_idx)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->try_rels(t_idx, ELFIO::SHT_REL);
+ OUTPUT:
+  RETVAL
+
+SV *
+try_rela(SV *self, int t_idx)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->try_rels(t_idx, ELFIO::SHT_RELA);
+ OUTPUT:
+  RETVAL
+
 
 int
 read(SV *self, int idx)
