@@ -7,6 +7,7 @@
 #include "elfio/elfio.hpp"
 #include "../elf.inc"
 #include <vector>
+#include <list>
 
 // const bank params
 struct cb_param {
@@ -19,6 +20,13 @@ struct CAttr {
   ptrdiff_t offset;
   size_t len = 0;
   char attr, form;
+};
+
+// indirect branch items
+struct ib_item {
+  ptrdiff_t offset;
+  uint32_t addr;
+  std::list<uint32_t> labels;
 };
 
 static SV *new_enum_dualvar(pTHX_ IV ival, SV *name) {
@@ -59,12 +67,15 @@ struct CAttrs {
   std::vector<cb_param> params;
   unsigned short cb_size = 0;
   unsigned short cb_offset = 0;
+  // indirect branches
+  std::unordered_map<uint32_t, ib_item> indirect_branches;
   // write file handle
   FILE *m_wf = nullptr;
   // methods
   void clear() {
     m_attrs.clear();
     params.clear();
+    indirect_branches.clear();
     cb_size = cb_offset = 0;
   }
   int read(int idx);
@@ -351,6 +362,31 @@ int CAttrs::read(int idx)
             unsigned short size = *(unsigned short *)kp;
             cb_size = size;
             cb_offset = off;
+          }
+        } else if ( attr == 0x34 ) // EIATTR_INDIRECT_BRANCH_TARGETS
+        {
+          skip = true;
+          if ( a_len < 0xc ) my_warn("invalid INDIRECT_BRANCH_TARGETS size %X\n", a_len);
+          else { // ripped from CElf::parse_branch_targets
+            auto end = kp + a_len;
+            for ( auto curr = kp; curr < end; ) {
+              ib_item ib;
+              // record like
+              // 0 - 32bit address
+              // 4 & 6 - unknown 16bit words
+              // 8 - 32bit count
+              // 0xc - ... - list of 32bit labels, count items
+              // so minimal size should be 0xc
+              if ( end - kp < 0xc ) break;
+              ib.addr = *(uint32_t *)(curr);
+              uint32_t cnt = *(uint32_t *)(curr + 0x8);
+              ib.offset = curr - start;
+              curr += 0xc;
+              // read labels
+              for ( uint32_t i = 0; i < cnt && curr < end; i++, curr += 4 ) ib.labels.push_back( *(uint32_t *)(curr) );
+              // insert this item
+              indirect_branches[ib.addr] = std::move(ib);
+            }
           }
         } else if ( attr == 0x17 ) // EIATTR_KPARAM_INFO
         {
