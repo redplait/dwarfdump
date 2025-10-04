@@ -84,6 +84,7 @@ struct CAttrs {
   SV *fetch_cb(int idx);
   SV *get_value(int idx);
   SV *addr_list(const CAttr &a);
+  SV *ibt_hash();
   SV *try_attr(int t_idx);
   SV *try_rels(int t_idx, ELFIO::Elf_Word);
   bool patch_rels(int rs_idx, int r_idx, int reloc_type);
@@ -183,6 +184,27 @@ SV *CAttrs::fetch(const CAttr &a, int idx)
   return newRV_noinc((SV*)hv);
 }
 
+SV *CAttrs::ibt_hash() {
+  if ( indirect_branches.empty() ) return &PL_sv_undef;
+  HV *hv = newHV();
+  for ( std::unordered_map<uint32_t, ib_item>::const_iterator bi = indirect_branches.begin(); bi != indirect_branches.end(); ++bi )
+  {
+    if ( bi->second.labels.empty() )
+     hv_store_ent(hv, newSVuv(bi->first), &PL_sv_undef, 0);
+    else if ( 1 == bi->second.labels.size() ) {
+     auto first = bi->second.labels.front();
+     hv_store_ent(hv, newSVuv(bi->first), newSVuv(first), 0);
+    } else {
+      // value - ref to array
+      AV *av = newAV();
+      for ( auto al: bi->second.labels )
+        av_push(av, newSVuv(al));
+      hv_store_ent(hv, newSVuv(bi->first), newRV_noinc((SV*)av), 0);
+    }
+  }
+  return newRV_noinc((SV*)hv);
+}
+
 SV *CAttrs::fetch(int idx) {
   // check idx
   if ( idx < 0 || idx >= m_attrs.size() ) {
@@ -274,6 +296,8 @@ SV *CAttrs::get_value(int idx) {
   }
   auto &attr = m_attrs[idx];
   if ( !attr.len ) return &PL_sv_yes;
+  if ( attr.attr == 0x34 ) // EIATTR_INDIRECT_BRANCH_TARGETS
+    return ibt_hash();
   if ( is_addr_list(attr.attr) ) return addr_list(attr);
   if ( 1 == attr.len )
     return newSViv( read<unsigned char>(attr) );
@@ -365,7 +389,6 @@ int CAttrs::read(int idx)
           }
         } else if ( attr == 0x34 ) // EIATTR_INDIRECT_BRANCH_TARGETS
         {
-          skip = true;
           if ( a_len < 0xc ) my_warn("invalid INDIRECT_BRANCH_TARGETS size %X\n", a_len);
           else { // ripped from CElf::parse_branch_targets
             auto end = kp + a_len;
