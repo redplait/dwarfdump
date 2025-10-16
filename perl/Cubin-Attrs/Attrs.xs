@@ -8,6 +8,7 @@
 #include "../elf.inc"
 #include <vector>
 #include <list>
+#include <unordered_set>
 
 // const bank params
 struct cb_param {
@@ -603,7 +604,7 @@ static U32 my_len(pTHX_ SV *sv, MAGIC* mg)
       }
   }
   if ( !d ) {
-    my_warn("Cubin::Attrs: my_len %d\n", SvTYPE(sv));
+    my_warn("Cubin::Attrs: my_type %d\n", SvTYPE(sv));
     return 0;
   }
   return (U32)d->m_attrs.size()-1;
@@ -782,6 +783,56 @@ cb_off(SV *self)
   RETVAL
 
 void
+grep_list(SV *self,SV *ar)
+  U8 gimme = GIMME_V;
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  AV* array;
+  std::unordered_set<int> keys;
+  std::vector<std::pair<const CAttr*, int> > res;
+ CODE:
+  // Check if it's a valid array reference
+  if (!SvROK(ar) || SvTYPE(SvRV(ar)) != SVt_PVAV) {
+    croak("patch_alist: expected an ARRAY reference");
+  }
+  array = (AV*) SvRV(ar); // Dereference the SV to get the AV*
+  // fill keys
+  for (int i = 0; i <= av_len(array); i++) {
+    SV** elem = av_fetch(array, i, 0);
+    keys.insert(SvIV(*elem));
+  }
+  // check if list if non-empty
+  if ( !keys.empty() ) {
+    for ( size_t i = 0; i < d->m_attrs.size(); i++ ) {
+      if ( keys.end() != keys.find(d->m_attrs[i].attr) ) {
+// my_warn("add %d type %x\n", int(i), d->m_attrs[i].attr);
+        res.push_back( { &d->m_attrs[i], int(i) });
+      }
+    }
+  }
+  // tail is the same as in regular grep below
+  if ( res.empty() ) {
+    if ( gimme == G_ARRAY) {
+      XSRETURN(0);
+    } else {
+      mXPUSHs(&PL_sv_undef);
+      XSRETURN(1);
+    }
+  } else {
+    if ( gimme == G_ARRAY) {
+      EXTEND(SP, res.size());
+      for ( auto &p: res )
+        mPUSHs( d->fetch(*p.first, p.second) );
+    } else {
+      AV *av = newAV();
+      for ( auto &p: res )
+        av_push(av, d->fetch(*p.first, p.second) );
+      mXPUSHs(newRV_noinc((SV*)av));
+      XSRETURN(1);
+    }
+  }
+
+void
 grep(SV *self, IV key)
   U8 gimme = GIMME_V;
  INIT:
@@ -806,8 +857,7 @@ grep(SV *self, IV key)
     if ( gimme == G_ARRAY) {
       EXTEND(SP, res.size());
       for ( auto &p: res )
-        mXPUSHs( d->fetch(*p.first, p.second) );
-      XSRETURN(res.size());
+        mPUSHs( d->fetch(*p.first, p.second) );
     } else {
       AV *av = newAV();
       for ( auto &p: res )
