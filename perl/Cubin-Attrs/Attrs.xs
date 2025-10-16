@@ -610,6 +610,24 @@ static U32 my_len(pTHX_ SV *sv, MAGIC* mg)
   return (U32)d->m_attrs.size()-1;
 }
 
+#define RET_RES   if ( res.empty() ) { \
+    if ( gimme == G_ARRAY) { XSRETURN(0); \
+    } else { mXPUSHs(&PL_sv_undef); XSRETURN(1); } \
+  } else { \
+    if ( gimme == G_ARRAY) { \
+      EXTEND(SP, res.size()); \
+      for ( auto &p: res ) \
+        mPUSHs( d->fetch(*p.first, p.second) ); \
+    } else { \
+      AV *av = newAV(); \
+      for ( auto &p: res ) \
+        av_push(av, d->fetch(*p.first, p.second) ); \
+      mXPUSHs(newRV_noinc((SV*)av)); \
+      XSRETURN(1); \
+    } \
+  }
+
+
 MODULE = Cubin::Attrs		PACKAGE = Cubin::Attrs
 
 void
@@ -811,26 +829,7 @@ grep_list(SV *self,SV *ar)
     }
   }
   // tail is the same as in regular grep below
-  if ( res.empty() ) {
-    if ( gimme == G_ARRAY) {
-      XSRETURN(0);
-    } else {
-      mXPUSHs(&PL_sv_undef);
-      XSRETURN(1);
-    }
-  } else {
-    if ( gimme == G_ARRAY) {
-      EXTEND(SP, res.size());
-      for ( auto &p: res )
-        mPUSHs( d->fetch(*p.first, p.second) );
-    } else {
-      AV *av = newAV();
-      for ( auto &p: res )
-        av_push(av, d->fetch(*p.first, p.second) );
-      mXPUSHs(newRV_noinc((SV*)av));
-      XSRETURN(1);
-    }
-  }
+  RET_RES
 
 void
 grep(SV *self, IV key)
@@ -846,26 +845,7 @@ grep(SV *self, IV key)
       res.push_back( { &d->m_attrs[i], int(i) });
     }
   }
-  if ( res.empty() ) {
-    if ( gimme == G_ARRAY) {
-      XSRETURN(0);
-    } else {
-      mXPUSHs(&PL_sv_undef);
-      XSRETURN(1);
-    }
-  } else {
-    if ( gimme == G_ARRAY) {
-      EXTEND(SP, res.size());
-      for ( auto &p: res )
-        mPUSHs( d->fetch(*p.first, p.second) );
-    } else {
-      AV *av = newAV();
-      for ( auto &p: res )
-        av_push(av, d->fetch(*p.first, p.second) );
-      mXPUSHs(newRV_noinc((SV*)av));
-      XSRETURN(1);
-    }
-  }
+  RET_RES
 
 BOOT:
  struct ei {
