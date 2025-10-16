@@ -10,7 +10,7 @@ use warnings;
 use Elf::Reader;
 use Data::Dumper;
 
-use Test::More tests => 11;
+use Test::More tests => 13;
 BEGIN { use_ok('Cubin::Attrs') };
 
 my $fname = '/home/redp/disc/src/cuda-ptx/src/denvdis/test/cv/libcvcuda.so.0.15.13.sm_70.cubin';
@@ -34,6 +34,9 @@ ok( defined($wlist), 'wlist');
 my $wl = $fb->value($id);
 ok( defined($wl), 'value');
 # print STDERR Dumper($wl);
+my @cres = $fb->collect();
+ok( defined($cres[0]), 'first collect');
+ok( !defined($cres[1]), 'second collect');
 
 #########################
 

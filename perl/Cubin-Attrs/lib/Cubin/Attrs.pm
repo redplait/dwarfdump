@@ -22,8 +22,53 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
+# collect offsets having attributes
+# arg: loaded for some section Cubin::Attrs
+# returns [ hash_of_offsets, where key is offset and value is type of attribute,
+#  hash_of_indirects where value is list of reffered to indurect branches
+sub collect
+{
+  my $ca = shift;
+  my %aoffs;
+  my @res = ( \%aoffs, undef );
+  # first check indirect branches
+  my $ibs = $ca->grep(0x34);
+  if ( defined $ibs ) {
+    my %second;
+    my $added = 0;
+    # indirect branches always only 1
+    my $ib_values = $ca->value($ibs->[0]->{'id'});
+    foreach my $iv ( @$ib_values ) {
+      while( my($addr, $op) = each %$iv ) {
+         $aoffs{$addr} = 0x34;
+         next unless defined($op); # empty
+         if ( 'ARRAY' ne ref $op ) { # single address
+           $second{$op} = $addr;
+           $added++;
+         } else { # list of addresses
+           $second{$_} = $addr foreach ( @$op );
+           $added++;
+         }
+      }
+    }
+    $res[1] = \%second if ( $added );
+  }
+  # then collect remainings offset attrs
+  my @grepped = $ca->grep_list( [0x28, 0x1c, 0x1d, 0x25, 0x31, 0x39, 0x47] );
+  if ( scalar @grepped ) {
+    foreach my $id ( @grepped ) {
+      my $value = $ca->value($id->{'id'});
+      next unless defined($value);
+      foreach my $iv ( @$value ) {
+        $aoffs{$_} = $id->{'attr'} foreach ( @$iv );
+      }
+    }
+  }
+  return wantarray ? @res : \@res;
+}
+
 our @EXPORT = qw(
-	
+ collect
 );
 
 our $VERSION = '0.01';
