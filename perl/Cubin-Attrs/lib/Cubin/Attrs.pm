@@ -22,10 +22,6 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
-# collect offsets having attributes
-# arg: loaded for some section Cubin::Attrs
-# returns [ hash_of_offsets, where key is offset and value is type of attribute,
-#  hash_of_indirects where value is list of reffered to indurect branches
 sub collect
 {
   my $ca = shift;
@@ -86,7 +82,7 @@ __END__
 
 =head1 NAME
 
- - Perl extension for reading/parsing/patching attributes section of cubin files
+ Perl extension for reading/parsing/patching attributes of cubin files
 
 =head1 SYNOPSIS
 
@@ -101,7 +97,7 @@ __END__
 
 =head1 DESCRIPTION
 
-There are 3 groups of methods
+There are 4 groups of methods
 
 =over
 
@@ -110,6 +106,8 @@ There are 3 groups of methods
 =item 2) extracting attributes
 
 =item 3) patching attributes
+
+=item 4) patching relocs
 
 =back
 
@@ -153,7 +151,10 @@ of them - so you can extract attribute by index with just $fb->[index], result i
 =back
 
 To extract value of specific attribute use methos $fb->value(index).
+
 To filter specific tags you can use method $fb->grep(tag) - results is ref to array with the same hashes as obtainded with indexing attributes
+
+To filter many tags use method $fb->grep_list([ tag1, tag2, ...])
 
 Some attributes (XXX_INSTR_OFFSETS) are lists of offsets - in this case result is ref to array with offsets
 
@@ -169,6 +170,19 @@ method $fn->param(param_index), result is ref to hash
 =item ord) ordinal of param
 
 =back
+
+Indirect branches returned as hash where key is offset of branch and value can be
+
+=over
+
+=item undef - no addresses
+
+=item scalar - single address
+
+=item ref to array if those branch has several targets
+
+=back
+
 
 =head3 Patching attributes
 
@@ -187,10 +201,30 @@ Also you can patch only limited set of attribures with methods:
 =back
 
 
+=head3 Patching relocs
+
+patch_ft($s_idx, $r_idx, $reloc_type) - fix type of reloc at index $r_idx in section with index $s_idx to type $reloc_type
+
+patch_ftif - almost the same as previous but has additional argument - old reloc type
+
+to find s_idx you can use methods try_rel/try_rela - both requires section index for which get index of appropriate relocs section
+
+
 =head2 EXPORT
 
-None by default.
+=head3 collect
 
+collects offsets having attributes
+
+arg: loaded for some section Cubin::Attrs
+
+returns couple of hashes where key is offset [
+ - hash_of_offsets, where values are type of attribute
+ - hash_of_indirects where values are list of reffered to this offset indirect branches (bcs the same offset can be
+   target from many indirect branches)
+]
+
+supports wantarray
 
 
 =head1 SEE ALSO
