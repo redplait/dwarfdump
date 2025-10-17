@@ -1309,12 +1309,13 @@ FETCH(self, key)
  INIT:
   auto *e = Elf_get_tmagic<IElf>(self, 1, &Elf_magic_sec);
  PPCODE:
-  if ( key >= e->rdr->sections.size() )
+  if ( key >= e->rdr->sections.size() ) {
     ST(0) = &PL_sv_undef;
-  else {
+    XSRETURN(1);
+  } else {
     auto s = e->rdr->sections[key];
     auto name = s->get_name();
-    // format of array:
+    // format of array for section:
     // 0 - index
     // 1 - name, string
     // 2 - type
@@ -1328,24 +1329,23 @@ FETCH(self, key)
     // 10 - offset, 64bit
     if ( gimme == G_ARRAY) {
       EXTEND(SP, 11);
-      mXPUSHi(s->get_index());
-      mXPUSHp(name.c_str(), name.size());
-      mXPUSHi(s->get_type());
-      mXPUSHi(s->get_flags());
-      mXPUSHi(s->get_info());
-      mXPUSHi(s->get_link());
-      mXPUSHi(s->get_addr_align());
-      mXPUSHi(s->get_entry_size());
-      mXPUSHu(s->get_address());
-      mXPUSHi(s->get_size());
-      mXPUSHu(s->get_offset());
-      XSRETURN(11);
+      mPUSHi(s->get_index());
+      mPUSHp(name.c_str(), name.size());
+      mPUSHi(s->get_type());
+      mPUSHi(s->get_flags());
+      mPUSHi(s->get_info());
+      mPUSHi(s->get_link());
+      mPUSHi(s->get_addr_align());
+      mPUSHi(s->get_entry_size());
+      mPUSHu(s->get_address());
+      mPUSHi(s->get_size());
+      mPUSHu(s->get_offset());
     } else {
       AV *av = fill_section(s);
       mXPUSHs(newRV_noinc((SV*)av));
+      XSRETURN(1);
     }
   }
-  XSRETURN(1);
 
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader::SegIterator
@@ -1359,9 +1359,10 @@ FETCH(self, key)
  INIT:
   auto *e = Elf_get_tmagic<IElf>(self, 1, &Elf_magic_seg);
  PPCODE:
-  if ( key >= e->rdr->segments.size() )
+  if ( key >= e->rdr->segments.size() ) {
     ST(0) = &PL_sv_undef;
-  else {
+    XSRETURN(1);
+  } else {
     auto s = e->rdr->segments[key];
     // we can return ref to array or array itself
     // see https://stackoverflow.com/questions/46719061/perl-xs-return-perl-array-from-c-array
@@ -1377,16 +1378,15 @@ FETCH(self, key)
     // 8 - offset, 64bit
     if ( gimme == G_ARRAY) {
       EXTEND(SP, 9);
-      mXPUSHi(s->get_index());
-      mXPUSHi(s->get_type());
-      mXPUSHi(s->get_flags());
-      mXPUSHi(s->get_align());
-      mXPUSHu(s->get_virtual_address());
-      mXPUSHu(s->get_physical_address());
-      mXPUSHu(s->get_file_size());
-      mXPUSHu(s->get_memory_size());
-      mXPUSHu(s->get_offset());
-      XSRETURN(9);
+      mPUSHi(s->get_index());
+      mPUSHi(s->get_type());
+      mPUSHi(s->get_flags());
+      mPUSHi(s->get_align());
+      mPUSHu(s->get_virtual_address());
+      mPUSHu(s->get_physical_address());
+      mPUSHu(s->get_file_size());
+      mPUSHu(s->get_memory_size());
+      mPUSHu(s->get_offset());
     } else {
       AV *av = newAV();
       mXPUSHs(newRV_noinc((SV*)av));
@@ -1399,9 +1399,9 @@ FETCH(self, key)
       av_push(av, newSVuv( s->get_file_size() ));
       av_push(av, newSVuv( s->get_memory_size() ));
       av_push(av, newSVuv( s->get_offset() ));
+      XSRETURN(1);
     }
   }
-  XSRETURN(1);
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader::SymIterator
 
@@ -1424,10 +1424,11 @@ FETCH(self, key)
     unsigned char type    = 0;
     ELFIO::Elf_Half      section = 0;
     unsigned char other   = 0;
-    if ( !s->ssa.get_symbol(key, name, value, size, bind, type, section, other) )
+    if ( !s->ssa.get_symbol(key, name, value, size, bind, type, section, other) ) {
       ST(0) = &PL_sv_undef;
-    else {
-      // format of array
+      XSRETURN(1);
+    } else {
+      // format of array for symbols
       // 0 - name
       // 1 - value, 64bit
       // 2 - size
@@ -1437,14 +1438,13 @@ FETCH(self, key)
       // 6 - other
       if ( gimme == G_ARRAY) {
         EXTEND(SP, 7);
-        mXPUSHp(name.c_str(), name.size());
-        mXPUSHu(value);
-        mXPUSHi(size);
-        mXPUSHi(bind);
-        mXPUSHi(type);
-        mXPUSHi(section);
-        mXPUSHi(other);
-        XSRETURN(7);
+        mPUSHp(name.c_str(), name.size());
+        mPUSHu(value);
+        mPUSHi(size);
+        mPUSHi(bind);
+        mPUSHi(type);
+        mPUSHi(section);
+        mPUSHi(other);
       } else {
         // return ref to array
         AV *av = newAV();
@@ -1456,10 +1456,10 @@ FETCH(self, key)
         av_push(av, newSViv(type));
         av_push(av, newSViv(section));
         av_push(av, newSViv(other));
+        XSRETURN(1);
       }
     }
   }
-  XSRETURN(1);
 
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader::DynIterator
@@ -1479,19 +1479,19 @@ FETCH(self, key)
     std::string name;
     ELFIO::Elf_Xword tag = 0,
       value = 0;
-    if ( !s->dsa.get_entry(key, tag, value, name) )
+    if ( !s->dsa.get_entry(key, tag, value, name) ) {
       ST(0) = &PL_sv_undef;
-    else {
+      XSRETURN(1);
+    } else {
       // format of array
       // 0 - name
       // 1 - tag
       // 2 - value
       if ( gimme == G_ARRAY) {
         EXTEND(SP, 3);
-        mXPUSHp(name.c_str(), name.size());
-        mXPUSHi(tag);
-        mXPUSHi(value);
-        XSRETURN(3);
+        mPUSHp(name.c_str(), name.size());
+        mPUSHi(tag);
+        mPUSHi(value);
       } else {
         // return ref to array
         AV *av = newAV();
@@ -1499,10 +1499,10 @@ FETCH(self, key)
         av_push(av, newSVpv(name.c_str(), name.size()) );
         av_push(av, newSViv(tag));
         av_push(av, newSViv(value));
+        XSRETURN(1);
       }
     }
   }
-  XSRETURN(1);
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader::RelIterator
 
@@ -1515,10 +1515,11 @@ FETCH(self, key)
  INIT:
   auto *s = Elf_get_tmagic<IElfRels>(self, 1, &Elf_magic_rel);
  PPCODE:
-  if ( key >= s->rsa.get_entries_num() )
+  if ( key >= s->rsa.get_entries_num() ) {
     ST(0) = &PL_sv_undef;
-  else {
-    // format of array
+    XSRETURN(1);
+  } else {
+    // format of array for relocs
     // 0 - offset, 64bit
     // 1 - symbol
     // 2 - type
@@ -1532,11 +1533,10 @@ FETCH(self, key)
     else {
       if ( gimme == G_ARRAY) {
         EXTEND(SP, 4);
-        mXPUSHu(offset);
-        mXPUSHi(sym_idx);
-        mXPUSHu(rtype);
-        mXPUSHi(add);
-        XSRETURN(4);
+        mPUSHu(offset);
+        mPUSHi(sym_idx);
+        mPUSHu(rtype);
+        mPUSHi(add);
       } else {
         // return ref to array
         AV *av = newAV();
@@ -1545,10 +1545,10 @@ FETCH(self, key)
         av_push(av, newSViv(sym_idx));
         av_push(av, newSVuv(rtype));
         av_push(av, newSViv(add));
+        XSRETURN(1);
       }
     }
   }
-  XSRETURN(1);
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader::NotesIterator
 
@@ -1561,10 +1561,11 @@ FETCH(self, key)
  INIT:
   auto *s = Elf_get_tmagic<IElfNotes>(self, 1, &Elf_magic_notes);
  PPCODE:
-  if ( key >= s->nsa.get_notes_num() )
+  if ( key >= s->nsa.get_notes_num() ) {
     ST(0) = &PL_sv_undef;
-  else {
-    // format of array
+    XSRETURN(1);
+  } else {
+    // format of array for notes
     // 0 - name, string
     // 1 - type
     // 2 - desclen
@@ -1579,12 +1580,11 @@ FETCH(self, key)
     else {
       if ( gimme == G_ARRAY) {
         EXTEND(SP, 5);
-        mXPUSHp(name.c_str(), name.size());
-        mXPUSHu(type);
-        mXPUSHi(desclen);
-        mXPUSHu((unsigned long)desc);
-        mXPUSHp((const char *)desc, desclen);
-        XSRETURN(5);
+        mPUSHp(name.c_str(), name.size());
+        mPUSHu(type);
+        mPUSHi(desclen);
+        mPUSHu((unsigned long)desc);
+        mPUSHp((const char *)desc, desclen);
       } else {
         // return ref to array
         AV *av = newAV();
@@ -1594,10 +1594,10 @@ FETCH(self, key)
         av_push(av, newSVuv(desclen));
         av_push(av, newSVuv((unsigned long)desc));
         av_push(av, newSVpv((const char *)desc, desclen));
+        XSRETURN(1);
       }
     }
   }
-  XSRETURN(1);
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader::VersymsIterator
 
@@ -1613,7 +1613,7 @@ FETCH(self, key)
   if ( key >= s->vsa.get_entries_num() )
     ST(0) = &PL_sv_undef;
   else {
-    // format of array
+    // format of array for versyms
     // 0 - version
     // 1 - filename, string
     // 2 - hash
@@ -1625,18 +1625,18 @@ FETCH(self, key)
      flags = 0,
      other = 0;
     std::string name, dep_name;
-    if ( !s->vsa.get_entry( key, version, name, hash, flags, other, dep_name ) )
+    if ( !s->vsa.get_entry( key, version, name, hash, flags, other, dep_name ) ) {
      ST(0) = &PL_sv_undef;
-    else {
+     XSRETURN(1);
+    } else {
       if ( gimme == G_ARRAY) {
         EXTEND(SP, 6);
-        mXPUSHu(version);
-        mXPUSHp(name.c_str(), name.size());
-        mXPUSHu(hash);
-        mXPUSHu(flags);
-        mXPUSHu(other);
-        mXPUSHp(dep_name.c_str(), dep_name.size());
-        XSRETURN(6);
+        mPUSHu(version);
+        mPUSHp(name.c_str(), name.size());
+        mPUSHu(hash);
+        mPUSHu(flags);
+        mPUSHu(other);
+        mPUSHp(dep_name.c_str(), dep_name.size());
       } else {
         // return ref to array
         AV *av = newAV();
@@ -1647,10 +1647,10 @@ FETCH(self, key)
         av_push(av, newSVuv(flags));
         av_push(av, newSVuv(other));
         av_push(av, newSVpv(dep_name.c_str(), dep_name.size()));
+        XSRETURN(1);
       }
     }
   }
-  XSRETURN(1);
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader::ModinfoIterator
 
@@ -1667,24 +1667,23 @@ FETCH(self, key)
     ST(0) = &PL_sv_undef;
   else {
     std::string name, value;
-    if ( !s->msa.get_attribute(key, name, value) )
+    if ( !s->msa.get_attribute(key, name, value) ) {
       ST(0) = &PL_sv_undef;
-    else {
+      XSRETURN(1);
+    } else {
       if ( gimme == G_ARRAY) {
         EXTEND(SP, 2);
-        mXPUSHp(name.c_str(), name.size());
-        mXPUSHp(value.c_str(), value.size());
-        XSRETURN(2);
+        mPUSHp(name.c_str(), name.size());
+        mPUSHp(value.c_str(), value.size());
       } else {
         AV *av = newAV();
         mXPUSHs(newRV_noinc((SV*)av));
         av_push(av, newSVpv(name.c_str(), name.size()) );
         av_push(av, newSVpv(value.c_str(), value.size()) );
+        XSRETURN(1);
       }
     }
   }
-  XSRETURN(1);
-
 
 BOOT:
  s_host_encoding = get_host_encoding();
