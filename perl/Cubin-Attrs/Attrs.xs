@@ -736,6 +736,19 @@ read(SV *self, int idx)
  OUTPUT:
   RETVAL
 
+SV *
+link(SV *self)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  if ( -1 == d->s_idx || !d->m_e ) RETVAL = &PL_sv_undef;
+  else {
+    auto s = d->m_e->rdr->sections[d->s_idx];
+    RETVAL = newSViv(s->get_info());
+  }
+ OUTPUT:
+  RETVAL
+
 UV
 count(SV *self)
  INIT:
