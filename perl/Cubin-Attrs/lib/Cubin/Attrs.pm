@@ -22,21 +22,29 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
-sub read_rel
+sub cmn_rel
 {
-  my($ca, $elf, $idx, $out_res) = @_;
-  my $rel_idx = $ca->try_rel($idx);
-  return 0 unless defined($rel_idx);
+  my($ca, $elf, $rel_idx, $out_res) = @_;
   my $rels = $elf->rels($rel_idx);
   return 0 unless defined($rel_idx);
   my $res = 0;
   foreach my $r ( @$rels ) {
     my $ar = $r;
-    my $addr = shift @$ar;
+    # relocs: 0 - offset, 1 - sym_idx, 2 - reloc type, 3 - addend
+    # replace offset to index (for example for patch_ft)
+    my $addr = $ar->[0];
+    $ar->[0] = $res++;
     $out_res->{$addr} = $ar;
-    $res++;
   }
   $res;
+}
+
+sub read_rel
+{
+  my($ca, $elf, $idx, $out_res) = @_;
+  my $rel_idx = $ca->try_rel($idx);
+  return 0 unless defined($rel_idx);
+  cmn_rel($ca, $elf, $rel_idx, $out_res);
 }
 
 sub read_rela
@@ -44,16 +52,7 @@ sub read_rela
   my($ca, $elf, $idx, $out_res) = @_;
   my $rel_idx = $ca->try_rela($idx);
   return 0 unless defined($rel_idx);
-  my $rels = $elf->rels($rel_idx);
-  return 0 unless defined($rel_idx);
-  my $res = 0;
-  foreach my $r ( @$rels ) {
-    my $ar = $r;
-    my $addr = shift @$ar;
-    $out_res->{$addr} = $ar;
-    $res++;
-  }
-  $res;
+  cmn_rel($ca, $elf, $rel_idx, $out_res);
 }
 
 sub collect
@@ -245,7 +244,6 @@ Sizes of new and old lists must be the same, in case if there was single offset 
 
 =back
 
-
 =head3 Patching relocs
 
 patch_ft($s_idx, $r_idx, $reloc_type) - fix type of reloc at index $r_idx in section with index $s_idx to type $reloc_type
@@ -271,6 +269,23 @@ returns couple of hashes where key is offset [
 
 supports wantarray
 
+=head3 read_rel & read_rela
+
+collect relocs for some section
+
+args:
+
+=over
+
+=item $ca - Cubin::Attrs
+
+=item $elf - Elf::Reader
+
+=item $idx - section index
+
+=item $out_res - ref to hash, keys offsets, values refs to array [ index, symbol_index, reloc_type, addend ]
+
+=back
 
 =head1 SEE ALSO
 
