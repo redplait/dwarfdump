@@ -22,6 +22,40 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
+sub read_rel
+{
+  my($ca, $elf, $idx, $out_res) = @_;
+  my $rel_idx = $ca->try_rel($idx);
+  return 0 unless defined($rel_idx);
+  my $rels = $elf->rels($rel_idx);
+  return 0 unless defined($rel_idx);
+  my $res = 0;
+  foreach my $r ( @$rels ) {
+    my $ar = $r;
+    my $addr = shift @$ar;
+    $out_res->{$addr} = $ar;
+    $res++;
+  }
+  $res;
+}
+
+sub read_rela
+{
+  my($ca, $elf, $idx, $out_res) = @_;
+  my $rel_idx = $ca->try_rela($idx);
+  return 0 unless defined($rel_idx);
+  my $rels = $elf->rels($rel_idx);
+  return 0 unless defined($rel_idx);
+  my $res = 0;
+  foreach my $r ( @$rels ) {
+    my $ar = $r;
+    my $addr = shift @$ar;
+    $out_res->{$addr} = $ar;
+    $res++;
+  }
+  $res;
+}
+
 sub collect
 {
   my $ca = shift;
@@ -39,11 +73,15 @@ sub collect
          $aoffs{$addr} = 0x34;
          next unless defined($op); # empty
          if ( 'ARRAY' ne ref $op ) { # single address
-           $second{$op} = $addr;
+           if ( exists $second{$op} ) { push( @{$second{$op}}, $addr ); }
+           else { $second{$op} = [ $addr ]; }
            $added++;
          } else { # list of addresses
-           $second{$_} = $addr foreach ( @$op );
-           $added++;
+           foreach ( @$op ) {
+             if ( exists $second{$_} ) { push( @{$second{$_}}, $addr ); }
+             else { $second{$_} = [ $addr ]; }
+             $added++;
+           }
          }
       }
     }
@@ -65,6 +103,8 @@ sub collect
 
 our @EXPORT = qw(
  collect
+ read_rel
+ read_rela
 );
 
 our $VERSION = '0.01';
@@ -115,6 +155,8 @@ There are 4 groups of methods
 
 To read attributes section you should use 'read' method
 Also if you know only index of section with code you can try to find correspoding attributes section with method $fb->try(code_index)
+
+To get index of linked code section use 'link' method
 
 =head3 Extracting attributes
 
