@@ -642,78 +642,163 @@ Perl binding for ELFIO library (https://github.com/serge1/ELFIO/commits/main/)
 Support array-like iterators for sections, segments, symbols and relocs
 
 secs items are arrays with indexes
- 0 - index
- 1 - name, string
- 2 - type
- 3 - flags
- 4 - info
- 5 - link
- 6 - addr_align
- 7 - entry_size
- 8 - address, 64bit
- 9 - size
- 10 - offset, 64bit
+
+=over
+
+=item  0 - index
+
+=item  1 - name, string
+
+=item  2 - type
+
+=item  3 - flags
+
+=item  4 - info
+
+=item  5 - link
+
+=item  6 - addr_align
+
+=item  7 - entry_size
+
+=item  8 - address, 64bit
+
+=item  9 - size
+
+=item  10 - offset, 64bit
+
+=back
 
 segs items are arrays with indexes
- 0 - index
- 1 - type
- 2 - flags
- 3 - align
- 4 - virtual address, 64bit
- 5 - physical address, 64bit
- 6 - file size
- 7 - memory size
- 8 - offset, 64bit
+
+=over
+
+=item  0 - index
+
+=item  1 - type
+
+=item  2 - flags
+
+=item  3 - align
+
+=item  4 - virtual address, 64bit
+
+=item  5 - physical address, 64bit
+
+=item  6 - file size
+
+=item  7 - memory size
+
+=item  8 - offset, 64bit
+
+=back
+
 
 syms items are arrays with indexes
- 0 - name
- 1 - value, 64bit
- 2 - size
- 3 - bind
- 4 - type
- 5 - section
- 6 - other
+
+=over
+
+=item  0 - name
+
+=item  1 - value, 64bit
+
+=item  2 - size
+
+=item  3 - bind
+
+=item  4 - type
+
+=item  5 - section
+
+=item  6 - other
+
+=back
+
 
 You can extract symbols from section with type == SHT_SYMTAB or SHT_DYNSYM, argument for syms method is section index
 
 relocs items are arrays with indexes
- 0 - offset, 64bit
- 1 - symbol
- 2 - type
- 3 - addend
+
+=over
+
+=item  0 - offset, 64bit
+
+=item  1 - symbol
+
+=item  2 - type
+
+=item  3 - addend
+
+=back
+
 
 You can extract relocations from section with type == SHT_REL or SHT_RELA, argument for rels method is section index
 
 dyns items are arrays with indexes
- 0 - name
- 1 - tag
- 2 - value
+
+=over
+
+=item  0 - name
+
+=item  1 - tag
+
+=item  2 - value
+
+=back
+
 
 You can extract dynamics from section with type == SHT_DYNAMIC, argument for dyns method is section index
 
 notes itetms are array with indexes
- 0 - name, string
- 1 - type
- 2 - desclen
- 3 - desc, addr
- 4 - desc, blob
+
+=over
+
+=item  0 - name, string
+
+=item  1 - type
+
+=item  2 - desclen
+
+=item  3 - desc, addr
+
+=item  4 - desc, blob
+
+=back
 
 You can extract notes from section with type == SHT_NOTE, argument for dyns method is section index
 
 versyms items are arrays with indexes
- 0 - version
- 1 - filename, string
- 2 - hash
- 3 - flags
- 4 - other
- 5 - dep_name, string
+
+=over
+
+=item  0 - version
+
+=item  1 - filename, string
+
+=item  2 - hash
+
+=item  3 - flags
+
+=item  4 - other
+
+=item  5 - dep_name, string
+
+=back
+
 
 =head3 Boyer Moore string search methods
 
- bm_idx(self, pattern, section_index)
- bmz_idx - the same as bm_idx but includes trailing zero
- bm_from(self, pattern, address)
- bmz_from - the same as bm_from but includes trailing zero
+=over
+
+=item  bm_idx(self, pattern, section_index)
+
+=item  bmz_idx - the same as bm_idx but includes trailing zero
+
+=item  bm_from(self, pattern, address)
+
+=item  bmz_from - the same as bm_from but includes trailing zero
+
+=back
 
 =head2 EXPORT
 
