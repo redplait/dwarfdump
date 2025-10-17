@@ -88,6 +88,8 @@ struct CAttrs {
   SV *ibt_hash();
   SV *try_attr(int t_idx);
   SV *try_rels(int t_idx, ELFIO::Elf_Word);
+  SV *patch_ibt(std::unordered_map<uint32_t, ib_item>::iterator &, uint32_t v);
+  SV *patch_ibt(std::unordered_map<uint32_t, ib_item>::iterator &, AV *);
   bool patch_rels(int rs_idx, int r_idx, int reloc_type);
   bool patch_relsif(int rs_idx, int r_idx, int reloc_type, int old_type);
   template <typename T>
@@ -204,6 +206,37 @@ SV *CAttrs::ibt_hash() {
     }
   }
   return newRV_noinc((SV*)hv);
+}
+
+SV *CAttrs::patch_ibt(std::unordered_map<uint32_t, ib_item>::iterator &iter, uint32_t v) {
+  if ( iter->second.labels.front() == v ) return &PL_sv_yes; // nothing to patch - values are the same
+  if ( !check_wf() ) return &PL_sv_undef;
+  auto sec = m_e->rdr->sections[s_idx];
+  auto off = sec->get_offset() + 0xc + iter->second.offset;
+  fseek(m_wf, off, SEEK_SET);
+  if ( 1 != fwrite(&v, sizeof(v), 1, m_wf) ) return &PL_sv_no;
+  iter->second.labels.front() = v;
+  return &PL_sv_yes;
+}
+
+SV *CAttrs::patch_ibt(std::unordered_map<uint32_t, ib_item>::iterator &iter, AV *av) {
+  std::vector<uint32_t> tmp;
+  for (int i = 0; i <= av_len(av); i++) {
+    SV** elem = av_fetch(av, i, 0);
+    U32 ov = SvUV(*elem);
+    tmp.push_back(ov);
+  }
+  std::sort(tmp.begin(), tmp.end());
+  if ( !check_wf() ) return &PL_sv_undef;
+  auto sec = m_e->rdr->sections[s_idx];
+  auto off = sec->get_offset() + 0xc + iter->second.offset;
+  fseek(m_wf, off, SEEK_SET);
+  auto asize = sizeof(uint32_t) * tmp.size();
+  if ( 1 != fwrite(tmp.data(), asize, 1, m_wf) ) return &PL_sv_no;
+  // copy tmp to labels
+  iter->second.labels.clear();
+  std::copy(tmp.begin(), tmp.end(), std::back_inserter(iter->second.labels));
+  return &PL_sv_yes;
 }
 
 SV *CAttrs::fetch(int idx) {
@@ -518,7 +551,6 @@ static bool patch_infoif(ELFIO::Elf_Xword *r, int reloc_type, int old_reloc)
   return true;
 }
 
-
 template <typename T>
 bool CAttrs::_patch_relsif(int rs_idx, int r_idx, int reloc_type, int old_reloc)
 {
@@ -770,6 +802,46 @@ patch_alist(SV *self, int idx, SV *ar)
   }
   array = (AV*) SvRV(ar); // Dereference the SV to get the AV*
   RETVAL = d->patch_addr(idx, array);
+ OUTPUT:
+  RETVAL
+
+SV *
+patch_ibt(SV *self, UV addr, SV *what)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  std::unordered_map<uint32_t, ib_item>::iterator ibt_iter;
+ CODE:
+  // check if we have ibt
+  if ( d->indirect_branches.empty() )
+    RETVAL = &PL_sv_undef;
+  else {
+    ibt_iter = d->indirect_branches.find(addr);
+    if ( ibt_iter == d->indirect_branches.end() )
+     RETVAL = &PL_sv_no;
+    else {
+      auto lsize = ibt_iter->second.labels.size();
+      if ( !lsize ) RETVAL = &PL_sv_no;
+      else if ( lsize == 1 ) {
+        if ( !SvIOK(what) )
+          croak("patch_ibt: second arg should be integer");
+        else
+          RETVAL = d->patch_ibt(ibt_iter, SvUV(what));
+      } else {
+        // Check if it's a valid array reference
+        if (!SvROK(what) || SvTYPE(SvRV(what)) != SVt_PVAV)
+          croak("patch_ibt: second arg should be ARRAY reference");
+        else { // check if we have the same size
+          AV* array = (AV*)SvRV(what);
+          if ( 1 + av_len(array) != lsize )
+          {
+            my_warn("bad array len %d, should be %ld items", 1 + av_len(array), lsize);
+            RETVAL = &PL_sv_no;
+          } else
+           RETVAL = d->patch_ibt(ibt_iter, array);
+        }
+      }
+    }
+  }
  OUTPUT:
   RETVAL
 
