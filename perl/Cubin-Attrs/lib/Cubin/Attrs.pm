@@ -198,6 +198,9 @@ Also you can patch only limited set of attribures with methods:
 
 =item patch_alist(index, \@offset_array) to fully replace array of offsets
 
+=item patch_ibt($address, $sv) to patch indirect target from offset $address, new list passed as ref to array in $sv.
+Sizes of new and old lists must be the same, in case if there was single offset - you can pass it's value in $sv as scalar
+
 =back
 
 
