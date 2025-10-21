@@ -101,9 +101,12 @@ struct CAttrs {
   SV *patch_ibt(std::unordered_map<uint32_t, ib_item>::iterator &, AV *);
   bool patch_rels(int rs_idx, int r_idx, int reloc_type);
   bool patch_rel_off(int rs_idx, int r_idx, UV reloc_offset);
+  bool patch_rela_off(int rs_idx, int r_idx, UV reloc_offset, IV add_delta);
   bool patch_relsif(int rs_idx, int r_idx, int reloc_type, int old_type);
   template <typename T>
   bool _patch_rel_off(int rs_idx, int r_idx, UV rel_offset);
+  template <typename T>
+  bool _patch_rela_off(int rs_idx, int r_idx, UV rel_offset, IV);
   template <typename T>
   bool _patch_rels(int rs_idx, int r_idx, int reloc_type);
   template <typename T>
@@ -578,6 +581,32 @@ bool CAttrs::patch_rel_off(int rs_idx, int r_idx, UV reloc_offset)
   return false;
 }
 
+template <typename T>
+bool CAttrs::_patch_rela_off(int rs_idx, int r_idx, UV reloc_offset, IV delta)
+{
+  T rel;
+  if ( !read_rel(rel, rs_idx, r_idx) ) return false;
+  rel.r_offset = reloc_offset;
+  if ( delta )
+    rel.r_addend += delta;
+  return write_rel(rel, rs_idx, r_idx);
+}
+
+bool CAttrs::patch_rela_off(int rs_idx, int r_idx, UV reloc_offset, IV delta)
+{
+  // check if rs_idx is valid section
+  if ( rs_idx < 0 || rs_idx >= m_e->rdr->sections.size() ) return false;
+  auto s = m_e->rdr->sections[rs_idx];
+  auto st = s->get_type();
+  if ( st == ELFIO::SHT_RELA ) {
+    if ( m_e->rdr->get_class() == ELFIO::ELFCLASS32 )
+      return _patch_rela_off<ELFIO::Elf32_Rela>(rs_idx, r_idx, reloc_offset, delta);
+    else
+      return _patch_rela_off<ELFIO::Elf64_Rela>(rs_idx, r_idx, reloc_offset, delta);
+  }
+  return false;
+}
+
 static bool patch_infoif(ELFIO::Elf_Word *r, int reloc_type, int old_reloc)
 {
   auto old = ELF32_R_TYPE(*r);
@@ -778,6 +807,15 @@ patch_foff(SV *self, int s_idx, int r_idx, UV new_offset)
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
   RETVAL = d->patch_rel_off(s_idx, r_idx, new_offset) ? &PL_sv_yes : &PL_sv_no;
+ OUTPUT:
+  RETVAL
+
+SV *
+patch_foffa(SV *self, int s_idx, int r_idx, UV new_offset, IV add_delta = 0)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->patch_rela_off(s_idx, r_idx, new_offset, add_delta) ? &PL_sv_yes : &PL_sv_no;
  OUTPUT:
   RETVAL
 
