@@ -64,6 +64,8 @@ struct CAttrs {
   IElf *m_e = nullptr;
   int s_idx = -1;
   std::vector<CAttr> m_attrs;
+  // externals
+  std::vector<uint32_t> m_extrs;
   // cb
   std::vector<cb_param> params;
   unsigned short cb_size = 0;
@@ -74,6 +76,7 @@ struct CAttrs {
   FILE *m_wf = nullptr;
   // methods
   void clear() {
+    m_extrs.clear();
     m_attrs.clear();
     params.clear();
     indirect_branches.clear();
@@ -83,6 +86,12 @@ struct CAttrs {
   SV *fetch(const CAttr &a, int idx);
   SV *fetch(int idx);
   SV *fetch_cb(int idx);
+  SV *fetch_extrs() const {
+    if ( m_extrs.empty() ) return &PL_sv_undef;
+    AV *av = newAV();
+    std::for_each(m_extrs.cbegin(), m_extrs.cend(), [av](uint32_t v) { av_push(av, newSVuv(v)); });
+    return newRV_noinc((SV*)av);
+  }
   SV *get_value(int idx);
   SV *addr_list(const CAttr &a);
   SV *ibt_hash();
@@ -335,6 +344,8 @@ SV *CAttrs::get_value(int idx) {
   if ( !attr.len ) return &PL_sv_yes;
   if ( attr.attr == 0x34 ) // EIATTR_INDIRECT_BRANCH_TARGETS
     return ibt_hash();
+  if ( attr.attr == 0xf ) // EIATTR_EXTERNS
+    return fetch_extrs();
   if ( is_addr_list(attr.attr) ) return addr_list(attr);
   if ( 1 == attr.len )
     return newSViv( read<unsigned char>(attr) );
@@ -423,6 +434,13 @@ int CAttrs::read(int idx)
             unsigned short size = *(unsigned short *)kp;
             cb_size = size;
             cb_offset = off;
+          }
+        } else if ( attr == 0xf ) // EIATTR_EXTERNS
+        {
+          auto end = kp + a_len;
+          for ( auto curr = kp; curr < end; ) {
+            m_extrs.push_back(*(uint32_t *)curr);
+            curr += 4;
           }
         } else if ( attr == 0x34 ) // EIATTR_INDIRECT_BRANCH_TARGETS
         {
