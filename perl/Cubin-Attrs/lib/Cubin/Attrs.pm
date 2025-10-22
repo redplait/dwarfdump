@@ -150,6 +150,8 @@ There are 4 groups of methods
 
 =back
 
+attr_name returns name of attribute
+
 =head3 Reading
 
 To read attributes section you should use 'read' method

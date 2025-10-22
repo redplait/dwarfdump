@@ -52,6 +52,10 @@ static int is_addr_list(char attr) {
   }
 }
 
+static std::unordered_map<int, const char *> s_ei = {
+#include "eiattrs.inc"
+};
+
 struct CAttrs {
   CAttrs(IElf *e) {
     m_e = e;
@@ -841,6 +845,20 @@ link(SV *self)
  OUTPUT:
   RETVAL
 
+SV *
+attr_name(SV *self, int v)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  std::unordered_map<int, const char *>::const_iterator nv;
+ CODE:
+  nv = s_ei.find(v);
+  if ( nv == s_ei.end() )
+    RETVAL = &PL_sv_undef;
+  else
+    RETVAL = newSVpv(nv->second, strlen(nv->second));
+ OUTPUT:
+  RETVAL
+
 UV
 count(SV *self)
  INIT:
@@ -1025,28 +1043,21 @@ grep(SV *self, IV key)
   RET_RES
 
 BOOT:
- struct ei {
-   int val;
-   const char *name;
- };
- static ei s_ei[] = {
-#include "eiattrs.inc"
-};
  s_ca_pkg = gv_stashpv(s_ca, 0);
  if ( !s_ca_pkg )
     croak("Package %s does not exists", s_ca);
  // export enums from eiattrs.inc
  HV *stash = gv_stashpvn(s_ca, 12, 1);
  for ( auto en: s_ei ) {
-   auto name = en.name;
+   auto name = en.second;
    auto len = strlen(name);
    auto sv = newSVpvn_share(name, len, 0);
-   newCONSTSUB(stash, en.name, new_enum_dualvar(aTHX_ en.val, sv));
+   newCONSTSUB(stash, name, new_enum_dualvar(aTHX_ en.first, sv));
    // and second - without EIATTR_ prefix
    if ( len > 7 ) {
      name += 7;
      len -= 7;
      sv = newSVpvn_share(name, len, 0);
-     newCONSTSUB(stash, name, new_enum_dualvar(aTHX_ en.val, sv));
+     newCONSTSUB(stash, name, new_enum_dualvar(aTHX_ en.first, sv));
    }
  }
