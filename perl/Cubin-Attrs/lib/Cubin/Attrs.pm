@@ -67,21 +67,19 @@ sub collect
     my $added = 0;
     # indirect branches always only 1
     my $ib_values = $ca->value($ibs->[0]->{'id'});
-    foreach my $iv ( @$ib_values ) {
-      while( my($addr, $op) = each %$iv ) {
-         $aoffs{$addr} = 0x34;
-         next unless defined($op); # empty
-         if ( 'ARRAY' ne ref $op ) { # single address
-           if ( exists $second{$op} ) { push( @{$second{$op}}, $addr ); }
-           else { $second{$op} = [ $addr ]; }
-           $added++;
-         } else { # list of addresses
-           foreach ( @$op ) {
-             if ( exists $second{$_} ) { push( @{$second{$_}}, $addr ); }
-             else { $second{$_} = [ $addr ]; }
-             $added++;
-           }
-         }
+    while( my($addr, $op) = each %$ib_values ) {
+      $aoffs{$addr} = 0x34;
+      next unless defined($op); # empty
+      if ( 'ARRAY' ne ref $op ) { # single address
+         if ( exists $second{$op} ) { push( @{$second{$op}}, $addr ); }
+         else { $second{$op} = [ $addr ]; }
+         $added++;
+      } else { # list of addresses
+         foreach ( @$op ) {
+          if ( exists $second{$_} ) { push( @{$second{$_}}, $addr ); }
+          else { $second{$_} = [ $addr ]; }
+          $added++;
+        }
       }
     }
     $res[1] = \%second if ( $added );
