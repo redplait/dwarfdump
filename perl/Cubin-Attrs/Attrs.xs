@@ -116,7 +116,7 @@ struct CAttrs {
   template <typename T>
   bool _patch_relsif(int rs_idx, int r_idx, int reloc_type, int old_type);
   inline void add_cparam(ELFIO::Elf_Word ordinal, unsigned short off, unsigned short size) {
-    params.push_back( { ordinal, size, off } );
+    params.push_back( { ordinal, off, size } );
   }
   template <typename T>
   T read(const CAttr &a) {
