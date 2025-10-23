@@ -98,10 +98,45 @@ sub collect
   return wantarray ? @res : \@res;
 }
 
+our %sto_names = (
+0 => 'STO_CUDA_ENTRY',
+0x20 => 'STO_CUDA_GLOBAL',
+0x40 => 'STO_CUDA_SHARED',
+0x60 => 'STO_CUDA_LOCAL',
+0x80 => 'STO_CUDA_CONSTANT',
+0xa0 => 'STO_CUDA_RESERVED_SHARED',
+);
+
+sub sto_name($)
+{
+  my $rtype = shift;
+  $rtype &= 0xe0;
+  return $sto_names{$rtype} if exists($sto_names{$rtype});
+  undef;
+}
+
+our %stv_names = (
+0 => 'STO_CUDA_GLOBAL',
+1 => 'STV_INTERNAL',
+2 => 'STV_HIDDEN',
+3 => 'STV_PROTECTED',
+);
+
+sub stv_name($)
+{
+  my $roth = shift;
+  $roth &= 0x3;
+  return $stv_names{$roth} if exists($stv_names{$roth});
+  undef;
+}
+
+
 our @EXPORT = qw(
  collect
  read_rel
  read_rela
+ sto_name
+ stv_name
 );
 
 our $VERSION = '0.01';

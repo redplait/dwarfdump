@@ -1043,6 +1043,20 @@ grep(SV *self, IV key)
   RET_RES
 
 BOOT:
+// STO_/STV_ consts
+ static const std::pair<int, const char *> s_sto[] = {
+  { 0,  "STO_CUDA_ENTRY" },
+  { 0x20, "STO_CUDA_GLOBAL" },
+  { 0x40, "STO_CUDA_SHARED" },
+  { 0x60, "STO_CUDA_LOCAL" },
+  { 0x80, "STO_CUDA_CONSTANT" },
+  { 0xa0, "STO_CUDA_RESERVED_SHARED" },
+  // symbol.other & 3
+  { 0, "STO_CUDA_GLOBAL" },
+  { 1, "STV_INTERNAL" },
+  { 2, "STV_HIDDEN" },
+  { 3, "STV_PROTECTED" },
+ };
  s_ca_pkg = gv_stashpv(s_ca, 0);
  if ( !s_ca_pkg )
     croak("Package %s does not exists", s_ca);
@@ -1060,4 +1074,11 @@ BOOT:
      sv = newSVpvn_share(name, len, 0);
      newCONSTSUB(stash, name, new_enum_dualvar(aTHX_ en.first, sv));
    }
+ }
+ // export STO_XXX
+ for ( auto &sto: s_sto ) {
+   auto name = sto.second;
+   auto len = strlen(name);
+   auto sv = newSVpvn_share(name, len, 0);
+   newCONSTSUB(stash, name, new_enum_dualvar(aTHX_ sto.first, sv));
  }
