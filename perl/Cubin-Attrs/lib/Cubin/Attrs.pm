@@ -90,9 +90,7 @@ sub collect
     foreach my $id ( @grepped ) {
       my $value = $ca->value($id->{'id'});
       next unless defined($value);
-      foreach my $iv ( @$value ) {
-        $aoffs{$_} = $id->{'attr'} foreach ( @$iv );
-      }
+      $aoffs{$_} = $id->{'attr'} foreach ( @$value );
     }
   }
   return wantarray ? @res : \@res;
@@ -116,7 +114,7 @@ sub sto_name($)
 }
 
 our %stv_names = (
-0 => 'STO_CUDA_GLOBAL',
+0 => 'STV_CUDA_GLOBAL',
 1 => 'STV_INTERNAL',
 2 => 'STV_HIDDEN',
 3 => 'STV_PROTECTED',

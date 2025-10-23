@@ -87,7 +87,7 @@ struct CAttrs {
     cb_size = cb_offset = 0;
   }
   int read(int idx);
-  SV *fetch(const CAttr &a, int idx);
+  SV *fetch_attr(const CAttr &a, int idx);
   SV *fetch(int idx);
   SV *fetch_cb(int idx);
   SV *fetch_extrs() const {
@@ -195,7 +195,7 @@ SV *CAttrs::fetch_cb(int idx) {
   return newRV_noinc((SV*)hv);
 }
 
-SV *CAttrs::fetch(const CAttr &a, int idx)
+SV *CAttrs::fetch_attr(const CAttr &a, int idx)
 {
   HV *hv = newHV();
   hv_store(hv, "id", 2, newSViv(idx), 0);
@@ -265,7 +265,7 @@ SV *CAttrs::fetch(int idx) {
     return &PL_sv_undef;
   }
   // create and fill HV
-  return fetch(m_attrs[idx], idx);
+  return fetch_attr(m_attrs[idx], idx);
 }
 
 SV *CAttrs::addr_list(const CAttr &a)
@@ -348,6 +348,9 @@ SV *CAttrs::get_value(int idx) {
     return &PL_sv_undef;
   }
   auto &attr = m_attrs[idx];
+#ifdef DEBUG
+   my_warn("get_value idx %d attr %X len %d\n", idx, attr.attr, attr.len);
+#endif
   if ( !attr.len ) return &PL_sv_yes;
   if ( attr.attr == 0x34 ) // EIATTR_INDIRECT_BRANCH_TARGETS
     return ibt_hash();
@@ -713,6 +716,8 @@ static U32 my_len(pTHX_ SV *sv, MAGIC* mg)
         break;
       }
   }
+  if ( !d && mg->mg_ptr )
+    d = (CAttrs*) mg->mg_ptr;
   if ( !d ) {
     my_warn("Cubin::Attrs: my_type %d\n", SvTYPE(sv));
     return 0;
@@ -727,11 +732,11 @@ static U32 my_len(pTHX_ SV *sv, MAGIC* mg)
     if ( gimme == G_ARRAY) { \
       EXTEND(SP, res.size()); \
       for ( auto &p: res ) \
-        mPUSHs( d->fetch(*p.first, p.second) ); \
+        mPUSHs( d->fetch_attr(*p.first, p.second) ); \
     } else { \
       AV *av = newAV(); \
       for ( auto &p: res ) \
-        av_push(av, d->fetch(*p.first, p.second) ); \
+        av_push(av, d->fetch_attr(*p.first, p.second) ); \
       mXPUSHs(newRV_noinc((SV*)av)); \
       XSRETURN(1); \
     } \
@@ -1003,7 +1008,7 @@ grep_list(SV *self,SV *ar)
   AV* array;
   std::unordered_set<int> keys;
   std::vector<std::pair<const CAttr*, int> > res;
- CODE:
+ PPCODE:
   // Check if it's a valid array reference
   if (!SvROK(ar) || SvTYPE(SvRV(ar)) != SVt_PVAV) {
     croak("patch_alist: expected an ARRAY reference");
@@ -1012,13 +1017,19 @@ grep_list(SV *self,SV *ar)
   // fill keys
   for (int i = 0; i <= av_len(array); i++) {
     SV** elem = av_fetch(array, i, 0);
-    keys.insert(SvIV(*elem));
+    auto type = SvIV(*elem);
+#ifdef DEBUG
+ my_warn("add key %x\n", type);
+#endif
+    keys.insert(type);
   }
   // check if list if non-empty
   if ( !keys.empty() ) {
     for ( size_t i = 0; i < d->m_attrs.size(); i++ ) {
-      if ( keys.end() != keys.find(d->m_attrs[i].attr) ) {
-// my_warn("add %d type %x\n", int(i), d->m_attrs[i].attr);
+      if ( keys.find(d->m_attrs[i].attr) != keys.end() ) {
+#ifdef DEBUG
+ my_warn("add %d type %x\n", int(i), d->m_attrs[i].attr);
+#endif
         res.push_back( { &d->m_attrs[i], int(i) });
       }
     }
@@ -1052,7 +1063,7 @@ BOOT:
   { 0x80, "STO_CUDA_CONSTANT" },
   { 0xa0, "STO_CUDA_RESERVED_SHARED" },
   // symbol.other & 3
-  { 0, "STO_CUDA_GLOBAL" },
+  { 0, "STV_CUDA_GLOBAL" },
   { 1, "STV_INTERNAL" },
   { 2, "STV_HIDDEN" },
   { 3, "STV_PROTECTED" },
