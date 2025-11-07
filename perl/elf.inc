@@ -29,6 +29,16 @@ static int magic_del(pTHX_ SV* sv, MAGIC* mg) {
 }
 
 template <typename T>
+static int magic_release(pTHX_ SV* sv, MAGIC* mg) {
+    if (mg->mg_ptr) {
+        auto *m = (T *)mg->mg_ptr;
+        if ( m ) m->release();
+        mg->mg_ptr= NULL;
+    }
+    return 0; // ignored anyway
+}
+
+template <typename T>
 static T *magic_tied(SV *obj, int die, MGVTBL *tab)
 {
   SV *sv;
