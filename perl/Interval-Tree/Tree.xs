@@ -145,6 +145,17 @@ in_tree(SV *arg, unsigned long addr)
    ST(0)= ( find != t->end() ) ? &PL_sv_yes : &PL_sv_no;
    XSRETURN(1);
 
+UV
+in_cnt(SV *arg, unsigned long addr)
+ INIT:
+   auto *t= itree_get_magic<ITree>(arg, 1, &itree_magic_vt);
+   UV res = 0;
+ CODE:
+   t->overlap_find_all( { addr, addr + 1 }, [&](auto iter) { res++; return true; } );
+   RETVAL = res;
+ OUTPUT:
+  RETVAL
+
 void
 next(SV *arg, unsigned long addr)
  INIT:
@@ -238,7 +249,6 @@ in_all(SV *arg, unsigned long addr)
     }
   }
 
-
 UV
 in_cnt(SV *arg, unsigned long addr)
  INIT:
@@ -249,7 +259,6 @@ in_cnt(SV *arg, unsigned long addr)
    RETVAL = res;
  OUTPUT:
   RETVAL
-
 
 void
 next(SV *arg, unsigned long addr)
