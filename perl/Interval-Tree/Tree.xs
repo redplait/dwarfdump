@@ -5,6 +5,7 @@
 
 #include "ppport.h"
 #include "interval_tree.hpp"
+#include <vector>
 
 using BaseInterval = lib_interval_tree::interval<unsigned long, lib_interval_tree::right_open>;
 typedef lib_interval_tree::interval_tree<BaseInterval> ITree;
@@ -139,11 +140,9 @@ void
 in_tree(SV *arg, unsigned long addr)
  INIT:
    auto *t= itree_get_magic<ITree>(arg, 1, &itree_magic_vt);
-   int res = 0;
  PPCODE:
    auto find = t->overlap_find( { addr, addr + 1 } );
-   if ( find != t->end() ) res = 1;
-   ST(0)= sv_2mortal( newSViv( res ) );
+   ST(0)= ( find != t->end() ) ? &PL_sv_yes : &PL_sv_no;
    XSRETURN(1);
 
 void
@@ -212,6 +211,45 @@ in_tree(SV *arg, unsigned long addr)
    else
      ST(0)= SvREFCNT_inc(find->sv);
    XSRETURN(1);
+
+void
+in_all(SV *arg, unsigned long addr)
+ PREINIT:
+  U8 gimme = GIMME_V;
+ INIT:
+   auto *t= itree_get_magic<SVTree>(arg, 1, &itreeSV_magic_vt);
+   std::vector<SV *> res;
+ PPCODE:
+   t->overlap_find_all( { addr, addr + 1, nullptr }, [&](auto iter) { res.push_back(iter->sv); return true; } );
+   if ( res.empty() ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  } else {
+    if ( gimme == G_ARRAY) {
+      EXTEND(SP, res.size());
+      for ( auto si: res )
+       mPUSHs(SvREFCNT_inc(si));
+    } else {
+      AV *av = newAV();
+      for ( auto si: res )
+       av_push(av, SvREFCNT_inc(si));
+      mXPUSHs(newRV_noinc((SV*)av));
+      XSRETURN(1);
+    }
+  }
+
+
+UV
+in_cnt(SV *arg, unsigned long addr)
+ INIT:
+   auto *t= itree_get_magic<SVTree>(arg, 1, &itreeSV_magic_vt);
+   UV res = 0;
+ CODE:
+   t->overlap_find_all( { addr, addr + 1, nullptr }, [&](auto iter) { res++; return true; } );
+   RETVAL = res;
+ OUTPUT:
+  RETVAL
+
 
 void
 next(SV *arg, unsigned long addr)
