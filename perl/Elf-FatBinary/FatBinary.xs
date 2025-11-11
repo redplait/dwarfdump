@@ -223,7 +223,7 @@ int CFatBin::open()
     {
       m_fb = i;
       if ( sec->get_size() < sizeof(fatBinaryHeader) ) {
-        my_warn("fatbim section is too small: %lX\n", sec->get_size());
+        my_warn("fatbin section is too small: %lX\n", sec->get_size());
         return 0;
       }
       break;
