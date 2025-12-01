@@ -584,6 +584,11 @@ bool CAttrs::patch_rel_off(int rs_idx, int r_idx, UV reloc_offset)
       return _patch_rel_off<ELFIO::Elf32_Rel>(rs_idx, r_idx, reloc_offset);
     else
       return _patch_rel_off<ELFIO::Elf64_Rel>(rs_idx, r_idx, reloc_offset);
+  } else if ( st == ELFIO::SHT_RELA ) {
+    if ( m_e->rdr->get_class() == ELFIO::ELFCLASS32 )
+      return _patch_rel_off<ELFIO::Elf32_Rela>(rs_idx, r_idx, reloc_offset);
+    else
+      return _patch_rel_off<ELFIO::Elf64_Rela>(rs_idx, r_idx, reloc_offset);
   }
   return false;
 }
