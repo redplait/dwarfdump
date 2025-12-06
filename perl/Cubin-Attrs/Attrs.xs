@@ -38,6 +38,7 @@ static SV *new_enum_dualvar(pTHX_ IV ival, SV *name) {
         return name;
 }
 
+// to keep things consistent it also binded as Perl method
 static int is_addr_list(char attr) {
   switch(attr) {
     case 0x28: // EIATTR_COOP_GROUP_INSTR_OFFSETS
@@ -852,6 +853,15 @@ link(SV *self)
     auto s = d->m_e->rdr->sections[d->s_idx];
     RETVAL = newSViv(s->get_info());
   }
+ OUTPUT:
+  RETVAL
+
+IV
+is_addr_list(SV *self, int v)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = ::is_addr_list(v);
  OUTPUT:
   RETVAL
 
