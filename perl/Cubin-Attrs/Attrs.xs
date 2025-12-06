@@ -104,10 +104,15 @@ struct CAttrs {
   SV *try_rels(int t_idx, ELFIO::Elf_Word);
   SV *patch_ibt(std::unordered_map<uint32_t, ib_item>::iterator &, uint32_t v);
   SV *patch_ibt(std::unordered_map<uint32_t, ib_item>::iterator &, AV *);
+  bool swap_rels(int rs_idx, int r1, int r2);
   bool patch_rels(int rs_idx, int r_idx, int reloc_type);
   bool patch_rel_off(int rs_idx, int r_idx, UV reloc_offset);
   bool patch_rela_off(int rs_idx, int r_idx, UV reloc_offset, IV add_delta);
   bool patch_relsif(int rs_idx, int r_idx, int reloc_type, int old_type);
+  template <typename T>
+  bool _swap_adj_rels(int rs_idx, int r1, int r2);
+  template <typename T>
+  bool _swap_rels(int rs_idx, int r1, int r2);
   template <typename T>
   bool _patch_rel_off(int rs_idx, int r_idx, UV rel_offset);
   template <typename T>
@@ -147,21 +152,21 @@ struct CAttrs {
   }
   template <typename T>
   // ElfXX_Rel(a), section index, entry index
-  bool write_rel(const T &value, int rs_idx, int r_idx) {
+  bool write_rel(const T *value, int rs_idx, int r_idx, int cnt = 1) {
     if ( !check_wf() ) return false;
     auto sec = m_e->rdr->sections[rs_idx];
     auto off = sec->get_offset() + sizeof(T) * r_idx;
     fseek(m_wf, off, SEEK_SET);
-    return 1 == fwrite(&value, sizeof(value), 1, m_wf);
+    return cnt == fwrite(value, sizeof(value), cnt, m_wf);
   }
   template <typename T>
-  bool read_rel(T &value, int rs_idx, int r_idx) {
+  bool read_rel(T *value, int rs_idx, int r_idx, int cnt = 1) {
     if ( !check_wf() ) return false;
     auto sec = m_e->rdr->sections[rs_idx];
     size_t off = sizeof(T) * r_idx;
     if ( off + sizeof(T) > sec->get_size() ) return false;
     fseek(m_wf, off + sec->get_offset(), SEEK_SET);
-    return 1 == fread(&value, sizeof(T), 1, m_wf);
+    return cnt == fread(value, sizeof(T), cnt, m_wf);
   }
   SV *patch(int idx, unsigned long v) {
     // check idx
@@ -539,10 +544,62 @@ template <typename T>
 bool CAttrs::_patch_rels(int rs_idx, int r_idx, int reloc_type)
 {
   T rel;
-  if ( !read_rel(rel, rs_idx, r_idx) ) return false;
+  if ( !read_rel(&rel, rs_idx, r_idx) ) return false;
   // patch info
   patch_info(&rel.r_info, reloc_type);
-  return write_rel(rel, rs_idx, r_idx);
+  return write_rel(&rel, rs_idx, r_idx);
+}
+
+template <typename T>
+bool CAttrs::_swap_adj_rels(int rs_idx, int r1, int r2)
+{
+  T rel[2];
+  if ( !read_rel(rel, rs_idx, r1, 2) ) return false;
+  constexpr bool has_add = requires(T *t) {
+    t->r_addend;
+  };
+  std::swap(rel[0].r_info, rel[1].r_info);
+  if constexpr ( has_add ) {
+    std::swap(rel[0].r_addend, rel[1].r_addend);
+  }
+  return write_rel(rel, rs_idx, r1, 2);
+}
+
+template <typename T>
+bool CAttrs::_swap_rels(int rs_idx, int r1, int r2)
+{
+  T rel[2];
+  if ( !read_rel(&rel[0], rs_idx, r1) || !read_rel(&rel[1], rs_idx, r2) ) return false;
+  constexpr bool has_add = requires(T *t) {
+    t->r_addend;
+  };
+  std::swap(rel[0].r_info, rel[1].r_info);
+  if constexpr ( has_add ) {
+    std::swap(rel[0].r_addend, rel[1].r_addend);
+  }
+  return write_rel(&rel[0], rs_idx, r1) || write_rel(&rel[1], rs_idx, r2);
+}
+
+bool CAttrs::swap_rels(int rs_idx, int r1, int r2)
+{
+  // check if rs_idx is valid section
+  if ( rs_idx < 0 || rs_idx >= m_e->rdr->sections.size() ) return false;
+  auto s = m_e->rdr->sections[rs_idx];
+  auto st = s->get_type();
+  if ( st == ELFIO::SHT_REL ) {
+    if ( r1 + 1 == r2 ) {
+      if ( m_e->rdr->get_class() == ELFIO::ELFCLASS32 )
+        return _swap_adj_rels<ELFIO::Elf32_Rel>(rs_idx, r1, r2);
+      else
+        return _swap_adj_rels<ELFIO::Elf64_Rel>(rs_idx, r1, r2);
+    } else {
+      if ( m_e->rdr->get_class() == ELFIO::ELFCLASS32 )
+        return _swap_rels<ELFIO::Elf32_Rel>(rs_idx, r1, r2);
+      else
+        return _swap_rels<ELFIO::Elf64_Rel>(rs_idx, r1, r2);
+    }
+  } else
+    return false;
 }
 
 bool CAttrs::patch_rels(int rs_idx, int r_idx, int reloc_type)
@@ -569,9 +626,9 @@ template <typename T>
 bool CAttrs::_patch_rel_off(int rs_idx, int r_idx, UV reloc_offset)
 {
   T rel;
-  if ( !read_rel(rel, rs_idx, r_idx) ) return false;
+  if ( !read_rel(&rel, rs_idx, r_idx) ) return false;
   rel.r_offset = reloc_offset;
-  return write_rel(rel, rs_idx, r_idx);
+  return write_rel(&rel, rs_idx, r_idx);
 }
 
 bool CAttrs::patch_rel_off(int rs_idx, int r_idx, UV reloc_offset)
@@ -598,11 +655,11 @@ template <typename T>
 bool CAttrs::_patch_rela_off(int rs_idx, int r_idx, UV reloc_offset, IV delta)
 {
   T rel;
-  if ( !read_rel(rel, rs_idx, r_idx) ) return false;
+  if ( !read_rel(&rel, rs_idx, r_idx) ) return false;
   rel.r_offset = reloc_offset;
   if ( delta )
     rel.r_addend += delta;
-  return write_rel(rel, rs_idx, r_idx);
+  return write_rel(&rel, rs_idx, r_idx);
 }
 
 bool CAttrs::patch_rela_off(int rs_idx, int r_idx, UV reloc_offset, IV delta)
@@ -642,10 +699,10 @@ template <typename T>
 bool CAttrs::_patch_relsif(int rs_idx, int r_idx, int reloc_type, int old_reloc)
 {
   T rel;
-  if ( !read_rel(rel, rs_idx, r_idx) ) return false;
+  if ( !read_rel(&rel, rs_idx, r_idx) ) return false;
   // patch info
   if ( !patch_infoif(&rel.r_info, reloc_type, old_reloc) ) return false;
-  return write_rel(rel, rs_idx, r_idx);
+  return write_rel(&rel, rs_idx, r_idx);
 }
 
 bool CAttrs::patch_relsif(int rs_idx, int r_idx, int reloc_type, int old_type) {
@@ -831,6 +888,16 @@ patch_foffa(SV *self, int s_idx, int r_idx, UV new_offset, IV add_delta = 0)
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
   RETVAL = d->patch_rela_off(s_idx, r_idx, new_offset, add_delta) ? &PL_sv_yes : &PL_sv_no;
+ OUTPUT:
+  RETVAL
+
+SV *
+swap_rel(SV *self, int s_idx, int r1, int r2)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  if ( r1 > r2 ) std::swap(r1, r2);
+  RETVAL = d->swap_rels(s_idx, r1, r2) ? &PL_sv_yes : &PL_sv_no;
  OUTPUT:
   RETVAL
 
