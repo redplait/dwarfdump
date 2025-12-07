@@ -102,6 +102,7 @@ struct CAttrs {
   SV *ibt_hash();
   SV *try_attr(int t_idx);
   SV *try_rels(int t_idx, ELFIO::Elf_Word);
+  SV *patch_ib_addr(UV addr, UV new_addr);
   SV *patch_ibt(std::unordered_map<uint32_t, ib_item>::iterator &, uint32_t v);
   SV *patch_ibt(std::unordered_map<uint32_t, ib_item>::iterator &, AV *);
   bool swap_rels(int rs_idx, int r1, int r2);
@@ -231,6 +232,22 @@ SV *CAttrs::ibt_hash() {
     }
   }
   return newRV_noinc((SV*)hv);
+}
+
+SV *CAttrs::patch_ib_addr(UV addr, UV new_addr) {
+  std::unordered_map<uint32_t, ib_item>::iterator iter = indirect_branches.find(addr);
+  if ( iter == indirect_branches.end() ) return &PL_sv_no;
+  if ( !check_wf() ) return &PL_sv_undef;
+  auto sec = m_e->rdr->sections[s_idx];
+  auto off = sec->get_offset() + iter->second.offset;
+  fseek(m_wf, off, SEEK_SET);
+  uint32_t v = (uint32_t)new_addr;
+  if ( 1 != fwrite(&v, sizeof(v), 1, m_wf) ) return &PL_sv_no;
+  // update indirect_branches
+  auto nh = indirect_branches.extract(iter);
+  nh.key() = v;
+  indirect_branches.insert(std::move(nh));
+  return &PL_sv_yes;
 }
 
 SV *CAttrs::patch_ibt(std::unordered_map<uint32_t, ib_item>::iterator &iter, uint32_t v) {
@@ -551,10 +568,7 @@ bool CAttrs::_patch_rels(int rs_idx, int r_idx, int reloc_type)
 }
 
 template <typename T>
-bool CAttrs::_swap_adj_rels(int rs_idx, int r1, int r2)
-{
-  T rel[2];
-  if ( !read_rel(rel, rs_idx, r1, 2) ) return false;
+static void _swap_rel(T *rel) {
   constexpr bool has_add = requires(T *t) {
     t->r_addend;
   };
@@ -562,6 +576,14 @@ bool CAttrs::_swap_adj_rels(int rs_idx, int r1, int r2)
   if constexpr ( has_add ) {
     std::swap(rel[0].r_addend, rel[1].r_addend);
   }
+}
+
+template <typename T>
+bool CAttrs::_swap_adj_rels(int rs_idx, int r1, int r2)
+{
+  T rel[2];
+  if ( !read_rel(rel, rs_idx, r1, 2) ) return false;
+  _swap_rel(rel);
   return write_rel(rel, rs_idx, r1, 2);
 }
 
@@ -570,13 +592,7 @@ bool CAttrs::_swap_rels(int rs_idx, int r1, int r2)
 {
   T rel[2];
   if ( !read_rel(&rel[0], rs_idx, r1) || !read_rel(&rel[1], rs_idx, r2) ) return false;
-  constexpr bool has_add = requires(T *t) {
-    t->r_addend;
-  };
-  std::swap(rel[0].r_info, rel[1].r_info);
-  if constexpr ( has_add ) {
-    std::swap(rel[0].r_addend, rel[1].r_addend);
-  }
+  _swap_rel(rel);
   return write_rel(&rel[0], rs_idx, r1) || write_rel(&rel[1], rs_idx, r2);
 }
 
@@ -897,7 +913,10 @@ swap_rel(SV *self, int s_idx, int r1, int r2)
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
   if ( r1 > r2 ) std::swap(r1, r2);
-  RETVAL = d->swap_rels(s_idx, r1, r2) ? &PL_sv_yes : &PL_sv_no;
+  if ( r1 == r2 ) // wtf? nothing to patch
+   RETVAL = &PL_sv_yes;
+  else
+   RETVAL = d->swap_rels(s_idx, r1, r2) ? &PL_sv_yes : &PL_sv_no;
  OUTPUT:
   RETVAL
 
@@ -1012,6 +1031,21 @@ patch_alist(SV *self, int idx, SV *ar)
   }
   array = (AV*) SvRV(ar); // Dereference the SV to get the AV*
   RETVAL = d->patch_addr(idx, array);
+ OUTPUT:
+  RETVAL
+
+SV *
+patch_ib_addr(SV *self, UV addr, UV new_addr)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  // check if we have ibt
+  if ( d->indirect_branches.empty() )
+    RETVAL = &PL_sv_undef;
+  else if ( addr == new_addr ) // wtf?
+    RETVAL = &PL_sv_yes;
+  else
+    RETVAL = d->patch_ib_addr(addr, new_addr);
  OUTPUT:
   RETVAL
 

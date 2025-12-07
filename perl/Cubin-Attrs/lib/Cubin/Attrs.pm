@@ -275,6 +275,8 @@ Also you can patch only limited set of attribures with methods:
 =item patch_ibt($address, $sv) to patch indirect target from offset $address, new list passed as ref to array in $sv.
 Sizes of new and old lists must be the same, in case if there was single offset - you can pass it's value in $sv as scalar
 
+=item patch_ib_addr($old_addr, $new_addr) to patch address of indirect target. Make sure that old_addr really exists
+
 =back
 
 =head3 Patching relocs
