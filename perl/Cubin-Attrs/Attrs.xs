@@ -242,7 +242,10 @@ SV *CAttrs::patch_ib_addr(UV addr, UV new_addr) {
   auto off = sec->get_offset() + iter->second.offset;
   fseek(m_wf, off, SEEK_SET);
   uint32_t v = (uint32_t)new_addr;
-  if ( 1 != fwrite(&v, sizeof(v), 1, m_wf) ) return &PL_sv_no;
+  if ( 1 != fwrite(&v, sizeof(v), 1, m_wf) ) {
+    my_warn("patch_ib_addr: cannot write new_addr %X\n", v);
+    return &PL_sv_no;
+  }
   // update indirect_branches
   auto nh = indirect_branches.extract(iter);
   nh.key() = v;
@@ -256,7 +259,10 @@ SV *CAttrs::patch_ibt(std::unordered_map<uint32_t, ib_item>::iterator &iter, uin
   auto sec = m_e->rdr->sections[s_idx];
   auto off = sec->get_offset() + 0xc + iter->second.offset;
   fseek(m_wf, off, SEEK_SET);
-  if ( 1 != fwrite(&v, sizeof(v), 1, m_wf) ) return &PL_sv_no;
+  if ( 1 != fwrite(&v, sizeof(v), 1, m_wf) ) {
+    my_warn("patch_ibt: cannot write v %X\n", v);
+    return &PL_sv_no;
+  }
   iter->second.labels.front() = v;
   return &PL_sv_yes;
 }
@@ -274,7 +280,10 @@ SV *CAttrs::patch_ibt(std::unordered_map<uint32_t, ib_item>::iterator &iter, AV 
   auto off = sec->get_offset() + 0xc + iter->second.offset;
   fseek(m_wf, off, SEEK_SET);
   auto asize = sizeof(uint32_t) * tmp.size();
-  if ( 1 != fwrite(tmp.data(), asize, 1, m_wf) ) return &PL_sv_no;
+  if ( 1 != fwrite(tmp.data(), asize, 1, m_wf) ) {
+    my_warn("patch_ibt: cannot write %X bytes at %lX\n", asize, off);
+    return &PL_sv_no;
+  }
   // copy tmp to labels
   iter->second.labels.clear();
   std::copy(tmp.begin(), tmp.end(), std::back_inserter(iter->second.labels));
@@ -356,8 +365,8 @@ SV *CAttrs::patch_addr(int idx, AV *av)
   for (int i = 0; i <= av_len(av); i++) {
     SV** elem = av_fetch(av, i, 0);
     U32 ov = SvIV(*elem);
-    if ( 1 == fwrite(&ov, sizeof(ov), 1, m_wf) ) {
-      my_warn("patch_alist: cannot write item %d\n", i);
+    if ( 1 != fwrite(&ov, sizeof(ov), 1, m_wf) ) {
+      my_warn("patch_alist: cannot write item %X, idx %d\n", ov, i);
       return &PL_sv_no;
     }
   }
