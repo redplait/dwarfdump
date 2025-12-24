@@ -580,10 +580,10 @@ void PlainRender::dump_method(Method *e, const Element *owner, std::string &res)
   if ( e->def_ )
     res += " default";
   if ( e->virt_ == Dwarf32::Virtuality::DW_VIRTUALITY_pure_virtual )
-    res += " = 0";  
+    res += " = 0";
 }
 
-std::string &PlainRender::render_params(IN Element *e, uint64_t this_arg, OUT std::string &s)
+std::string &PlainRender::render_params(Element *e, uint64_t this_arg, OUT std::string &s)
 {
   for ( size_t i = 0; i < e->m_comp->params_.size(); i++ )
   {
