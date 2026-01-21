@@ -3,6 +3,7 @@
 #include "perl.h"
 #include "XSUB.h"
 #include "elfio/elfio.hpp"
+#include "cudacoredump.h"
 
 #include "ppport.h"
 #include "../elf.inc"
@@ -452,6 +453,16 @@ static int s_rdr_id = 0;
   SvREADONLY_on((SV*)fake); \
   ST(0) = objref; \
   XSRETURN(1);
+
+#define EXPORT_ENUM(x) newCONSTSUB(stash, #x, new_enum_dualvar(aTHX_ x, newSVpvs_share(#x)));
+static SV * new_enum_dualvar(pTHX_ IV ival, SV *name) {
+        SvUPGRADE(name, SVt_PVNV);
+        SvIV_set(name, ival);
+        SvIOK_on(name);
+        SvREADONLY_on(name);
+        return name;
+}
+
 
 // bm search
 AV *bm_ascii(SV *pattern, const unsigned char *start, const unsigned char *end, ptrdiff_t diff)
@@ -1687,3 +1698,24 @@ FETCH(self, key)
 
 BOOT:
  s_host_encoding = get_host_encoding();
+ HV *stash= gv_stashpvn("Elf::Reader", 11, 1);
+ EXPORT_ENUM(CUDBG_SHT_MANAGED_MEM)
+ EXPORT_ENUM(CUDBG_SHT_GLOBAL_MEM)
+ EXPORT_ENUM(CUDBG_SHT_LOCAL_MEM)
+ EXPORT_ENUM(CUDBG_SHT_SHARED_MEM)
+ EXPORT_ENUM(CUDBG_SHT_DEV_REGS)
+ EXPORT_ENUM(CUDBG_SHT_ELF_IMG)
+ EXPORT_ENUM(CUDBG_SHT_RELF_IMG)
+ EXPORT_ENUM(CUDBG_SHT_BT)
+ EXPORT_ENUM(CUDBG_SHT_DEV_TABLE)
+ EXPORT_ENUM(CUDBG_SHT_CTX_TABLE)
+ EXPORT_ENUM(CUDBG_SHT_SM_TABLE)
+ EXPORT_ENUM(CUDBG_SHT_GRID_TABLE)
+ EXPORT_ENUM(CUDBG_SHT_CTA_TABLE)
+ EXPORT_ENUM(CUDBG_SHT_WP_TABLE)
+ EXPORT_ENUM(CUDBG_SHT_LN_TABLE)
+ EXPORT_ENUM(CUDBG_SHT_MOD_TABLE)
+ EXPORT_ENUM(CUDBG_SHT_DEV_PRED)
+ EXPORT_ENUM(CUDBG_SHT_PARAM_MEM)
+ EXPORT_ENUM(CUDBG_SHT_DEV_UREGS)
+ EXPORT_ENUM(CUDBG_SHT_DEV_UPRED)
