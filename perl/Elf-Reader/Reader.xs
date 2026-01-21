@@ -622,6 +622,26 @@ new(obj_or_pkg, const char *fname)
   }
   XSRETURN(1);
 
+UV
+save2fd(SV *self, IV section_idx, PerlIO *handle)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(self, 1, &Elf_magic_vt);
+ CODE:
+  if ( !handle || section_idx < 0 || section_idx >= e->rdr->sections.size() )
+    RETVAL = 0;
+  else {
+    auto *s = e->rdr->sections[section_idx];
+    if ( !s ) {
+      my_warn("save2fd - no section with index %d", section_idx);
+      RETVAL = 0;
+    } else {
+      auto size = s->get_size();
+      if ( !size ) RETVAL = 0;
+      else RETVAL = PerlIO_write(handle, s->get_data(), size);
+    }
+  }
+ OUTPUT:
+  RETVAL
 
 IV
 patch_sec_flag(SV *self, IV section_idx, UV flag)

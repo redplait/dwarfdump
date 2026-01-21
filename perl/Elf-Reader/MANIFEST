@@ -1,6 +1,8 @@
 Changes
 Makefile.PL
 MANIFEST
+cudacoredump.h
+cuda_stdint.h
 ppport.h
 Reader.xs
 bm_search.h
