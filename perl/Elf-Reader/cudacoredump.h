@@ -154,6 +154,12 @@ typedef enum {
     CUDBG_SHT_PARAM_MEM   = SHT_LOUSER + 18,
     CUDBG_SHT_DEV_UREGS   = SHT_LOUSER + 19,
     CUDBG_SHT_DEV_UPRED   = SHT_LOUSER + 20,
+/* Since CUDA Driver r550 */
+    CUDBG_SHT_CB_TABLE    = SHT_LOUSER + 21,
+    /* Since CUDA Driver r565 */
+    CUDBG_SHT_META_DATA   = SHT_LOUSER + 22,
+    /* Since CUDA Driver r575 */
+    CUDBG_SHT_CBU_BAR     = SHT_LOUSER + 23,
 } CudbgSectionHeaderTypes;
 
 /* Section names */
@@ -176,5 +182,11 @@ typedef enum {
 #define CUDBG_SHNAME_RELFIMG    ".cudbg.relfimg"
 #define CUDBG_SHNAME_UREGS      ".cudbg.uregs"
 #define CUDBG_SHNAME_UPRED      ".cudbg.upred"
+/* Since CUDA Driver r550 */
+#define CUDBG_SHNAME_CBTABLE    ".cudbg.cbankstbl"
+/* Since CUDA Driver r565 */
+#define CUDBG_SHNAME_META_DATA  ".cudbg.meta"
+/* Since CUDA Driver r575 */
+#define CUDBG_SHNAME_CBU_BAR    ".cudbg.cbu_bar"
 
 #endif

@@ -463,7 +463,6 @@ static SV * new_enum_dualvar(pTHX_ IV ival, SV *name) {
         return name;
 }
 
-
 // bm search
 AV *bm_ascii(SV *pattern, const unsigned char *start, const unsigned char *end, ptrdiff_t diff)
 {
@@ -581,6 +580,78 @@ int patch_sect(struct IElf *e, int idx, F &&func)
   return res;
 }
 
+// nvidia core dumps
+static bool is_ncore(struct IElf *e) {
+  return e->rdr->get_type() == ELFIO::ET_CORE &&
+   e->rdr->get_machine() == ELFIO::EM_CUDA;
+}
+
+static bool check_size(const ELFIO::section *s, size_t item_size, const char *pfx) {
+  auto ss = s->get_size();
+  if ( !ss ) return true;
+  if ( ss < item_size ) {
+    my_warn("bad %d section %s size for %s, lesser %X\n", s->get_index(), s->get_name().c_str(), pfx, item_size);
+    return false;
+  }
+  auto num = ss / item_size;
+  if ( num * item_size != ss ) {
+    my_warn("bad %d section %s size alignment for %s\n", s->get_index(), s->get_name().c_str(), pfx);
+    return false;
+  }
+  return true;
+}
+
+static bool check_mask_size(const ELFIO::section *s, size_t item_mask, const char *pfx) {
+  auto ss = s->get_size();
+  if ( !ss ) return true;
+  if ( ss <= item_mask ) {
+    my_warn("bad %d section %s size for %s, lesser %X\n", s->get_index(), s->get_name().c_str(), pfx, 1 + item_mask);
+    return false;
+  }
+  if ( ss & item_mask ) {
+    my_warn("bad %d section %s size alignment for %s\n", s->get_index(), s->get_name().c_str(), pfx);
+    return false;
+  }
+  return true;
+}
+
+static void get_ncd(const int32_t *ptr, AV *av) {
+  av_push(av, newSViv(*ptr));
+}
+
+template <typename T>
+SV *read_ncd(struct IElf *e, unsigned int stype, int idx, const char *pfx) {
+  if ( !is_ncore(e) ) return &PL_sv_undef;
+  // check section
+  auto n = e->rdr->sections.size();
+  if ( idx >= n ) {
+    my_warn("invalid section index %d for %s\n", idx, pfx);
+    return &PL_sv_undef;
+  }
+  auto *s = e->rdr->sections[idx];
+  if ( s->get_type() != stype ) return &PL_sv_undef;
+  auto isize = sizeof(T);
+  switch(isize) {
+    case 4: if ( !check_mask_size(s, 3, pfx) ) return &PL_sv_undef;
+     break;
+    case 8: if ( !check_mask_size(s, 7, pfx) ) return &PL_sv_undef;
+     break;
+    case 16: if ( !check_mask_size(s, 15, pfx) ) return &PL_sv_undef;
+     break;
+    case 32: if ( !check_mask_size(s, 31, pfx) ) return &PL_sv_undef;
+     break;
+    case 64: if ( !check_mask_size(s, 63, pfx) ) return &PL_sv_undef;
+     break;
+    default: if ( !check_size(s, isize, pfx) ) return &PL_sv_undef;
+  }
+  AV *av = newAV();
+  auto start = s->get_data();
+  auto end = start + s->get_size();
+  for ( const T *ptr = (const T *)start; ptr <(const T *)end; ++ptr ) {
+    get_ncd(ptr, av);
+  }
+  return newRV_noinc((SV*)av);
+}
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader
 
@@ -1329,6 +1400,22 @@ void sreadN(SV *arg, int s_idx, unsigned long off, int size)
    }
    XSRETURN(1);
 
+SV *ncd_regs(SV *arg, int s_idx)
+ALIAS:
+  Elf::Reader::uregs = 1
+  Elf::Reader::pred = 2
+  Elf::Reader::upred = 3
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+   static const char *s_names[4] = {
+     "regs", "uregs", "pred", "upred"
+   };
+   static const unsigned int s_types[4] = { CUDBG_SHT_DEV_REGS, CUDBG_SHT_DEV_UREGS, CUDBG_SHT_DEV_PRED, CUDBG_SHT_DEV_UPRED };
+ CODE:
+   RETVAL = read_ncd<int32_t>(e, s_types[ix], s_idx, s_names[ix]);
+ OUTPUT:
+   RETVAL
+
 MODULE = Elf::Reader		PACKAGE = Elf::Reader::SecIterator
 
 void
@@ -1739,3 +1826,6 @@ BOOT:
  EXPORT_ENUM(CUDBG_SHT_PARAM_MEM)
  EXPORT_ENUM(CUDBG_SHT_DEV_UREGS)
  EXPORT_ENUM(CUDBG_SHT_DEV_UPRED)
+ EXPORT_ENUM(CUDBG_SHT_CB_TABLE)
+ EXPORT_ENUM(CUDBG_SHT_META_DATA)
+ EXPORT_ENUM(CUDBG_SHT_CBU_BAR)
