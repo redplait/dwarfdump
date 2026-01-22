@@ -80,6 +80,28 @@ typedef struct {
     uint32_t attrHostTid;
 } CudbgGridTableEntry;
 
+struct CudbgGridTableEntry_525: public CudbgGridTableEntry {
+ /* Cluster dimension X */
+ uint32_t clusterDimX;
+ /* Cluster dimension Y */
+ uint32_t clusterDimY;
+ /* Cluster dimension Z */
+ uint32_t clusterDimZ;
+ /* Padding, ignore */
+ uint32_t padding0;
+};
+
+struct CudbgGridTableEntry_565: public CudbgGridTableEntry_525 {
+ /* Preferred cluster dimension X */
+ uint32_t preferredClusterDimX;
+ /* Preferred cluster dimension Y */
+ uint32_t preferredClusterDimY;
+ /* Preferred cluster dimension Z */
+ uint32_t preferredClusterDimZ;
+ /* Padding, ignore */
+ uint32_t padding1;
+};
+
 typedef struct {
     uint32_t smId;
     uint32_t pad;

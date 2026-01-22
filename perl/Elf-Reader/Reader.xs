@@ -629,6 +629,67 @@ static void marshal(const CudbgDeviceTableEntry_575 *ptr, AV *av) {
   av_push(av, newSVuv(ptr->numConvergenceBarriersPrWarp));
 }
 
+static void marshal(const CudbgGridTableEntry *ptr, AV *av) {
+ // 0 - gridId64
+ av_push(av, newSVuv(ptr->gridId64));
+ // 1 - contextId
+ av_push(av, newSVuv(ptr->contextId));
+ // 2 - function
+ av_push(av, newSVuv(ptr->function));
+ // 3 - functionEntry
+ av_push(av, newSVuv(ptr->functionEntry));
+ // 4 - moduleHandle
+ av_push(av, newSVuv(ptr->moduleHandle));
+ // 5 - parentGridId64
+ av_push(av, newSVuv(ptr->parentGridId64));
+ // 6 - paramsOffset
+ av_push(av, newSVuv(ptr->paramsOffset));
+ // 7 - kernelType
+ av_push(av, newSVuv(ptr->kernelType));
+ // 8 - origin
+ av_push(av, newSVuv(ptr->origin));
+ // 9 - gridStatus
+ av_push(av, newSVuv(ptr->gridStatus));
+ // 10 - numRegs
+ av_push(av, newSVuv(ptr->numRegs));
+ // 11 - gridDimX
+ av_push(av, newSVuv(ptr->gridDimX));
+ // 12 - gridDimY
+ av_push(av, newSVuv(ptr->gridDimY));
+ // 13 - gridDimZ
+ av_push(av, newSVuv(ptr->gridDimZ));
+ // 14 - blockDimX
+ av_push(av, newSVuv(ptr->blockDimX));
+ // 15 - blockDimY
+ av_push(av, newSVuv(ptr->blockDimY));
+ // 16 - blockDimZ
+ av_push(av, newSVuv(ptr->blockDimZ));
+ // 17 - attrLaunchBlocking
+ av_push(av, newSVuv(ptr->attrLaunchBlocking));
+ // 18 - attrHostTid
+ av_push(av, newSVuv(ptr->attrHostTid));
+}
+
+static void marshal(const CudbgGridTableEntry_525 *ptr, AV *av) {
+ marshal((const CudbgGridTableEntry *)ptr, av);
+ // 19 - clusterDimX
+ av_push(av, newSVuv(ptr->clusterDimX));
+ // 20 - clusterDimY
+ av_push(av, newSVuv(ptr->clusterDimY));
+ // 21 - clusterDimZ
+ av_push(av, newSVuv(ptr->clusterDimZ));
+}
+
+static void marshal(const CudbgGridTableEntry_565 *ptr, AV *av) {
+ marshal((const CudbgGridTableEntry_525 *)ptr, av);
+ // 22 - preferredClusterDimX
+ av_push(av, newSVuv(ptr->preferredClusterDimX));
+ // 23 - preferredClusterDimY
+ av_push(av, newSVuv(ptr->preferredClusterDimY));
+ // 24 - preferredClusterDimZ
+ av_push(av, newSVuv(ptr->preferredClusterDimZ));
+}
+
 static bool check_size(const ELFIO::section *s, size_t item_size, const char *pfx) {
   auto ss = s->get_size();
   if ( !ss ) return true;
@@ -1557,6 +1618,21 @@ ALIAS:
     RETVAL = read_ncd<CudbgDeviceTableEntry_575>(e, CUDBG_SHT_DEV_TABLE, s_idx, "dev");
    else
     RETVAL = read_ncd<CudbgDeviceTableEntry>(e, CUDBG_SHT_DEV_TABLE, s_idx, "dev");
+ OUTPUT:
+   RETVAL
+
+SV *ncd_grid(SV *arg, int s_idx, int version = DRV_VERSION)
+ALIAS:
+  Elf::Reader::ncd_grids = 1
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+ CODE:
+   if ( version >= 555 )
+    RETVAL = read_ncd<CudbgGridTableEntry_565>(e, CUDBG_SHT_GRID_TABLE, s_idx, "grid");
+   else if ( version >= 525 )
+    RETVAL = read_ncd<CudbgGridTableEntry_525>(e, CUDBG_SHT_GRID_TABLE, s_idx, "grid");
+   else
+    RETVAL = read_ncd<CudbgDeviceTableEntry>(e, CUDBG_SHT_GRID_TABLE, s_idx, "grid");
  OUTPUT:
    RETVAL
 
