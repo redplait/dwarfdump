@@ -690,6 +690,29 @@ static void marshal(const CudbgGridTableEntry_565 *ptr, AV *av) {
  av_push(av, newSVuv(ptr->preferredClusterDimZ));
 }
 
+static void marshal(const CudbgSmTableEntry_555 *ptr, AV *av) {
+ // 0 - smId
+ av_push(av, newSVuv(ptr->smId));
+ // 1 - exception
+ av_push(av, newSVuv(ptr->exception));
+ // 2 - errorPCValid
+ av_push(av, newSVuv(ptr->errorPCValid));
+ // 3 - errorPC || undef
+ av_push(av, ptr->errorPCValid ? newSVuv(ptr->errorPC) : &PL_sv_undef);
+ // 4 - clusterExceptionTargetBlockIdxValid
+ av_push(av, newSVuv(ptr->clusterExceptionTargetBlockIdxValid));
+ // 5, 6, 7 - clusterExceptionTargetBlockIdx || undef
+ av_push(av, ptr->clusterExceptionTargetBlockIdxValid ? newSVuv(ptr->clusterExceptionTargetBlockIdxX) : &PL_sv_undef);
+ av_push(av, ptr->clusterExceptionTargetBlockIdxValid ? newSVuv(ptr->clusterExceptionTargetBlockIdxY) : &PL_sv_undef);
+ av_push(av, ptr->clusterExceptionTargetBlockIdxValid ? newSVuv(ptr->clusterExceptionTargetBlockIdxZ) : &PL_sv_undef);
+}
+
+static void marshal(const CudbgSmTableEntry_580 *ptr, AV *av) {
+ marshal((const CudbgSmTableEntry_555 *)ptr, av);
+ // 8 - exceptionString
+ av_push(av, newSVuv(ptr->exceptionString));
+}
+
 static bool check_size(const ELFIO::section *s, size_t item_size, const char *pfx) {
   auto ss = s->get_size();
   if ( !ss ) return true;
@@ -771,6 +794,10 @@ static void get_ncd(const T *ptr, AV *av_cont) {
   AV *av = newAV();
   marshal(ptr, av);
   av_push(av_cont, newRV_noinc((SV*)av));
+}
+
+static void get_ncd(const CudbgSmTableEntry *ptr, AV *av) {
+  av_push(av, newSViv(ptr->smId));
 }
 
 template <typename T>
@@ -867,6 +894,14 @@ save2fd(SV *self, IV section_idx, PerlIO *handle)
       else RETVAL = PerlIO_write(handle, s->get_data(), size);
     }
   }
+ OUTPUT:
+  RETVAL
+
+SV *is_ncd(SV *self)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(self, 1, &Elf_magic_vt);
+ CODE:
+  RETVAL = is_ncore(e) ? &PL_sv_yes : &PL_sv_no;
  OUTPUT:
   RETVAL
 
@@ -1635,6 +1670,22 @@ ALIAS:
     RETVAL = read_ncd<CudbgDeviceTableEntry>(e, CUDBG_SHT_GRID_TABLE, s_idx, "grid");
  OUTPUT:
    RETVAL
+
+SV *ncd_sm(SV *arg, int s_idx, int version = DRV_VERSION)
+ALIAS:
+  Elf::Reader::ncd_sms = 1
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+ CODE:
+   if ( version >= 580 )
+    RETVAL = read_ncd<CudbgSmTableEntry_580>(e, CUDBG_SHT_SM_TABLE, s_idx, "SM");
+   else if ( version >= 555 )
+    RETVAL = read_ncd<CudbgSmTableEntry_555>(e, CUDBG_SHT_SM_TABLE, s_idx, "SM");
+   else
+    RETVAL = read_ncd<CudbgSmTableEntry>(e, CUDBG_SHT_SM_TABLE, s_idx, "SM");
+ OUTPUT:
+   RETVAL
+
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader::SecIterator
 

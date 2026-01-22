@@ -107,6 +107,25 @@ typedef struct {
     uint32_t pad;
 } CudbgSmTableEntry;
 
+struct CudbgSmTableEntry_555: public CudbgSmTableEntry {
+  uint32_t exception;
+  uint32_t errorPCValid;
+  uint64_t errorPC;
+  uint32_t clusterExceptionTargetBlockIdxValid;
+  /* For cluster exceptions, following x,y,z fields represent the target block
+   * index handling cluster requests.
+   * Block index, X */
+  uint32_t clusterExceptionTargetBlockIdxX;
+  /* Block index, Y */
+  uint32_t clusterExceptionTargetBlockIdxY;
+  /* Block index, Z */
+  uint32_t clusterExceptionTargetBlockIdxZ;
+};
+
+struct CudbgSmTableEntry_580: CudbgSmTableEntry_555 {
+  uint64_t exceptionString;
+};
+
 typedef struct {
     uint64_t gridId64;         /* 64-bit grid ID */
     uint32_t blockIdxX;
