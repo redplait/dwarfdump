@@ -623,6 +623,25 @@ static void get_ncd(const uint64_t *ptr, AV *av) {
   av_push(av, newSVuv(*ptr));
 }
 
+static void get_ncd(const CudbgMetaDataEntry *ptr, AV *av_cont) {
+  AV *av = newAV();
+  // 0 - generatorName
+  av_push(av, newSVuv(ptr->generatorName));
+  // 1 - driverVersionMajor
+  av_push(av, newSVuv(ptr->driverVersionMajor));
+  // 2 - driverVersionMinor
+  av_push(av, newSVuv(ptr->driverVersionMinor));
+  // 3 - cudaDriverVersionMajor
+  av_push(av, newSVuv(ptr->cudaDriverVersionMajor));
+  // 4 - cudaDriverVersionMinor
+  av_push(av, newSVuv(ptr->cudaDriverVersionMinor));
+  // 5 - flags
+  av_push(av, newSVuv(ptr->flags));
+  // 6 - timestamp
+  av_push(av, newSVuv(ptr->timestamp));
+  av_push(av_cont, newRV_noinc((SV*)av));
+}
+
 template <typename T>
 SV *read_ncd(struct IElf *e, unsigned int stype, int idx, const char *pfx) {
   if ( !is_ncore(e) ) return &PL_sv_undef;
@@ -1429,6 +1448,15 @@ SV *ncd_mods(SV *arg, int s_idx)
    RETVAL = read_ncd<uint64_t>(e, CUDBG_SHT_MOD_TABLE, s_idx, "mods");
  OUTPUT:
    RETVAL
+
+SV *ncd_meta(SV *arg, int s_idx)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+ CODE:
+   RETVAL = read_ncd<CudbgMetaDataEntry>(e, CUDBG_SHT_META_DATA, s_idx, "meta");
+ OUTPUT:
+   RETVAL
+
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader::SecIterator
 

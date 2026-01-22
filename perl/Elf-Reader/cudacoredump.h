@@ -129,6 +129,24 @@ typedef struct {
     uint32_t tid;          /* host thread id */
 } CudbgContextTableEntry;
 
+// since r565
+typedef struct {
+    /* Identifier for the generator of the coredump.
+     * This field is an index into the string table.
+     */
+    uint64_t generatorName;
+    /* The version of the GPU driver as reported by NVML API. Not set on Tegra. */
+    uint32_t driverVersionMajor;
+    uint32_t driverVersionMinor;
+    /* The version of the CUDA driver as reported by the driver API (e.g. 12/7) */
+    uint32_t cudaDriverVersionMajor;
+    uint32_t cudaDriverVersionMinor;
+    /* Flags used to generate the coredump (CUDBGCoredumpGenerationFlags) */
+    uint32_t flags;
+    /* Timestamp of this coredump, in seconds since the UNIX Epoch */
+    uint32_t timestamp;
+} CudbgMetaDataEntry;
+
 #ifndef SHT_LOUSER
 #define SHT_LOUSER    0x80000000
 #endif
