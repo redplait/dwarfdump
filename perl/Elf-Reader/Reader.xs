@@ -619,6 +619,10 @@ static void get_ncd(const int32_t *ptr, AV *av) {
   av_push(av, newSViv(*ptr));
 }
 
+static void get_ncd(const uint64_t *ptr, AV *av) {
+  av_push(av, newSVuv(*ptr));
+}
+
 template <typename T>
 SV *read_ncd(struct IElf *e, unsigned int stype, int idx, const char *pfx) {
   if ( !is_ncore(e) ) return &PL_sv_undef;
@@ -652,6 +656,8 @@ SV *read_ncd(struct IElf *e, unsigned int stype, int idx, const char *pfx) {
   }
   return newRV_noinc((SV*)av);
 }
+
+const int DRV_VERSION = 535;
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader
 
@@ -1416,6 +1422,14 @@ ALIAS:
  OUTPUT:
    RETVAL
 
+SV *ncd_mods(SV *arg, int s_idx)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+ CODE:
+   RETVAL = read_ncd<uint64_t>(e, CUDBG_SHT_MOD_TABLE, s_idx, "mods");
+ OUTPUT:
+   RETVAL
+
 MODULE = Elf::Reader		PACKAGE = Elf::Reader::SecIterator
 
 void
@@ -1829,3 +1843,4 @@ BOOT:
  EXPORT_ENUM(CUDBG_SHT_CB_TABLE)
  EXPORT_ENUM(CUDBG_SHT_META_DATA)
  EXPORT_ENUM(CUDBG_SHT_CBU_BAR)
+ EXPORT_ENUM(DRV_VERSION)
