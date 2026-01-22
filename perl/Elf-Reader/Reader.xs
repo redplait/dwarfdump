@@ -586,6 +586,49 @@ static bool is_ncore(struct IElf *e) {
    e->rdr->get_machine() == ELFIO::EM_CUDA;
 }
 
+static void marshal(const CudbgDeviceTableEntry *ptr, AV *av) {
+  // 0 - devName, index into the string table
+  av_push(av, newSVuv(ptr->devName));
+  // 1 - devType, index into the string table
+  av_push(av, newSVuv(ptr->devType));
+  // 2 - smType, index into the string table
+  av_push(av, newSVuv(ptr->smType));
+  // 3 - devId
+  av_push(av, newSVuv(ptr->devId));
+  // 4 - pciBusId
+  av_push(av, newSVuv(ptr->pciBusId));
+  // 5 - pciDevId
+  av_push(av, newSVuv(ptr->pciDevId));
+  // 6 - numSMs
+  av_push(av, newSVuv(ptr->numSMs));
+  // 7 - numWarpsPerSM
+  av_push(av, newSVuv(ptr->numWarpsPerSM));
+  // 8 - numLanesPerWarp
+  av_push(av, newSVuv(ptr->numLanesPerWarp));
+  // 9 - numRegsPerLane
+  av_push(av, newSVuv(ptr->numRegsPerLane));
+  // 10 - numPredicatesPrLane
+  av_push(av, newSVuv(ptr->numPredicatesPrLane));
+  // 11 - smMajor
+  av_push(av, newSVuv(ptr->smMajor));
+  // 12 - smMinor
+  av_push(av, newSVuv(ptr->smMinor));
+  // 13 - instructionSize
+  av_push(av, newSVuv(ptr->instructionSize));
+  // 14 - status
+  av_push(av, newSVuv(ptr->status));
+  // 15 - numUniformRegsPrWarp
+  av_push(av, newSVuv(ptr->numUniformRegsPrWarp));
+  // 16 - numUniformPredicatesPrWarp
+  av_push(av, newSVuv(ptr->numUniformPredicatesPrWarp));
+}
+
+static void marshal(const CudbgDeviceTableEntry_575 *ptr, AV *av) {
+  marshal((CudbgDeviceTableEntry *)ptr, av);
+  // 17 - numConvergenceBarriersPrWarp
+  av_push(av, newSVuv(ptr->numConvergenceBarriersPrWarp));
+}
+
 static bool check_size(const ELFIO::section *s, size_t item_size, const char *pfx) {
   auto ss = s->get_size();
   if ( !ss ) return true;
@@ -659,6 +702,13 @@ static void get_ncd(const CudbgMetaDataEntry *ptr, AV *av_cont) {
   av_push(av, newSVuv(ptr->flags));
   // 6 - timestamp
   av_push(av, newSVuv(ptr->timestamp));
+  av_push(av_cont, newRV_noinc((SV*)av));
+}
+
+template <typename T>
+static void get_ncd(const T *ptr, AV *av_cont) {
+  AV *av = newAV();
+  marshal(ptr, av);
   av_push(av_cont, newRV_noinc((SV*)av));
 }
 
@@ -1494,6 +1544,19 @@ ALIAS:
    struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
  CODE:
    RETVAL = read_ncd<CudbgConstBankTableEntry>(e, CUDBG_SHT_CB_TABLE, s_idx, "constBank");
+ OUTPUT:
+   RETVAL
+
+SV *ncd_dev(SV *arg, int s_idx, int version = DRV_VERSION)
+ALIAS:
+  Elf::Reader::ncd_devs = 1
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+ CODE:
+   if ( version >= 575 )
+    RETVAL = read_ncd<CudbgDeviceTableEntry_575>(e, CUDBG_SHT_DEV_TABLE, s_idx, "dev");
+   else
+    RETVAL = read_ncd<CudbgDeviceTableEntry>(e, CUDBG_SHT_DEV_TABLE, s_idx, "dev");
  OUTPUT:
    RETVAL
 

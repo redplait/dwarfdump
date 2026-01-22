@@ -50,6 +50,14 @@ typedef struct {
     uint32_t numUniformPredicatesPrWarp;
 } CudbgDeviceTableEntry;
 
+// since r575
+struct CudbgDeviceTableEntry_575: public CudbgDeviceTableEntry {
+  /* Maximum number of convergence barriers per warp */
+  uint32_t numConvergenceBarriersPrWarp;
+  /* Padding, ignore */
+  uint32_t padding0;
+};
+
 typedef struct {
     uint64_t gridId64;           /* 64-bit grid ID */
     uint64_t contextId;
