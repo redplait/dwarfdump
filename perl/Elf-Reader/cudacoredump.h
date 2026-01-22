@@ -147,6 +147,17 @@ typedef struct {
     uint32_t timestamp;
 } CudbgMetaDataEntry;
 
+// since r550
+typedef struct {
+    /* Global address of this constbank's start */
+    uint64_t addr;
+    /* Size of this constbank in bytes */
+    uint32_t size;
+    /* ID (number) of this constbank */
+    uint32_t bankId;
+} CudbgConstBankTableEntry;
+
+
 #ifndef SHT_LOUSER
 #define SHT_LOUSER    0x80000000
 #endif

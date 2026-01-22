@@ -530,7 +530,7 @@ AV *bm_asciiz(SV *pattern, const unsigned char *start, const unsigned char *end,
 }
 
 template <typename T, typename F>
-int patch_s(FILE *fp, unsigned long off, F &&func)
+static int patch_s(FILE *fp, unsigned long off, F &&func)
 {
   T data;
   fseek(fp, off, SEEK_SET);
@@ -543,7 +543,7 @@ int patch_s(FILE *fp, unsigned long off, F &&func)
 }
 
 template <typename F>
-int patch_segm(struct IElf *e, int idx, F &&func)
+static int patch_segm(struct IElf *e, int idx, F &&func)
 {
   // open file
   FILE *fp = fopen(e->fname.c_str(), "r+b");
@@ -562,7 +562,7 @@ int patch_segm(struct IElf *e, int idx, F &&func)
 }
 
 template <typename F>
-int patch_sect(struct IElf *e, int idx, F &&func)
+static int patch_sect(struct IElf *e, int idx, F &&func)
 {
   // open file
   FILE *fp = fopen(e->fname.c_str(), "r+b");
@@ -621,6 +621,26 @@ static void get_ncd(const int32_t *ptr, AV *av) {
 
 static void get_ncd(const uint64_t *ptr, AV *av) {
   av_push(av, newSVuv(*ptr));
+}
+
+static void get_ncd(const CudbgBacktraceTableEntry *ptr, AV *av_cont) {
+  AV *av = newAV();
+  // 0 - virtualReturnAddress
+  av_push(av, newSVuv(ptr->virtualReturnAddress));
+  // 1 - level
+  av_push(av, newSVuv(ptr->level));
+  av_push(av_cont, newRV_noinc((SV*)av));
+}
+
+static void get_ncd(const CudbgConstBankTableEntry *ptr, AV *av_cont) {
+  AV *av = newAV();
+  // 0 - addr
+  av_push(av, newSVuv(ptr->addr));
+  // 1 - size
+  av_push(av, newSVuv(ptr->size));
+  // 2 - bankId
+  av_push(av, newSVuv(ptr->bankId));
+  av_push(av_cont, newRV_noinc((SV*)av));
 }
 
 static void get_ncd(const CudbgMetaDataEntry *ptr, AV *av_cont) {
@@ -1457,6 +1477,25 @@ SV *ncd_meta(SV *arg, int s_idx)
  OUTPUT:
    RETVAL
 
+SV *ncd_bt(SV *arg, int s_idx)
+ALIAS:
+  Elf::Reader::ncd_bts = 1
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+ CODE:
+   RETVAL = read_ncd<CudbgBacktraceTableEntry>(e, CUDBG_SHT_BT, s_idx, "backtrace");
+ OUTPUT:
+   RETVAL
+
+SV *ncd_cb(SV *arg, int s_idx)
+ALIAS:
+  Elf::Reader::ncd_cbs = 1
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+ CODE:
+   RETVAL = read_ncd<CudbgConstBankTableEntry>(e, CUDBG_SHT_CB_TABLE, s_idx, "constBank");
+ OUTPUT:
+   RETVAL
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader::SecIterator
 
