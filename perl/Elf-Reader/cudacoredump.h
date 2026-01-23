@@ -145,6 +145,36 @@ typedef struct {
     uint32_t pad;
 } CudbgWarpTableEntry;
 
+struct CudbgWarpTableEntry_525: public CudbgWarpTableEntry {
+  uint32_t numRegs;
+  uint32_t padding1;
+};
+
+struct CudbgWarpTableEntry_570: public CudbgWarpTableEntry_525 {
+  uint32_t sharedMemSize;
+  uint32_t padding2;
+};
+
+struct CudbgWarpTableEntry_575: public CudbgWarpTableEntry_570 {
+ /* Mask of lanes stopped in a syscall */
+ uint32_t inSyscallLanesMask;
+ /* Mask of lanes marked as active in CBU */
+ uint32_t cbuActiveLanesMask;
+ /* Mask of lanes marked as exited in CBU */
+ uint32_t cbuExitedLanesMask;
+ /* Mask of lanes participating in a collective region */
+ uint32_t cbuCollectiveLanesMask;
+};
+
+struct CudbgWarpTableEntry_590: public CudbgWarpTableEntry_575 {
+ /* This field is of type CUDBGBarrierScope */
+ uint32_t barrierScope;
+ /* Padding, ignore */
+ uint32_t padding3;
+ /* This field is an index into the string table. */
+ uint64_t additionalBarrierInfo;
+};
+
 typedef struct {
     uint64_t virtualPC;          /* virtualPC in the client's host VA */
     uint64_t physPC;             /* for gpudbgReadPC() */

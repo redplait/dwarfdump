@@ -713,6 +713,53 @@ static void marshal(const CudbgSmTableEntry_580 *ptr, AV *av) {
  av_push(av, newSVuv(ptr->exceptionString));
 }
 
+static void marshal(const CudbgWarpTableEntry *ptr, AV *av) {
+ // 0 - errorPC if errorPCValid
+ av_push(av, ptr->errorPCValid ? newSVuv(ptr->errorPC) : &PL_sv_undef);
+ // 1 - warpId
+ av_push(av, newSVuv(ptr->warpId));
+ // 2 - validLanesMask
+ av_push(av, newSVuv(ptr->validLanesMask));
+ // 3 - activeLanesMask
+ av_push(av, newSVuv(ptr->activeLanesMask));
+ // 4 - isWarpBroken
+ av_push(av, newSVuv(ptr->isWarpBroken));
+ // 5 - errorPCValid
+ av_push(av, newSVuv(ptr->errorPCValid));
+}
+
+static void marshal(const CudbgWarpTableEntry_525 *ptr, AV *av) {
+  marshal((const CudbgWarpTableEntry *)ptr, av);
+  // 6 - numRegs
+  av_push(av, newSVuv(ptr->numRegs));
+}
+
+static void marshal(const CudbgWarpTableEntry_570 *ptr, AV *av) {
+  marshal((const CudbgWarpTableEntry_525 *)ptr, av);
+  // 7 - sharedMemSize
+  av_push(av, newSVuv(ptr->sharedMemSize));
+}
+
+static void marshal(const CudbgWarpTableEntry_575 *ptr, AV *av) {
+  marshal((const CudbgWarpTableEntry_570 *)ptr, av);
+  // 8 - inSyscallLanesMask
+  av_push(av, newSVuv(ptr->inSyscallLanesMask));
+  // 9 - cbuActiveLanesMask
+  av_push(av, newSVuv(ptr->cbuActiveLanesMask));
+  // 10 - cbuExitedLanesMask
+  av_push(av, newSVuv(ptr->cbuExitedLanesMask));
+  // 11 - cbuCollectiveLanesMask
+  av_push(av, newSVuv(ptr->cbuCollectiveLanesMask));
+}
+
+static void marshal(const CudbgWarpTableEntry_590 *ptr, AV *av) {
+  marshal((const CudbgWarpTableEntry_575 *)ptr, av);
+  // 12 - barrierScope
+  av_push(av, newSVuv(ptr->barrierScope));
+  // 13 - additionalBarrierInfo
+  av_push(av, newSVuv(ptr->additionalBarrierInfo));
+}
+
 static bool check_size(const ELFIO::section *s, size_t item_size, const char *pfx) {
   auto ss = s->get_size();
   if ( !ss ) return true;
@@ -1683,6 +1730,25 @@ ALIAS:
     RETVAL = read_ncd<CudbgSmTableEntry_555>(e, CUDBG_SHT_SM_TABLE, s_idx, "SM");
    else
     RETVAL = read_ncd<CudbgSmTableEntry>(e, CUDBG_SHT_SM_TABLE, s_idx, "SM");
+ OUTPUT:
+   RETVAL
+
+SV *ncd_wp(SV *arg, int s_idx, int version = DRV_VERSION)
+ALIAS:
+  Elf::Reader::ncd_wps = 1
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+ CODE:
+   if ( version >= 590 )
+    RETVAL = read_ncd<CudbgWarpTableEntry_590>(e, CUDBG_SHT_WP_TABLE, s_idx, "WP");
+   else if ( version >= 575 )
+    RETVAL = read_ncd<CudbgWarpTableEntry_575>(e, CUDBG_SHT_WP_TABLE, s_idx, "WP");
+   else if ( version >= 570 )
+    RETVAL = read_ncd<CudbgWarpTableEntry_570>(e, CUDBG_SHT_WP_TABLE, s_idx, "WP");
+   else if ( version >= 525 )
+    RETVAL = read_ncd<CudbgWarpTableEntry_525>(e, CUDBG_SHT_WP_TABLE, s_idx, "WP");
+   else
+    RETVAL = read_ncd<CudbgWarpTableEntry>(e, CUDBG_SHT_WP_TABLE, s_idx, "WP");
  OUTPUT:
    RETVAL
 
