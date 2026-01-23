@@ -1,5 +1,50 @@
 #include "regnames.h"
 
+struct CudaRegNames: public RegNames
+{
+  typedef enum {
+    REG_CLASS_INVALID                  = 0x000,   /* invalid register */
+    REG_CLASS_REG_CC                   = 0x001,   /* Condition register */
+    REG_CLASS_REG_PRED                 = 0x002,   /* Predicate register */
+    REG_CLASS_REG_ADDR                 = 0x003,   /* Address register */
+    REG_CLASS_REG_HALF                 = 0x004,   /* 16-bit register (Currently unused) */
+    REG_CLASS_REG_FULL                 = 0x005,   /* 32-bit register */
+    REG_CLASS_MEM_LOCAL                = 0x006,   /* register spilled in memory */
+    REG_CLASS_LMEM_REG_OFFSET          = 0x007,   /* register at stack offset (ABI only) */
+    REG_CLASS_UREG_PRED                = 0x009,   /* uniform predicate register */
+    REG_CLASS_UREG_HALF                = 0x00a,   /* 16-bit uniform register */
+    REG_CLASS_UREG_FULL                = 0x00b,   /* 32-bit uniform register */
+  } CUDBGRegClass;
+  char reg[10], ureg[11], pred[10], upred[11];
+  unsigned int REGMAP_CLASS(unsigned int x) { return x >> 24; }
+  unsigned int REGMAP_REG(unsigned int x) { return x & 0x00ffffff; }
+  unsigned int REGMAP_PRED(unsigned int x) { return x & 0x07; }
+  virtual const char *reg_name(unsigned int regno)
+  {
+    if (REGMAP_CLASS (regno) == REG_CLASS_REG_FULL ) {
+      auto r = REGMAP_REG (regno);
+      if ( r == 255 ) return "RZ";
+      snprintf(reg, sizeof(reg) - 1, "R%d", r);
+      return reg;
+    }
+    if (REGMAP_CLASS (regno) == REG_CLASS_UREG_FULL ) {
+      auto r = REGMAP_REG (regno);
+      if ( r == 255 ) return "URZ";
+      snprintf(ureg, sizeof(ureg) - 1, "UR%d", r);
+      return ureg;
+    }
+    if (REGMAP_CLASS (regno) == REG_CLASS_REG_PRED ) {
+      snprintf(pred, sizeof(pred) - 1, "P%d", REGMAP_PRED(regno));
+      return pred;
+    }
+    if (REGMAP_CLASS (regno) == REG_CLASS_UREG_PRED ) {
+      snprintf(upred, sizeof(upred) - 1, "UP%d", REGMAP_PRED(regno));
+      return upred;
+    }
+    return nullptr;
+  }
+};
+
 struct ArmRegNames: public RegNames
 {
   virtual const char *reg_name(unsigned int regno)
@@ -891,6 +936,9 @@ RegNames *get_regnames(ELFIO::Elf_Half mac, bool is64)
     case 0xabc7: // EM_XTENSA_OLD
     case ELFIO::EM_XTENSA:
        res = new tableRegNames(regnames_xtensa, ARRAY_SIZE(regnames_xtensa));
+       return res;
+    case ELFIO::EM_CUDA:
+       res = new CudaRegNames();
        return res;
 
     case 258:
