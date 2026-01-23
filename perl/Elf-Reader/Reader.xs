@@ -852,7 +852,7 @@ SV *read_ncd(struct IElf *e, unsigned int stype, int idx, const char *pfx) {
   if ( !is_ncore(e) ) return &PL_sv_undef;
   // check section
   auto n = e->rdr->sections.size();
-  if ( idx >= n ) {
+  if ( idx < 0 || idx >= n ) {
     my_warn("invalid section index %d for %s\n", idx, pfx);
     return &PL_sv_undef;
   }
@@ -1423,6 +1423,36 @@ void find(SV *arg, unsigned long addr)
      mXPUSHs(newRV_noinc((SV*)av));
    }
    XSRETURN(1);
+
+SV *strz(SV *arg, int s_idx, unsigned long off)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+   std::string res;
+   const char *start, *end;
+   char c;
+ CODE:
+   // check section
+   auto n = e->rdr->sections.size();
+   if ( s_idx < 0 || s_idx >= n ) {
+     my_warn("strz: invalid section index %d\n", s_idx);
+     RETVAL = &PL_sv_undef;
+   } else {
+     auto *s = e->rdr->sections[s_idx];
+     auto slen = s->get_size();
+     if ( !slen || off >= slen ) {
+       my_warn("strz: invalid offset %ld\n", off);
+       RETVAL = &PL_sv_undef;
+     } else {
+       end = s->get_data() + slen;
+       start = s->get_data() + off;
+       while( start < end && (c = *start) ) {
+         res.push_back(c); start++;
+       }
+       RETVAL = newSVpv(res.c_str(), res.size());
+     }
+   }
+ OUTPUT:
+   RETVAL
 
 void asciiz(SV *arg, unsigned long addr)
  INIT:

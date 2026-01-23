@@ -800,6 +800,24 @@ versyms items are arrays with indexes
 
 =back
 
+=head3 section data read methods
+
+=over
+
+=item asciz(address) - try to read ASCI string at address
+
+=item byte(address) - read byte at address
+
+=item word(address) - read word at address
+
+=item dword(address) - read dword at address
+
+=item qword(address) - read qword at address
+
+=item strz(section_index, offset) - try to read ASCII string from section with section_index at specific offset
+
+=back
+
 =head2 EXPORT
 
 Names of ELF constants
