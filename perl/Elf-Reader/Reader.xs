@@ -629,6 +629,21 @@ static void marshal(const CudbgDeviceTableEntry_575 *ptr, AV *av) {
   av_push(av, newSVuv(ptr->numConvergenceBarriersPrWarp));
 }
 
+static void marshal(const CudbgContextTableEntry *ptr, AV *av) {
+ // 0 - contextId
+ av_push(av, newSVuv(ptr->contextId));
+ // 1 - sharedWindowBase
+ av_push(av, newSVuv(ptr->sharedWindowBase));
+ // 2 - localWindowBase
+ av_push(av, newSVuv(ptr->localWindowBase));
+ // 3 - globalWindowBase
+ av_push(av, newSVuv(ptr->globalWindowBase));
+ // 4 - deviceIdx
+ av_push(av, newSVuv(ptr->deviceIdx));
+ // 5 - tid
+ av_push(av, newSVuv(ptr->tid));
+}
+
 static void marshal(const CudbgGridTableEntry *ptr, AV *av) {
  // 0 - gridId64
  av_push(av, newSVuv(ptr->gridId64));
@@ -1667,6 +1682,14 @@ void sreadN(SV *arg, int s_idx, unsigned long off, int size)
      }
    }
    XSRETURN(1);
+
+SV *ncd_ctx(SV *arg, int s_idx)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+ CODE:
+   RETVAL = read_ncd<CudbgContextTableEntry>(e, CUDBG_SHT_CTX_TABLE, s_idx, "context");
+ OUTPUT:
+   RETVAL
 
 SV *ncd_regs(SV *arg, int s_idx)
 ALIAS:
