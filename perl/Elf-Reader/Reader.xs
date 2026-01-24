@@ -1840,7 +1840,7 @@ ALIAS:
    else if ( version >= 525 )
     RETVAL = read_ncd<CudbgGridTableEntry_525>(e, CUDBG_SHT_GRID_TABLE, s_idx, "grid");
    else
-    RETVAL = read_ncd<CudbgDeviceTableEntry>(e, CUDBG_SHT_GRID_TABLE, s_idx, "grid");
+    RETVAL = read_ncd<CudbgGridTableEntry>(e, CUDBG_SHT_GRID_TABLE, s_idx, "grid");
  OUTPUT:
    RETVAL
 
