@@ -806,6 +806,35 @@ static void marshal(const CudbgWarpTableEntry_590 *ptr, AV *av) {
   av_push(av, newSVuv(ptr->additionalBarrierInfo));
 }
 
+static void marshal(const CudbgThreadTableEntry *ptr, AV *av) {
+  // 0 - virtualPC
+  av_push(av, newSVuv(ptr->virtualPC));
+  // 1 - physPC
+  av_push(av, newSVuv(ptr->physPC));
+  // 2 - ln
+  av_push(av, newSVuv(ptr->ln));
+  // 3 - threadIdxX
+  av_push(av, newSVuv(ptr->threadIdxX));
+  // 4 - threadIdxY
+  av_push(av, newSVuv(ptr->threadIdxY));
+  // 5 - threadIdxZ
+  av_push(av, newSVuv(ptr->threadIdxZ));
+  // 6 - exception
+  av_push(av, newSVuv(ptr->exception));
+  // 7 - callDepth
+  av_push(av, newSVuv(ptr->callDepth));
+  // 8 - syscallCallDepth
+  av_push(av, newSVuv(ptr->syscallCallDepth));
+  // 9 - ccRegister
+  av_push(av, newSVuv(ptr->ccRegister));
+}
+
+static void marshal(const CudbgThreadTableEntry_575 *ptr, AV *av) {
+  marshal((const CudbgThreadTableEntry *)ptr, av);
+  // 10 - cbuThreadState
+  av_push(av, newSVuv(ptr->cbuThreadState));
+}
+
 static bool check_size(const ELFIO::section *s, size_t item_size, const char *pfx) {
   auto ss = s->get_size();
   if ( !ss ) return true;
@@ -1849,6 +1878,18 @@ ALIAS:
  OUTPUT:
    RETVAL
 
+SV *ncd_threads(SV *arg, int s_idx, int version = DRV_VERSION)
+ALIAS:
+  Elf::Reader::ncd_lanes = 1
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+ CODE:
+   if ( version >= 575 )
+    RETVAL = read_ncd<CudbgThreadTableEntry_575>(e, CUDBG_SHT_LN_TABLE, s_idx, "lane");
+   else
+    RETVAL = read_ncd<CudbgThreadTableEntry>(e, CUDBG_SHT_LN_TABLE, s_idx, "lane");
+ OUTPUT:
+   RETVAL
 
 MODULE = Elf::Reader		PACKAGE = Elf::Reader::SecIterator
 

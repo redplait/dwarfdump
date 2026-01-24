@@ -204,6 +204,10 @@ typedef struct {
     uint32_t ccRegister;
 } CudbgThreadTableEntry;
 
+struct CudbgThreadTableEntry_575: public CudbgThreadTableEntry {
+  uint32_t cbuThreadState;
+};
+
 typedef struct {
     uint64_t returnAddress;
     uint64_t virtualReturnAddress;
