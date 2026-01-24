@@ -134,6 +134,22 @@ typedef struct {
     uint32_t pad;
 } CudbgCTATableEntry;
 
+struct CudbgCTATableEntry_525: public CudbgCTATableEntry {
+ /* Cluster index */
+  uint32_t clusterIdxX;
+  uint32_t clusterIdxY;
+  uint32_t clusterIdxZ;
+  uint32_t padding1;
+};
+
+struct CudbgCTATableEntry_565: public CudbgCTATableEntry_525 {
+ /* Cluster dimensions */
+  uint32_t clusterDimX;
+  uint32_t clusterDimY;
+  uint32_t clusterDimZ;
+  uint32_t padding2;
+};
+
 typedef struct {
     uint64_t errorPC;
     uint32_t warpId;

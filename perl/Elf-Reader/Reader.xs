@@ -624,9 +624,40 @@ static void marshal(const CudbgDeviceTableEntry *ptr, AV *av) {
 }
 
 static void marshal(const CudbgDeviceTableEntry_575 *ptr, AV *av) {
-  marshal((CudbgDeviceTableEntry *)ptr, av);
+  marshal((const CudbgDeviceTableEntry *)ptr, av);
   // 17 - numConvergenceBarriersPrWarp
   av_push(av, newSVuv(ptr->numConvergenceBarriersPrWarp));
+}
+
+static void marshal(const CudbgCTATableEntry *ptr, AV *av) {
+ // 0 - gridId64
+ av_push(av, newSVuv(ptr->gridId64));
+ // 1 - blockIdxX
+ av_push(av, newSVuv(ptr->blockIdxX));
+ // 2 - blockIdxY
+ av_push(av, newSVuv(ptr->blockIdxY));
+ // 3 - blockIdxZ
+ av_push(av, newSVuv(ptr->blockIdxZ));
+}
+
+static void marshal(const CudbgCTATableEntry_525 *ptr, AV *av) {
+  marshal((const CudbgCTATableEntry *)ptr, av);
+  // 4 - clusterIdxX
+  av_push(av, newSVuv(ptr->clusterIdxX));
+  // 5 - clusterIdxY
+  av_push(av, newSVuv(ptr->clusterIdxY));
+  // 6 - clusterIdxZ
+  av_push(av, newSVuv(ptr->clusterIdxZ));
+}
+
+static void marshal(const CudbgCTATableEntry_565 *ptr, AV *av) {
+  marshal((const CudbgCTATableEntry_525 *)ptr, av);
+  // 7 - clusterDimX
+  av_push(av, newSVuv(ptr->clusterDimX));
+  // 8 - clusterDimY
+  av_push(av, newSVuv(ptr->clusterDimY));
+  // 7 - clusterDimZ
+  av_push(av, newSVuv(ptr->clusterDimZ));
 }
 
 static void marshal(const CudbgContextTableEntry *ptr, AV *av) {
@@ -1682,6 +1713,19 @@ void sreadN(SV *arg, int s_idx, unsigned long off, int size)
      }
    }
    XSRETURN(1);
+
+SV *ncd_cta(SV *arg, int s_idx, int version = DRV_VERSION)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+ CODE:
+   if ( version >= 565 )
+    RETVAL = read_ncd<CudbgCTATableEntry_565>(e, CUDBG_SHT_CTA_TABLE, s_idx, "CTA");
+   else if ( version >= 525 )
+    RETVAL = read_ncd<CudbgCTATableEntry_525>(e, CUDBG_SHT_CTA_TABLE, s_idx, "CTA");
+   else
+    RETVAL = read_ncd<CudbgCTATableEntry>(e, CUDBG_SHT_CTA_TABLE, s_idx, "CTA");
+ OUTPUT:
+   RETVAL
 
 SV *ncd_ctx(SV *arg, int s_idx)
  INIT:
