@@ -933,7 +933,7 @@ SV *read_ncd(struct IElf *e, unsigned int stype, int idx, const char *pfx) {
   }
   auto *s = e->rdr->sections[idx];
   if ( s->get_type() != stype ) return &PL_sv_undef;
-  auto isize = sizeof(T);
+  constexpr auto isize = sizeof(T);
   switch(isize) {
     case 4: if ( !check_mask_size(s, 3, pfx) ) return &PL_sv_undef;
      break;
@@ -944,6 +944,8 @@ SV *read_ncd(struct IElf *e, unsigned int stype, int idx, const char *pfx) {
     case 32: if ( !check_mask_size(s, 31, pfx) ) return &PL_sv_undef;
      break;
     case 64: if ( !check_mask_size(s, 63, pfx) ) return &PL_sv_undef;
+     break;
+    case 128: if ( !check_mask_size(s, 127, pfx) ) return &PL_sv_undef;
      break;
     default: if ( !check_size(s, isize, pfx) ) return &PL_sv_undef;
   }
@@ -1766,9 +1768,9 @@ SV *ncd_ctx(SV *arg, int s_idx)
 
 SV *ncd_regs(SV *arg, int s_idx)
 ALIAS:
-  Elf::Reader::uregs = 1
-  Elf::Reader::pred = 2
-  Elf::Reader::upred = 3
+  Elf::Reader::ncd_uregs = 1
+  Elf::Reader::ncd_pred = 2
+  Elf::Reader::ncd_upred = 3
  INIT:
    struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
    static const char *s_names[4] = {
