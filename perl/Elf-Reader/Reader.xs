@@ -874,9 +874,11 @@ static void get_ncd(const uint64_t *ptr, AV *av) {
 
 static void get_ncd(const CudbgBacktraceTableEntry *ptr, AV *av_cont) {
   AV *av = newAV();
-  // 0 - virtualReturnAddress
+  // 0 - returnAddress
+  av_push(av, newSVuv(ptr->returnAddress));
+  // 1 - virtualReturnAddress
   av_push(av, newSVuv(ptr->virtualReturnAddress));
-  // 1 - level
+  // 2 - level
   av_push(av, newSVuv(ptr->level));
   av_push(av_cont, newRV_noinc((SV*)av));
 }
