@@ -15,31 +15,42 @@ struct CudaRegNames: public RegNames
     REG_CLASS_UREG_HALF                = 0x00a,   /* 16-bit uniform register */
     REG_CLASS_UREG_FULL                = 0x00b,   /* 32-bit uniform register */
   } CUDBGRegClass;
-  char reg[10], ureg[11], pred[10], upred[11];
+  char reg[16], ureg[17], pred[10], upred[11];
   unsigned int REGMAP_CLASS(unsigned int x) { return x >> 24; }
   unsigned int REGMAP_REG(unsigned int x) { return x & 0x00ffffff; }
   unsigned int REGMAP_PRED(unsigned int x) { return x & 0x07; }
   virtual const char *reg_name(unsigned int regno)
   {
-    if (REGMAP_CLASS (regno) == REG_CLASS_REG_FULL ) {
+    if ( REGMAP_CLASS (regno) == REG_CLASS_REG_FULL ) {
       auto r = REGMAP_REG (regno);
       if ( r == 255 ) return "RZ";
       snprintf(reg, sizeof(reg) - 1, "R%d", r);
       return reg;
     }
-    if (REGMAP_CLASS (regno) == REG_CLASS_UREG_FULL ) {
+    if ( REGMAP_CLASS (regno) == REG_CLASS_UREG_FULL ) {
       auto r = REGMAP_REG (regno);
       if ( r == 255 ) return "URZ";
       snprintf(ureg, sizeof(ureg) - 1, "UR%d", r);
       return ureg;
     }
-    if (REGMAP_CLASS (regno) == REG_CLASS_REG_PRED ) {
+    if ( REGMAP_CLASS (regno) == REG_CLASS_REG_PRED ) {
       snprintf(pred, sizeof(pred) - 1, "P%d", REGMAP_PRED(regno));
       return pred;
     }
-    if (REGMAP_CLASS (regno) == REG_CLASS_UREG_PRED ) {
+    if ( REGMAP_CLASS (regno) == REG_CLASS_UREG_PRED ) {
       snprintf(upred, sizeof(upred) - 1, "UP%d", REGMAP_PRED(regno));
       return upred;
+    }
+    // half regs - for hi part add suffix .hi, for low .lo
+    if ( REGMAP_CLASS (regno) == REG_CLASS_REG_HALF ) {
+     auto raw = REGMAP_REG (regno);
+     snprintf(reg, sizeof(reg) - 1, "R%d,%s", raw / 2, raw & 1 ? "hi" : "lo");
+     return reg;
+    }
+    if ( REGMAP_CLASS (regno) == REG_CLASS_UREG_HALF ) {
+     auto raw = REGMAP_REG (regno);
+     snprintf(ureg, sizeof(ureg) - 1, "UR%d,%s", raw / 2, raw & 1 ? "hi" : "lo");
+     return ureg;
     }
     return nullptr;
   }
