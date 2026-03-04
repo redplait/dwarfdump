@@ -4,7 +4,7 @@
 #include "PlainRender.h"
 #include "nfilter.h"
 
-extern int g_opt_d, g_opt_f, g_opt_F, g_opt_g, g_opt_l, g_opt_L, g_opt_s, g_opt_v, g_opt_V, g_opt_x, g_opt_z;
+extern int g_opt_d, g_opt_f, g_opt_F, g_opt_g, g_opt_l, g_opt_m, g_opt_L, g_opt_s, g_opt_v, g_opt_V, g_opt_x, g_opt_z;
 extern FILE *g_outf;
 
 int use_json = 0;
@@ -21,6 +21,7 @@ void usage(const char *prog)
   printf("-j - produce json\n");
   printf("-k - keep already dumped types\n");
   printf("-l - add levels\n");
+  printf("-m - process CUDA mercury\n");
   printf("-L - process lexical blocks\n");
   printf("-N - filter file name\n");
   printf("-o out-file\n");
@@ -39,7 +40,7 @@ int main(int argc, char* argv[])
   // read options
   while(1)
   {
-    int c = getopt(argc, argv, "dfFgjklLsvVxo:I:N:");
+    int c = getopt(argc, argv, "dfFgjklmLsvVxo:I:N:");
     if ( c == -1 )
       break;
     switch(c)
@@ -58,6 +59,9 @@ int main(int argc, char* argv[])
         break;
       case 'l': g_opt_l = 1;
         break;
+      case 'm': g_opt_m = 1;
+        break;
+
       case 'L': g_opt_L = 1;
         break;
       case 's': g_opt_s = 1;

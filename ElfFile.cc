@@ -12,6 +12,7 @@ int g_opt_d = 0,
     g_opt_g = 0,
     g_opt_k = 0,
     g_opt_l = 0,
+    g_opt_m = 0,
     g_opt_s = 0,
     g_opt_L = 0,
     g_opt_V = 0,
@@ -180,6 +181,12 @@ void ElfFile::cmn_read(bool& success)
   for ( Elf_Half i = 0; i < n; i++) {
     section *s = reader->sections[i];
     const char* name = s->get_name().c_str();
+    // filter mercury
+    if ( g_opt_m ) {
+      const char *merc_prefix = ".nv.merc"; // length 8
+      if ( strncmp(name, merc_prefix, 8) ) continue;
+      name += 8;
+    }
     if (!strcmp(name, ".debug_info")) {
       debug_info_.asgn(s);
       check_compressed_section(s, debug_info_);
