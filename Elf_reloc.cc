@@ -1114,6 +1114,8 @@ void ElfFile::byte_put(const unsigned char *c, uint64_t value, unsigned int size
   }
 }
 
+extern int g_opt_m;
+
 bool ElfFile::try_apply_debug_relocs()
 {
  // fill map with loaded debug sections
@@ -1145,9 +1147,15 @@ bool ElfFile::try_apply_debug_relocs()
  section *sym_sec = nullptr;
  for ( Elf_Half i = 0; i < n; i++) {
    section *s = reader->sections[i];
-   if ( s->get_type() == SHT_SYMTAB ) { sym_sec = s; continue; }
-   if ( s->get_type() == SHT_REL || s->get_type() == SHT_RELA )
-   {
+   bool is_rel = false;
+   if ( g_opt_m ) { // cuda mercury has custom attributes in section type
+     if ( s->get_type() == 0x70000085 ) { sym_sec = s; continue; }
+     is_rel = s->get_type() == 0x70000082;
+   } else {
+     if ( s->get_type() == SHT_SYMTAB ) { sym_sec = s; continue; }
+     is_rel = ( s->get_type() == SHT_REL || s->get_type() == SHT_RELA );
+   }
+   if ( is_rel ) {
      auto inf = s->get_info();
      auto si = rmaps.find(inf);
      if ( si == rmaps.end() ) continue;
@@ -1191,7 +1199,10 @@ bool ElfFile::try_apply_debug_relocs()
    if ( si == rmaps.end() ) continue;
    apply_to = si->second;
    bool is_rela = cr->get_type() == SHT_RELA;
-   if ( machine == EM_SH) is_rela = false;
+   if ( g_opt_m ) {
+     cr->set_type(SHT_RELA);
+     is_rela = true;
+   } else if ( machine == EM_SH ) is_rela = false;
    relocation_section_accessor ac(*reader, cr);
    int num = ac.get_entries_num();
    if ( g_opt_d )
