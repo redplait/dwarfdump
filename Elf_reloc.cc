@@ -885,6 +885,18 @@ bool ElfFile::target_specific_reloc_handling(Elf_Half machine, Elf64_Addr offset
   uint64_t value = 0;
   switch (machine)
     {
+    case EM_CUDA:
+       if ( !g_opt_m )
+       {
+         if ( 0x48 == reloc_type ) { // R_CUDA_UNUSED_CLEAR32
+           byte_put (apply_to->s_ + offset, 0, 4);
+           return true;
+         } else if ( 0x49 == reloc_type ) { // R_CUDA_UNUSED_CLEAR64
+           byte_put (apply_to->s_ + offset, 0, 8);
+           return true;
+         }
+       }
+     break;
     case EM_LOONGARCH:
       {
 	switch (reloc_type)
