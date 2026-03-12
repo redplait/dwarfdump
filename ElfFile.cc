@@ -1676,6 +1676,33 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
       data += sizeof(uint32_t);
       bytes_available -= sizeof(uint32_t);
       break;
+    case Dwarf32::Form::DW_FORM_data4:
+      if (4 < bytes_available )
+      {
+        int value = endc((int)*reinterpret_cast<const uint32_t*>(data));
+        pl->push_value(value);
+        bytes_available -= 4;
+        data += 4;
+        return value;
+      } else {
+        tree_builder->e_->warning("DecodeAddrLocation: data4 is out of section at %lX\n", doff);
+        return 0;
+      }
+      break;
+    case Dwarf32::Form::DW_FORM_data8:
+      if ( 8 < bytes_available )
+      {
+        uint64_t value = endc((int)*reinterpret_cast<const uint64_t*>(data));
+        pl->push_value(value);
+        bytes_available -= 8;
+        data += 8;
+        return value;
+      } else {
+        tree_builder->e_->warning("DecodeAddrLocation: data8 is out of section at %lX\n", doff);
+        return 0;
+      }
+      break;
+
     default:
       tree_builder->e_->warning("DecodeAddrLocation: unknown form %X at %lX\n", form, doff);
       return 0;
