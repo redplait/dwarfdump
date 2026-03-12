@@ -28,6 +28,8 @@
 #define EF_MSP430_MACH 		0xff
 #define E_MSP430_MACH_MSP430X    45
 
+extern int g_opt_m;
+
 unsigned int
 ElfFile::get_reloc_type(unsigned int reloc_info)
 {
@@ -86,6 +88,11 @@ is_32bit_abs_reloc (Elf_Half machine, unsigned int reloc_type, Elf_Half &prev_wa
       return reloc_type == 15; /* R_CRX_NUM32.  */
     case EM_CSKY:
       return reloc_type == 1; /* R_CKCORE_ADDR32.  */
+    case EM_CUDA:
+      if ( g_opt_m )
+        return reloc_type == 3; // R_MERCURY_ABS32
+      else
+        return reloc_type == 1 || reloc_type == 3 || reloc_type == 0x37;
     case EM_CYGNUS_FRV:
       return reloc_type == 1;
     case EM_CYGNUS_D10V:
@@ -273,6 +280,11 @@ is_32bit_pcrel_reloc (Elf_Half machine, unsigned int reloc_type)
     case EM_AVR_OLD:
     case EM_AVR:
       return reloc_type == 36; /* R_AVR_32_PCREL.  */
+    case EM_CUDA:
+      if ( g_opt_m )
+        return reloc_type == 8; // R_MERCURY_PROG_REL32
+      else
+        return false;
     case EM_LOONGARCH:
       return reloc_type == 99;  /* R_LARCH_32_PCREL.  */
     case EM_MICROBLAZE:
@@ -341,6 +353,11 @@ is_64bit_abs_reloc (Elf_Half machine, unsigned int reloc_type)
       return reloc_type == 5; /* R_ARC_64.  */
     case EM_ALPHA:
       return reloc_type == 2; /* R_ALPHA_REFQUAD.  */
+    case EM_CUDA:
+      if ( g_opt_m )
+        return reloc_type == 1 || reloc_type == 2; // R_MERCURY_G64 || R_MERCURY_ABS64
+      else
+        return reloc_type == 2 || reloc_type == 4; // R_CUDA_64 || R_CUDA_G64
     case EM_IA_64:
       return (reloc_type == 0x26    /* R_IA64_DIR64MSB.  */
 	      || reloc_type == 0x27 /* R_IA64_DIR64LSB.  */);
@@ -389,6 +406,12 @@ is_64bit_pcrel_reloc (Elf_Half machine, unsigned int reloc_type)
       return reloc_type == 260;	/* R_AARCH64_PREL64.  */
     case EM_ALPHA:
       return reloc_type == 11; /* R_ALPHA_SREL64.  */
+    case EM_CUDA:
+      if ( g_opt_m )
+        return reloc_type == 7; // R_MERCURY_PROG_REL64
+      else
+        return false;
+
     case EM_IA_64:
       return (reloc_type == 0x4e    /* R_IA64_PCREL64MSB.  */
 	      || reloc_type == 0x4f /* R_IA64_PCREL64LSB.  */);
@@ -1113,8 +1136,6 @@ void ElfFile::byte_put(const unsigned char *c, uint64_t value, unsigned int size
     value >>= 8;
   }
 }
-
-extern int g_opt_m;
 
 bool ElfFile::try_apply_debug_relocs()
 {
