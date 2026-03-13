@@ -216,6 +216,8 @@ struct cu
   bool need_base_addr_idx;
 };
 
+const char *get_addr_class(int);
+
 class TreeBuilder {
 public:
   TreeBuilder(ErrLog *e);
@@ -485,6 +487,7 @@ protected:
       tensor_ = e.tensor_;
       has_go = e.has_go;
       dumped_ = e.dumped_;
+      has_locx = e.has_locx;
     }
     Element(Element &&e)
     {
@@ -509,7 +512,9 @@ protected:
       ns_(n),
       type_(type),
       id_(id),
-      level_(level)
+      level_(level),
+      // only c++20 can have defailt values for bitfields so
+      noret_(0), decl_(0), const_expr_(0), has_range_(0), enum_class_(0), gnu_vector_(0), tensor_(0), has_go(0), dumped_(0), has_locx(0)
     {}
     const char* TypeName() const;
     Element *owner_;
@@ -538,15 +543,16 @@ protected:
      addr_class_ = 0; // from DW_AT_address_class
     Compound *m_comp = nullptr;
     unsigned char ate_ = 0; // DW_AT_encoding
-    bool noret_ = false,
-     decl_ = false,
-     const_expr_ = false,
-     has_range_ = false,
-     enum_class_ = false,
-     gnu_vector_ = false,
-     tensor_ = false,
-     has_go = false,
-     dumped_ = false;
+    unsigned int noret_:1,
+     decl_:1,
+     const_expr_ :1,
+     has_range_  :1,
+     enum_class_ :1,
+     gnu_vector_ :1,
+     tensor_ :1,
+     has_go  :1,
+     dumped_ :1,
+     has_locx :1;
 
     inline bool is_abs() const
     {

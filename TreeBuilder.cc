@@ -1606,6 +1606,7 @@ void TreeBuilder::SetLocX(uint64_t ct)
       return;
     }
     last_var_->locx_ = ct;
+    last_var_->has_locx = true;
     return;
   }
 }

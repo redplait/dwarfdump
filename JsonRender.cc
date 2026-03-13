@@ -363,7 +363,7 @@ std::string JsonRender::GenerateJson(Element &e) {
     auto ti = m_tls.find(e.id_);
     if ( ti != m_tls.end() )
       put(result, "tls_index", ti->second);
-    if ( e.locx_ && m_locX )
+    if ( e.has_locx && m_locX )
     {
       std::list<LocListXItem> locs;
       if ( m_locX->get_loclistx(e.locx_, locs, cu.cu_base_addr) )

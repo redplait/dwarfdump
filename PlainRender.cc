@@ -422,15 +422,15 @@ std::string &PlainRender::render_field(Element *e, std::string &s, int level, in
   auto name = n.name();
   if ( name != nullptr )
   {
-    s += " ";
+    s.push_back(' ');
     s += name;
   }
   // pdbdump format for bit fields :offset:size
   if ( e->bit_size_ )
   {
-    s += ":";
+    s.push_back(':');
     s += std::to_string(e->bit_offset_);
-    s += ":";
+    s.push_back(':');
     s += std::to_string(e->bit_size_);
   }
   return s;
@@ -569,14 +569,14 @@ void PlainRender::dump_method(Method *e, const Element *owner, std::string &res)
   res += tmp + " ";
   if ( e->name_ )
     res += e->name_;
-  res += "(";
+  res.push_back('(');
   if ( !e->m_comp || e->m_comp->params_.empty() )
     ;
   else {
     std::string params;
     res += render_params(e, e->this_arg_, params);
   }
-  res += ")";
+  res.push_back(')');
   if ( e->def_ )
     res += " default";
   if ( e->virt_ == Dwarf32::Virtuality::DW_VIRTUALITY_pure_virtual )
@@ -666,10 +666,10 @@ void PlainRender::dump_lvars(Element *e)
       fprintf(g_outf, "//  LVar%d, tag %lX\n", idx, lv->id_);
       ++idx;
       dump_one_var(lv, lvar);
-      if ( lv->locx_ )
+      if ( lv->has_locx )
       {
         fprintf(g_outf, "//   locx %lx\n", lv->locx_);
-        if ( m_locX ) 
+        if ( m_locX )
         {
           std::list<LocListXItem> locs;
           if ( !m_locX->get_loclistx(lv->locx_, locs, cu.cu_base_addr) )
