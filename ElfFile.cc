@@ -1503,9 +1503,65 @@ uint64_t ElfFile::fetch_indexed_value(uint64_t idx, const unsigned char *s, uint
     return endc(*reinterpret_cast<const uint64_t*>(s + offset));
 }
 
+// ripped from display_loc_list
+bool ElfFile::get_loc(uint64_t off, std::list<LocListXItem> &out_list, uint64_t func_base)
+{
+  if ( off > debug_loc_.size_ )
+  {
+    tree_builder->e_->warning("loc off %lx is not inside debug_loc section size %lx\n", off, debug_loc_.size_);
+    return false;
+  }
+  uint64_t begin = 0, end = 0;
+  const unsigned char *start = debug_loc_.s_ + off;
+  const unsigned char *lend = debug_loc_.s_ + debug_loc_.size_;
+  size_t avail = debug_loc_.size_ - off;
+  while( start < lend ) {
+    // read couple of addresses
+    size_t must_be = 2 * address_size_;
+    if ( avail < must_be ) {
+      tree_builder->e_->warning("loc off %lx is invalid\n", start - debug_loc_.s_);
+      break;
+    }
+    if ( address_size_ == 8 )
+    {
+      begin = endc(*(uint64_t *)start);
+      start += 8;
+      avail -= 8;
+      end = endc(*(uint64_t *)start);
+      start += 8;
+      avail -= 8;
+    } else {
+      begin = endc(*(uint32_t *)start);
+      start += 4;
+      avail -= 4;
+      end = endc(*(uint32_t *)start);
+      start += 4;
+      avail -= 4;
+    }
+    if ( !begin && !end ) break;
+    uint16_t len = endc(*(uint16_t *)start);
+    avail -= 2;
+    if ( len > avail )
+    {
+      tree_builder->e_->warning("bad loc len %d at %lx\n", len, start - debug_loc_.s_);
+      break;
+    }
+    out_list.push_back( { begin, end } );
+// printf("loc at %lx addr_size %d len %X func_base %lX { %lX - %lX }\n", start - debug_loc_.s_, address_size_, len, func_base, begin, end);
+    auto &top = out_list.back();
+    // can't find in dwarf3 spec what form should be used here
+    // gdb just reading 2 bytes and use this value as 16bit length - this best correspond to block2 form
+    DecodeAddrLocation(Dwarf32::Form::DW_FORM_block2, start, avail, &top.loc, debug_loc_.s_);
+    start += len + 2;
+    avail -= len;
+  }
+  return !out_list.empty();
+}
+
 // ripped from functions display_offset_entry_loclists & display_loclists_list in dwarf.c
 bool ElfFile::get_loclistx(uint64_t off, std::list<LocListXItem> &out_list, uint64_t func_base)
 {
+  if ( debug_loc_.s_ ) return get_loc(off, out_list, func_base);
   if ( off > debug_loclists_.size_ )
   {
     tree_builder->e_->warning("loclistx off %lx is not inside loclists section size %lx\n", off, debug_loclists_.size_);
@@ -1680,10 +1736,13 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
       if (4 < bytes_available )
       {
         int value = endc((int)*reinterpret_cast<const uint32_t*>(data));
-        pl->push_value(value);
+#if DEBUG
+ printf("lod4x %X\n", value);
+#endif
+        tree_builder->SetLocX(value);
         bytes_available -= 4;
         data += 4;
-        return value;
+        return 0;
       } else {
         tree_builder->e_->warning("DecodeAddrLocation: data4 is out of section at %lX\n", doff);
         return 0;
@@ -1693,10 +1752,10 @@ uint64_t ElfFile::DecodeAddrLocation(Dwarf32::Form form, const unsigned char* da
       if ( 8 < bytes_available )
       {
         uint64_t value = endc((int)*reinterpret_cast<const uint64_t*>(data));
-        pl->push_value(value);
+        tree_builder->SetLocX(value);
         bytes_available -= 8;
         data += 8;
-        return value;
+        return 0;
       } else {
         tree_builder->e_->warning("DecodeAddrLocation: data8 is out of section at %lX\n", doff);
         return 0;
@@ -2885,10 +2944,11 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
         tree_builder->SetBitSize(byte_size);
       return true;
     }
+    case Dwarf32::Attribute::DW_AT_data_bit_offset:
     case Dwarf32::Attribute::DW_AT_bit_offset: {
-      uint64_t byte_size = FormDataValue(form, info, info_bytes);
+      uint64_t bit_off = FormDataValue(form, info, info_bytes);
       if ( m_regged )
-        tree_builder->SetBitOffset(byte_size);
+        tree_builder->SetBitOffset(bit_off);
       return true;
     }
 

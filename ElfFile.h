@@ -100,6 +100,8 @@ private:
   bool uncompressed_section(ELFIO::section *, const unsigned char * &data, size_t &);
   static uint64_t ULEB128(const unsigned char* &data, size_t& bytes_available);
   static int64_t SLEB128(const unsigned char* &data, size_t& bytes_available);
+  // for old .data_loc
+  bool get_loc(uint64_t off, std::list<LocListXItem> &, uint64_t);
   void PassData(Dwarf32::Form form, const unsigned char* &data, size_t& bytes_available);
   uint64_t DecodeAddrLocation(Dwarf32::Form form, const unsigned char* info, size_t bytes_available, param_loc *, const unsigned char *);
   uint64_t DecodeLocation(Dwarf32::Form form, const unsigned char* info, size_t bytes_available);

@@ -513,7 +513,7 @@ protected:
       type_(type),
       id_(id),
       level_(level),
-      // only c++20 can have defailt values for bitfields so
+      // only c++20 can have default values for bitfields so
       noret_(0), decl_(0), const_expr_(0), has_range_(0), enum_class_(0), gnu_vector_(0), tensor_(0), has_go(0), dumped_(0), has_locx(0)
     {}
     const char* TypeName() const;
