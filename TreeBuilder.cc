@@ -195,12 +195,14 @@ void TreeBuilder::dump_location(std::string &s, param_loc &pl)
             if ( rn )
             {
               need_reg = false;
-              s += " ";
+              s.push_back(' ');
               s += rn;
             }
           }
-          if ( need_reg )
+          if ( need_reg ) {
+            s.push_back(' ');
             s += std::to_string(l.idx);
+          }
          }
          break;
         case breg: {

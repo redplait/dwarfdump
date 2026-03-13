@@ -21,36 +21,51 @@ struct CudaRegNames: public RegNames
   unsigned int REGMAP_PRED(unsigned int x) { return x & 0x07; }
   virtual const char *reg_name(unsigned int regno)
   {
-    if ( REGMAP_CLASS (regno) == REG_CLASS_REG_FULL ) {
+    auto rc = REGMAP_CLASS (regno);
+    if ( rc == REG_CLASS_REG_FULL ) {
       auto r = REGMAP_REG (regno);
       if ( r == 255 ) return "RZ";
       snprintf(reg, sizeof(reg) - 1, "R%d", r);
       return reg;
     }
-    if ( REGMAP_CLASS (regno) == REG_CLASS_UREG_FULL ) {
+    if ( rc == REG_CLASS_UREG_FULL ) {
       auto r = REGMAP_REG (regno);
       if ( r == 255 ) return "URZ";
       snprintf(ureg, sizeof(ureg) - 1, "UR%d", r);
       return ureg;
     }
-    if ( REGMAP_CLASS (regno) == REG_CLASS_REG_PRED ) {
+    if ( rc == REG_CLASS_REG_PRED ) {
       snprintf(pred, sizeof(pred) - 1, "P%d", REGMAP_PRED(regno));
       return pred;
     }
-    if ( REGMAP_CLASS (regno) == REG_CLASS_UREG_PRED ) {
+    if ( rc == REG_CLASS_UREG_PRED ) {
       snprintf(upred, sizeof(upred) - 1, "UP%d", REGMAP_PRED(regno));
       return upred;
     }
     // half regs - for hi part add suffix .hi, for low .lo
-    if ( REGMAP_CLASS (regno) == REG_CLASS_REG_HALF ) {
+    if ( rc == REG_CLASS_REG_HALF ) {
      auto raw = REGMAP_REG (regno);
      snprintf(reg, sizeof(reg) - 1, "R%d,%s", raw / 2, raw & 1 ? "hi" : "lo");
      return reg;
     }
-    if ( REGMAP_CLASS (regno) == REG_CLASS_UREG_HALF ) {
+    if ( rc == REG_CLASS_UREG_HALF ) {
      auto raw = REGMAP_REG (regno);
      snprintf(ureg, sizeof(ureg) - 1, "UR%d,%s", raw / 2, raw & 1 ? "hi" : "lo");
      return ureg;
+    }
+    // special cases when regno is 0 % ir %
+    if ( 0x25 == rc ) {
+      reg[0] = (regno >> 16) & 0xff;
+      reg[1] = (regno >> 8) & 0xff;
+      reg[2] = regno & 0xff;
+      reg[3] = 0;
+      return reg;
+    }
+    if ( !rc && 0x25 == ((regno >> 16) & 0xff) ) {
+      reg[0] = (regno >> 8) & 0xff;
+      reg[1] = regno & 0xff;
+      reg[2] = 0;
+      return reg;
     }
     return nullptr;
   }
