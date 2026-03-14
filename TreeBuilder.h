@@ -433,15 +433,25 @@ protected:
   };
 
   struct FormalParam {
+    FormalParam(): loc() {
+      ellipsis = var_ = art_ = optional_ = has_locx = 0;
+    }
+    FormalParam(const char *_n, uint64_t _param, uint64_t _id, bool _ell) :
+      name(_n), param_id(_param), id(_id), loc(), ellipsis(_ell)
+    {
+       var_ = art_ = optional_ = has_locx = 0;
+    }
     const char *name = nullptr;
     uint64_t param_id = 0,
-     id = 0; // type id
-    unsigned char pdir = 0; // param direction - 2 in 3 out
-    bool ellipsis = false,
-     var_ = false, // from DW_AT_variable_parameter - go mostly?
-     art_ = false, // seems that dwarf5 mark this arg as articial and don't have DW_AT_object_pointer
-     optional_ = false; // DW_AT_is_optional
+     id = 0, // type id
+     locx_ = 0;
     param_loc loc;
+    unsigned char pdir = 0; // param direction - 2 in 3 out
+    unsigned int ellipsis :1,
+     var_ :1, // from DW_AT_variable_parameter - go mostly?
+     art_ :1, // seems that dwarf5 mark this arg as articial and don't have DW_AT_object_pointer
+     optional_ :1, // DW_AT_is_optional
+     has_locx :1;
   };
 
   FormalParam *get_param(const char *why);
@@ -614,7 +624,8 @@ protected:
   struct Method: public Element
   {
     Method(uint64_t id, int level, Element *o, NSpace *n)
-     : Element(method, id, level, o, n)
+     : Element(method, id, level, o, n),
+       art_(0), def_(0), expl_(0), ref_(0), rval_ref_(0)
     {}
     void cpy(Method &e)
     {
@@ -640,12 +651,12 @@ protected:
     int virt_ = 0;
     uint64_t vtbl_index_ = 0;
     uint64_t this_arg_ = 0;
-    bool art_ = false,  // from DW_AT_artificial - for destructors
-     def_ = false,  // DW_AT_defaulted
-     expl_ = false, // DW_AT_explicit
+    unsigned int art_  :1,  // from DW_AT_artificial - for destructors
+     def_ :1,  // DW_AT_defaulted
+     expl_  :1, // DW_AT_explicit
      // see details at https://dwarfstd.org/issues/131105.1.html
-     ref_ = false,  // DW_AT_reference
-     rval_ref_ = false; // DW_AT_rvalue_reference
+     ref_ :1,  // DW_AT_reference
+     rval_ref_ :1; // DW_AT_rvalue_reference
   };
 
   struct Compound {

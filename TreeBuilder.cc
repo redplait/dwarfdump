@@ -166,7 +166,7 @@ void TreeBuilder::dump_location(std::string &s, param_loc &pl)
             if ( rn )
             {
               need_reg = false;
-              s += " ";
+              s.push_back(' ');
               s += rn;
             }
           }
@@ -214,7 +214,7 @@ void TreeBuilder::dump_location(std::string &s, param_loc &pl)
             if ( rn )
             {
               need_reg = false;
-              s += " ";
+              s.push_back(' ');
               s += rn;
             }
           }
@@ -776,7 +776,7 @@ bool TreeBuilder::AddVariant()
 }
 
 // formal parameter - level should be +1 to parent
-bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level, bool ell) 
+bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level, bool ell)
 {
   level -= ns_count;
   current_element_type_ = ElementType::formal_param;
@@ -791,8 +791,8 @@ bool TreeBuilder::AddFormalParam(uint64_t tag_id, int level, bool ell)
     return false;
   if ( !top->m_comp )
     top->m_comp = new Compound();
-  
-  top->m_comp->params_.push_back({NULL, tag_id, 0, ell, false});
+
+  top->m_comp->params_.push_back({NULL, tag_id, 0, ell});
   return true;
 }
 
@@ -1508,7 +1508,7 @@ void TreeBuilder::SetElementType(uint64_t type_id) {
     e_->warning("Can't set an element type if the element list is empty\n");
     return;
   }
-  
+
   switch (current_element_type_) {
     case ElementType::member:
       if ( m_stack.empty() ) {
@@ -1598,6 +1598,14 @@ void TreeBuilder::SetLocX(uint64_t ct)
 {
   if (elements_.empty())
     return;
+  if (current_element_type_ == ElementType::formal_param) {
+    auto p = get_param("LocX");
+    if (p) {
+      p->locx_ = ct;
+      p->has_locx = true;
+    }
+    return;
+  }
   if ( current_element_type_ == ElementType::var_type )
   {
     if ( !last_var_ )
