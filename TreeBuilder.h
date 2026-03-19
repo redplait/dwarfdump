@@ -671,10 +671,12 @@ protected:
     std::vector<FormalParam> params_;
     std::list<Method> methods_;
     std::vector<Element *> lvars_; // local vars with -x option
+    std::vector<Element *> nested;
     std::unordered_map<Element *, param_loc> lvar_locs_; // from DecodeAddrLocation when -x option was used
   };
 
   int check_dumped_type(Element&);
+  bool AddNested(Element &);
   Element *get_owner();
   Element *get_top_func() const;
   int should_keep(Element *);

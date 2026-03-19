@@ -863,11 +863,31 @@ int TreeBuilder::mark_has_go(uint64_t id)
   return 0;
 }
 
+extern bool need_nested();
+
+bool TreeBuilder::AddNested(Element &n) {
+ if ( !n.owner_ ) return false;
+ // check what we try to add
+ if ( n.type_ != ElementType::class_type &&
+      n.type_ != ElementType::union_type &&
+      n.type_ != ElementType::structure_type &&
+      n.type_ != ElementType::enumerator_type &&
+      n.type_ != ElementType::interface_type
+    )
+   return false;
+ if ( !need_nested() ) return false;
+ // check comp
+ if ( !n.owner_->m_comp ) n.owner_->m_comp = new Compound();
+ n.owner_->m_comp->nested.push_back(&n);
+ return true;
+}
+
 void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int level) {
   level -= ns_count;
   // fprintf(g_outf, "AddElement %d id %lX level %d ns_count %d last_var %p\n", element_type, tag_id, level, ns_count, last_var_);
   last_var_ = nullptr;
   auto ns = top_ns();
+  auto owner = get_owner();
   switch(element_type) {
     case ElementType::variant_type:
     case ElementType::member:       // Member
@@ -885,13 +905,13 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         auto &top = m_stack.top();
         if ( !top->m_comp )
           top->m_comp = new Compound();
-        top->m_comp->members_.push_back(Element(element_type, tag_id, level, get_owner(), nullptr));
+        top->m_comp->members_.push_back(Element(element_type, tag_id, level, owner, nullptr));
       }
       if ( element_type == ElementType::variant_type )
       {
         auto &top = m_stack.top();
         top->m_comp->members_.back().type_id_ = tag_id;
-        elements_.push_back(Element(element_type, tag_id, level, get_owner(), ns));
+        elements_.push_back(Element(element_type, tag_id, level, owner, ns));
         ns->empty = false;
         recent_ = nullptr;
       }
@@ -971,7 +991,6 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         owner->m_comp->lvars_.push_back(last_var_); // valgring points here as leak
       } else {
         // some top-level var
-        auto owner = get_owner();
         if ( owner && owner->type_ == ElementType::var_type )
         {
           e_->warning("BUG: var id %lX wants to stack on var id %lX\n", tag_id, owner->id_);
@@ -991,7 +1010,7 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
         auto &top = m_stack.top();
         if ( !top->m_comp )
           top->m_comp = new Compound();
-        top->m_comp->methods_.push_back(Method(tag_id, level, get_owner(), nullptr));
+        top->m_comp->methods_.push_back(Method(tag_id, level, owner, nullptr));
         // fprintf(g_outf, "add method to %s parent tid %lX type %d tid %lX\n", top->name_, top->id_, top->type_, tag_id);
         current_element_type_ = ElementType::method;
         recent_ = &top->m_comp->methods_.back();
@@ -999,7 +1018,8 @@ void TreeBuilder::AddElement(ElementType element_type, uint64_t tag_id, int leve
       }
       // fall to default
     default:
-      elements_.push_back(Element(element_type, tag_id, level, get_owner(), ns));
+      elements_.push_back(Element(element_type, tag_id, level, owner, ns));
+      if ( level ) AddNested(elements_.back());
       ns->empty = false;
       if ( element_type == ElementType::subroutine ||
            element_type == ElementType::subroutine_type

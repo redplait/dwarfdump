@@ -7,7 +7,11 @@
 extern int g_opt_d, g_opt_f, g_opt_F, g_opt_g, g_opt_l, g_opt_m, g_opt_L, g_opt_s, g_opt_v, g_opt_V, g_opt_x, g_opt_z;
 extern FILE *g_outf;
 
-int use_json = 0;
+int use_json = 0, opt_n = 0;
+
+bool need_nested() {
+  return opt_n && !use_json;
+}
 
 void usage(const char *prog)
 {
@@ -22,6 +26,7 @@ void usage(const char *prog)
   printf("-k - keep already dumped types\n");
   printf("-l - add levels\n");
   printf("-m - process CUDA mercury\n");
+  printf("-n - dump nested types\n");
   printf("-L - process lexical blocks\n");
   printf("-N - filter file name\n");
   printf("-o out-file\n");
@@ -40,7 +45,7 @@ int main(int argc, char* argv[])
   // read options
   while(1)
   {
-    int c = getopt(argc, argv, "dfFgjklmLsvVxo:I:N:");
+    int c = getopt(argc, argv, "dfFgjklmnLsvVxo:I:N:");
     if ( c == -1 )
       break;
     switch(c)
@@ -61,7 +66,8 @@ int main(int argc, char* argv[])
         break;
       case 'm': g_opt_m = 1;
         break;
-
+      case 'n': opt_n = 1;
+        break;
       case 'L': g_opt_L = 1;
         break;
       case 's': g_opt_s = 1;
