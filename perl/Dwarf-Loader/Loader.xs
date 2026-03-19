@@ -53,6 +53,8 @@ class BorrowedElf: public ElfFile
    IElf *m_e;
 };
 
+bool need_nested() { return true; }
+
 // forward declaration - this object hold PerlRenderer and use for reference counting
 struct IDwarf;
 
@@ -904,6 +906,24 @@ enum_class(SV *self)
     XSRETURN_YES;
   else
     XSRETURN_NO;
+
+SV *
+nested_count(SV *self)
+ INIT:
+  SV *msv;
+  SV *objref= NULL;
+  MAGIC* magic;
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ CODE:
+  if ( !d->t->m_comp )
+    RETVAL = &PL_sv_undef;
+  else {
+    auto res = std::count_if(d->t->m_comp->nested.begin(), d->t->m_comp->nested.end(),
+     [](auto *el) { return el->m_comp != nullptr; });
+    RETVAL = newSVuv(res);
+  }
+ OUTPUT:
+  RETVAL
 
 void
 owner(SV *self)
