@@ -51,13 +51,13 @@ class PlainRender: public TreeBuilder
    void dump_var(Element *, int local);
    void dump_enums(Element *);
    void dump_fields(Element *, int level, std::string &marg);
-   void dump_func(Element *);
-   void dump_lvars(Element *e);
-   void dump_methods(Element *e);
+   void dump_func(Element *, int level, std::string &marg);
+   void dump_lvars(Element *e, std::string &marg);
+   void dump_methods(Element *e, int level, std::string &marg);
    void dump_method(Method *e, const Element *owner, std::string &res);
-   void dump_spec(Element *e);
+   void dump_spec(Element *e, std::string &marg);
    void dump_complex_type(Element &e, int, std::string &);
-   int dump_parents(Element &e);
+   int dump_parents(Element &e, std::string &);
    int form_var_fullname(Element *e, std::string &res);
    // rustc often puts abstract_origin for vars inside inlined subs for vars in frames somewhere above
    Element *try_find_in_frames(Element *e);

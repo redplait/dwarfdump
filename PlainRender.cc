@@ -474,51 +474,51 @@ void PlainRender::dump_fields(Element *e, int level, std::string &marg)
   }
 }
 
-void PlainRender::dump_spec(Element *en)
+void PlainRender::dump_spec(Element *en, std::string &marg)
 {
   auto slist = get_specs(en->id_);
   if ( slist == nullptr )
     return;
   auto s = slist->size();
   if ( s > 1 )
-    fprintf(g_outf, "// specifications: %ld\n", s);
+    fprintf(g_outf, "%s// specifications: %ld\n", marg.c_str(), s);
   else
-    fprintf(g_outf, "// specification\n");
+    fprintf(g_outf, "%s// specification\n", marg.c_str());
   for ( auto e: *slist )
   {
     std::string s_name;
     if ( g_opt_s && m_snames != nullptr )
       m_snames->find_sname(e->addr_, s_name);
     if ( s_name.empty() )
-      fprintf(g_outf, "//  Addr %lX type_id %lX", e->addr_, e->id_);
+      fprintf(g_outf, "%s//  Addr %lX type_id %lX", marg.c_str(), e->addr_, e->id_);
     else
-      fprintf(g_outf, "//  Addr %lX %s type_id %lX", e->addr_, s_name.c_str(), e->id_);
+      fprintf(g_outf, "%s//  Addr %lX %s type_id %lX", marg.c_str(), e->addr_, s_name.c_str(), e->id_);
     if ( e->link_name_ )
       fprintf(g_outf, " %s", e->link_name_);
     fprintf(g_outf, "\n");
-    dump_lvars(e);
+    dump_lvars(e, marg);
   }
 }
 
-void PlainRender::dump_methods(Element *e)
+void PlainRender::dump_methods(Element *e, int level, std::string &marg)
 {
   if ( !e->has_methods() )
     return;
-  fprintf(g_outf, "// --- methods\n");
+  fprintf(g_outf, "%s// --- methods\n", marg.c_str());
   for ( auto &en: e->m_comp->methods_ )
   {
     std::string tmp, plocs;
     dump_method(&en, e, tmp);
     if ( g_opt_v )
-      fprintf(g_outf, "// TypeId %lX\n", en.id_);
+      fprintf(g_outf, "%s// TypeId %lX\n", marg.c_str(), en.id_);
     if ( en.vtbl_index_ )
-      fprintf(g_outf, "// Vtbl index %lX\n", en.vtbl_index_);
-    dump_spec(&en);
+      fprintf(g_outf, "%s// Vtbl index %lX\n", marg.c_str(), en.vtbl_index_);
+    dump_spec(&en, marg);
     if ( en.m_comp && dump_params_locations(en.m_comp->params_, plocs) )
-      fprintf(g_outf, "%s", plocs.c_str());
+      fprintf(g_outf, "%s%s", marg.c_str(), plocs.c_str());
     // dump local vars
-    dump_lvars(&en);
-    fprintf(g_outf, "%s;\n", tmp.c_str());
+    dump_lvars(&en, marg);
+    fprintf(g_outf, "%s%s;\n", marg.c_str(), tmp.c_str());
   }
 }
 
@@ -643,7 +643,7 @@ bool PlainRender::dump_params_locations(std::vector<FormalParam> &params, std::s
   return res;
 }
 
-void PlainRender::dump_lvars(Element *e)
+void PlainRender::dump_lvars(Element *e, std::string &marg)
 {
   if ( g_opt_x && e->has_lvars() )
   {
@@ -658,17 +658,17 @@ void PlainRender::dump_lvars(Element *e)
       if ( !latch )
       {
         if ( !lvar )
-          fprintf(g_outf, "// StaticVars:\n");
+          fprintf(g_outf, "%s// StaticVars:\n", marg.c_str());
         else
-          fprintf(g_outf, "// LocalVars:\n");
+          fprintf(g_outf, "%s// LocalVars:\n", marg.c_str());
         latch |= 1;
       }
-      fprintf(g_outf, "//  LVar%d, tag %lX\n", idx, lv->id_);
+      fprintf(g_outf, "%s//  LVar%d, tag %lX\n", marg.c_str(), idx, lv->id_);
       ++idx;
       dump_one_var(lv, lvar);
       if ( lv->has_locx )
       {
-        fprintf(g_outf, "//   locx %lx\n", lv->locx_);
+        fprintf(g_outf, "%s//   locx %lx\n", marg.c_str(), lv->locx_);
         if ( m_locX )
         {
           std::list<LocListXItem> locs;
@@ -698,7 +698,7 @@ void PlainRender::dump_lvars(Element *e)
               }
               std::string ls;
               dump_location(ls, l.loc);
-              fprintf(g_outf, "//    %lX - %lX: %s", l.start, l.end, ls.c_str());
+              fprintf(g_outf, "%s//    %lX - %lX: %s", marg.c_str(), l.start, l.end, ls.c_str());
               if ( adj )
                 fprintf(g_outf, " -- ADJ\n");
               else
@@ -712,23 +712,24 @@ void PlainRender::dump_lvars(Element *e)
         {
           std::string ls;
           dump_location(ls, liter->second);
-          fprintf(g_outf, "//   location %s\n", ls.c_str());
+          fprintf(g_outf, "%s//   location %s\n", marg.c_str(), ls.c_str());
         }
       }
     }
   }
 }
 
-void PlainRender::dump_func(Element *e)
+void PlainRender::dump_func(Element *e, int level, std::string &marg)
 {
-  dump_lvars(e);
-  dump_spec(e);
+  dump_lvars(e, marg);
+  dump_spec(e, marg);
   std::string tmp;
   if ( e->m_comp && dump_params_locations(e->m_comp->params_, tmp) )
   {
     fprintf(g_outf, "%s", tmp.c_str());
     tmp.clear();
   }
+  if ( !marg.empty() ) fprintf(g_outf, "%s", marg.c_str());
   if ( e->type_id_ )
   {
     named n { e->name_ };
@@ -736,7 +737,7 @@ void PlainRender::dump_func(Element *e)
   } else
     tmp = "void";
   if ( e->inlined_ )
-    fprintf(g_outf, "inline "); 
+    fprintf(g_outf, "inline ");
   fprintf(g_outf, "%s %s(", tmp.c_str(), e->name_);
   if ( !e->m_comp || e->m_comp->params_.empty() )
     fprintf(g_outf, "void");
@@ -871,14 +872,15 @@ void PlainRender::dump_vars()
     dump_one_var(e, 0);
 }
 
-int PlainRender::dump_parents(Element &e)
+int PlainRender::dump_parents(Element &e, std::string &marg)
 {
   if ( e.m_comp && !e.m_comp->parents_.empty() )
   {
     fprintf(g_outf, " :\n");
     for ( size_t pi = 0; pi < e.m_comp->parents_.size(); pi++ )
     {
-      fprintf(g_outf, "// offset %lX\n", e.m_comp->parents_[pi].offset);
+      fprintf(g_outf, "%s// offset %lX\n", marg.c_str(), e.m_comp->parents_[pi].offset);
+      if ( !marg.empty() ) fprintf(g_outf, "%s", marg.c_str());
       std::string pname;
       named pn;
       dump_type(e.m_comp->parents_[pi].id, pname, &pn);
@@ -899,9 +901,20 @@ void PlainRender::dump_complex_type(Element &e, int level, std::string &marg)
 {
   fprintf(g_outf, " {\n");
   dump_fields(&e, level, marg);
-  dump_methods(&e);
-  dump_lvars(&e);
-  fprintf(g_outf, "}");
+  dump_methods(&e, level, marg);
+  dump_lvars(&e, marg);
+  if ( e.m_comp != nullptr && !e.m_comp->nested.empty() ) {
+    std::string next_marg = marg + s_marg;
+    for ( auto n: e.m_comp->nested ) {
+       if ( !n->m_comp ) continue;
+       if ( n->dumped_ ) continue;
+       if ( !n->name_ )  continue;
+       dump_type_hdr(*n, next_marg);
+       n->dumped_ = dump_nested(*n, level + 1, next_marg);
+       if ( n->dumped_ ) fprintf(g_outf, ";\n");
+    }
+  }
+  fprintf(g_outf, "%s}", marg.c_str());
 }
 
 bool PlainRender::need_add_var(const Element &e) const
@@ -1039,7 +1052,7 @@ bool PlainRender::dump_nested(Element &e, int level, std::string &marg) {
         else
           fprintf(g_outf, "%senum %s", marg.c_str(), e.name_);
         if ( e.is_pure_decl() )
-          break;
+          return true;
         fprintf(g_outf, " {\n");
         dump_enums(&e);
         fprintf(g_outf, "%s}", marg.c_str());
@@ -1048,15 +1061,15 @@ bool PlainRender::dump_nested(Element &e, int level, std::string &marg) {
       case ElementType::structure_type:
         fprintf(g_outf, "%sstruct %s", marg.c_str(), e.name_);
         if ( e.is_pure_decl() )
-          break;
-        dump_parents(e);
+          return true;
+        dump_parents(e, marg);
         dump_complex_type(e, level, marg);
         return true;
        break;
       case ElementType::union_type:
         fprintf(g_outf, "%sunion %s", marg.c_str(), e.name_);
         if ( e.is_pure_decl() )
-          break;
+          return true;
         dump_complex_type(e, level, marg);
         return true;
        break;
@@ -1064,8 +1077,8 @@ bool PlainRender::dump_nested(Element &e, int level, std::string &marg) {
       case ElementType::class_type:
         fprintf(g_outf, "%s%s %s", marg.c_str(), (e.type_ == ElementType::class_type) ? "class" : "interface", e.name_);
         if ( e.is_pure_decl() )
-          break;
-        dump_parents(e);
+          return true;
+        dump_parents(e, marg);
         dump_complex_type(e, level, marg);
         return true;
        break;
@@ -1202,7 +1215,7 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
     else switch(e.type_)
     {
       case ElementType::subroutine:
-        dump_func(&e);
+        dump_func(&e, 0, marg);
         break;
       case ElementType::typedef2:
         {

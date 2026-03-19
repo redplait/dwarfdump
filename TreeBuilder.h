@@ -521,8 +521,8 @@ protected:
       owner_(o),
       ns_(n),
       type_(type),
-      id_(id),
       level_(level),
+      id_(id),
       // only c++20 can have default values for bitfields so
       noret_(0), decl_(0), const_expr_(0), has_range_(0), enum_class_(0), gnu_vector_(0), tensor_(0), has_go(0), dumped_(0), has_locx(0)
     {}
@@ -530,8 +530,8 @@ protected:
     Element *owner_;
     NSpace *ns_;
     ElementType type_;
-    uint64_t id_;
     int level_;
+    uint64_t id_;
     const char *fname_ = nullptr,
      *name_ = nullptr,
      *link_name_ = nullptr; // set in SetLinkageName

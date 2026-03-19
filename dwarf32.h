@@ -108,7 +108,10 @@ namespace Dwarf32 {
     /* GNU extensions.  */
     DW_TAG_format_label = 0x4101,
     DW_TAG_function_template = 0x4102,
-    DW_TAG_class_template = 0x4103
+    DW_TAG_class_template = 0x4103,
+    DW_TAG_GNU_template_template_param = 0x4106,
+    DW_TAG_GNU_template_parameter_pack = 0x4107,
+    DW_TAG_GNU_formal_parameter_pack = 0x4108,
   };
 
   enum Attribute {
