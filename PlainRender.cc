@@ -461,16 +461,16 @@ std::string &PlainRender::render_fields(Element *e, std::string &s, int level, i
   return s;
 }
 
-void PlainRender::dump_fields(Element *e)
+void PlainRender::dump_fields(Element *e, int level, std::string &marg)
 {
   if ( !e->m_comp )
     return;
   for ( auto &en: e->m_comp->members_ )
   {
     std::string tmp;
-    fprintf(g_outf, "// Offset 0x%lX\n", en.offset_);
-    render_field(&en, tmp, 1, en.offset_);
-    fprintf(g_outf, "%s;\n", tmp.c_str());
+    fprintf(g_outf, "%s// Offset 0x%lX\n", marg.c_str(), en.offset_);
+    render_field(&en, tmp, level + 1, en.offset_);
+    fprintf(g_outf, "%s%s;\n", marg.c_str(), tmp.c_str());
   }
 }
 
@@ -895,10 +895,10 @@ int PlainRender::dump_parents(Element &e)
   return 0;
 }
 
-void PlainRender::dump_complex_type(Element &e)
+void PlainRender::dump_complex_type(Element &e, int level, std::string &marg)
 {
   fprintf(g_outf, " {\n");
-  dump_fields(&e);
+  dump_fields(&e, level, marg);
   dump_methods(&e);
   dump_lvars(&e);
   fprintf(g_outf, "}");
@@ -1017,6 +1017,61 @@ void PlainRender::dump_const_expr(Element *e)
   else
     fprintf(g_outf,"0x%lX", vi->second);
   fprintf(g_outf, ";\n");
+}
+
+void PlainRender::dump_type_hdr(const Element &e, std::string &marg) {
+  if ( e.size_ )
+   fprintf(g_outf, "%s// Size 0x%lX\n", marg.c_str(), e.size_);
+  if ( g_opt_v )
+   fprintf(g_outf, "%s// TypeId %lX\n", marg.c_str(), e.id_);
+  if ( e.link_name_ && e.link_name_ != e.name_ )
+   fprintf(g_outf, "%s// LinkageName: %s\n", marg.c_str(), e.link_name_);
+  if ( !e.fullname_.empty() )
+   fprintf(g_outf, "%s// FileName: %s\n", marg.c_str(), e.fullname_.c_str());
+}
+
+bool PlainRender::dump_nested(Element &e, int level, std::string &marg) {
+  switch(e.type_)
+    {
+      case ElementType::enumerator_type:
+        if ( e.enum_class_ )
+          fprintf(g_outf, "%senum class %s", marg.c_str(), e.name_);
+        else
+          fprintf(g_outf, "%senum %s", marg.c_str(), e.name_);
+        if ( e.is_pure_decl() )
+          break;
+        fprintf(g_outf, " {\n");
+        dump_enums(&e);
+        fprintf(g_outf, "%s}", marg.c_str());
+        return true;
+       break;
+      case ElementType::structure_type:
+        fprintf(g_outf, "%sstruct %s", marg.c_str(), e.name_);
+        if ( e.is_pure_decl() )
+          break;
+        dump_parents(e);
+        dump_complex_type(e, level, marg);
+        return true;
+       break;
+      case ElementType::union_type:
+        fprintf(g_outf, "%sunion %s", marg.c_str(), e.name_);
+        if ( e.is_pure_decl() )
+          break;
+        dump_complex_type(e, level, marg);
+        return true;
+       break;
+      case ElementType::interface_type:
+      case ElementType::class_type:
+        fprintf(g_outf, "%s%s %s", marg.c_str(), (e.type_ == ElementType::class_type) ? "class" : "interface", e.name_);
+        if ( e.is_pure_decl() )
+          break;
+        dump_parents(e);
+        dump_complex_type(e, level, marg);
+        return true;
+       break;
+     default: return false;
+  }
+  return false;
 }
 
 void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
@@ -1141,48 +1196,11 @@ void PlainRender::dump_types(std::list<Element> &els, struct cu *rcu)
         }
       }
     }
-    if ( e.size_ )
-      fprintf(g_outf, "// Size 0x%lX\n", e.size_);
-    if ( g_opt_v )
-      fprintf(g_outf, "// TypeId %lX\n", e.id_);
-    if ( e.link_name_ && e.link_name_ != e.name_ )
-      fprintf(g_outf, "// LinkageName: %s\n", e.link_name_);
-    if ( !e.fullname_.empty() )
-      fprintf(g_outf, "// FileName: %s\n", e.fullname_.c_str());
-    switch(e.type_)
+    std::string marg;
+    dump_type_hdr(e, marg);
+    if ( dump_nested(e, 0, marg) ) e.dumped_ = true;
+    else switch(e.type_)
     {
-      case ElementType::enumerator_type:
-        if ( e.enum_class_ )
-          fprintf(g_outf, "enum class %s", e.name_);
-        else
-          fprintf(g_outf, "enum %s", e.name_);
-        if ( e.is_pure_decl() )
-          break;
-        fprintf(g_outf, " {\n");
-        dump_enums(&e);
-        fprintf(g_outf, "}");
-        break;
-      case ElementType::structure_type:
-        fprintf(g_outf, "struct %s", e.name_);
-        if ( e.is_pure_decl() )
-          break;
-        dump_parents(e);
-        dump_complex_type(e);
-        break;
-      case ElementType::union_type:
-        fprintf(g_outf, "union %s", e.name_);
-        if ( e.is_pure_decl() )
-          break;
-        dump_complex_type(e);
-        break;
-      case ElementType::interface_type:
-      case ElementType::class_type:
-        fprintf(g_outf, "%s %s", (e.type_ == ElementType::class_type) ? "class" : "interface", e.name_);
-        if ( e.is_pure_decl() )
-          break;
-        dump_parents(e);
-        dump_complex_type(e);
-        break;
       case ElementType::subroutine:
         dump_func(&e);
         break;
