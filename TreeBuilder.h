@@ -309,6 +309,7 @@ public:
   void SetBitSize(int);
   void SetAddressClass(int, uint64_t off);
   void SetBitOffset(int);
+  void SetDataBitOffset(int);
   void SetParentAccess(int);
   void SetVirtuality(int);
   void SetObjPtr(uint64_t);

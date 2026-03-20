@@ -2947,8 +2947,12 @@ bool ElfFile::LogDwarfInfo(Dwarf32::Attribute attribute,
     case Dwarf32::Attribute::DW_AT_data_bit_offset:
     case Dwarf32::Attribute::DW_AT_bit_offset: {
       uint64_t bit_off = FormDataValue(form, info, info_bytes);
-      if ( m_regged )
-        tree_builder->SetBitOffset(bit_off);
+      if ( m_regged ) {
+        if ( attribute == Dwarf32::Attribute::DW_AT_data_bit_offset )
+          tree_builder->SetDataBitOffset(bit_off);
+        else
+          tree_builder->SetBitOffset(bit_off);
+      }
       return true;
     }
 

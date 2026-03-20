@@ -1459,6 +1459,20 @@ void TreeBuilder::SetDeclaration()
     last.decl_ = true;
 }
 
+void TreeBuilder::SetDataBitOffset(int v)
+{
+   if (current_element_type_ != ElementType::member) {
+    return;
+  }
+  auto off = v >> 3;
+  auto bit_off = v & 7;
+  auto *el = get_member("data_bit offset");
+  if ( el ) {
+   el->offset_ = off;
+   el->bit_offset_ = bit_off;
+  }
+}
+
 void TreeBuilder::SetBitOffset(int v)
 {
    if (current_element_type_ != ElementType::member) {
