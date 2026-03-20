@@ -130,6 +130,16 @@ class PerlRenderer: public TreeBuilder
       auto method = (Method *)t;
       return method->expl_;
     }
+    bool mref() const {
+      if ( t->type_ != method ) return 0;
+      auto method = (Method *)t;
+      return method->ref_;
+    }
+    bool mrval_ref() const {
+      if ( t->type_ != method ) return 0;
+      auto method = (Method *)t;
+      return method->rval_ref_;
+    }
    };
    // find methods
    Element *by_addr(uint64_t addr)
@@ -846,6 +856,15 @@ bit_offset(SV *self)
  OUTPUT:
   RETVAL
 
+IV
+addr_class(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ CODE:
+  RETVAL = d->t->addr_class_;
+ OUTPUT:
+  RETVAL
+
 void
 noret(SV *self)
  INIT:
@@ -893,6 +912,26 @@ has_range(SV *self)
   auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
  PPCODE:
   if ( d->t->has_range_ )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
+
+void
+gnu_vector(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->gnu_vector_ )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
+
+void
+tensor(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->tensor_ )
     XSRETURN_YES;
   else
     XSRETURN_NO;
@@ -1125,6 +1164,34 @@ mexpl(SV *self)
     XSRETURN(1);
   }
   if ( d->mexpl() )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
+
+void
+mref(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->type_ != TreeBuilder::ElementType::method ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  if ( d->mref() )
+    XSRETURN_YES;
+  else
+    XSRETURN_NO;
+
+void
+mrval_ref(SV *self)
+ INIT:
+  auto *d = dwarf_magic_ext<PerlRenderer::DElem>(self, 1, &delem_magic_vt);
+ PPCODE:
+  if ( d->t->type_ != TreeBuilder::ElementType::method ) {
+    ST(0) = &PL_sv_undef;
+    XSRETURN(1);
+  }
+  if ( d->mrval_ref() )
     XSRETURN_YES;
   else
     XSRETURN_NO;
