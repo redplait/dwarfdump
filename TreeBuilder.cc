@@ -506,7 +506,7 @@ bool TreeBuilder::is_go() const
   return cu.cu_lang == Dwarf32::dwarf_source_language::DW_LANG_Go;
 }
 
-const char *get_addr_class(int c)
+const char *get_addr_class(unsigned char c)
 {
   // from https://docs.nvidia.com/cuda/ptx-writers-guide-to-interoperability/index.html
  switch(c) {
@@ -1244,10 +1244,10 @@ void TreeBuilder::SetAddressClass(int v, uint64_t off)
   if (current_element_type_ == ElementType::member )
   {
     auto el = get_member("address class");
-    if ( el ) el->addr_class_ = v;
+    if ( el ) el->addr_class_ = (unsigned char)v;
     return;
   }
-  elements_.back().addr_class_ = v;
+  elements_.back().addr_class_ = (unsigned char)v;
 }
 
 void TreeBuilder::SetBitSize(int v)

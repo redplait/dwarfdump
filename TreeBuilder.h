@@ -216,7 +216,7 @@ struct cu
   bool need_base_addr_idx;
 };
 
-const char *get_addr_class(int);
+const char *get_addr_class(unsigned char);
 
 class TreeBuilder {
 public:
@@ -549,10 +549,10 @@ protected:
     int inlined_ = 0,
      access_ = 0,
      bit_size_ = 0,
-     bit_offset_ = 0,
-     addr_class_ = 0; // from DW_AT_address_class
+     bit_offset_ = 0;
     Compound *m_comp = nullptr;
-    unsigned char ate_ = 0; // DW_AT_encoding
+    unsigned char ate_ = 0, // DW_AT_encoding
+     addr_class_ = 0; // from DW_AT_address_class
     unsigned int noret_:1,
      decl_:1,
      const_expr_ :1,
