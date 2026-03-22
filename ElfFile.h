@@ -146,7 +146,10 @@ private:
    debug_rnglists_,
    debug_ranges_,
   // section with frame info - when opt_f
-   debug_frame_;
+   debug_frame_,
+  // cuda sass register mapping
+   cuda_sass_regs,
+   cuda_sass_mregs; // for mercury
 
   struct TagSection {
       unsigned int number;

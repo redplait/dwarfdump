@@ -601,6 +601,18 @@ DW_OP (DW_OP_GNU_regval_type, 0xf5)
 DW_OP (DW_OP_GNU_deref_type, 0xf6)
 DW_OP (DW_OP_GNU_convert, 0xf7)
 DW_OP (DW_OP_GNU_reinterpret, 0xf9)
+/* LLVM extensions for heterogeneous targets */
+DW_OP (DW_OP_LLVM_form_aspace_address, 0xe1)
+DW_OP (DW_OP_LLVM_offset, 0xe3)
+DW_OP (DW_OP_LLVM_offset_constu, 0xe4)
+DW_OP (DW_OP_LLVM_bit_offset, 0xe5)
+DW_OP (DW_OP_LLVM_undefined, 0xe7)
+DW_OP (DW_OP_LLVM_aspace_bregx, 0xe8)
+DW_OP (DW_OP_LLVM_piece_end, 0xea)
+DW_OP (DW_OP_LLVM_extend, 0xeb)
+DW_OP (DW_OP_LLVM_select_bit_piece, 0xec)
+DW_OP (DW_OP_LLVM_bit_overlay, 0xed)
+DW_OP (DW_OP_LLVM_overlay, 0xee)
   };
 
 /* Content type codes in line table directory_entry_format and file_name_entry_format sequences.  */

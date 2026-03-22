@@ -161,7 +161,7 @@ void ElfFile::cmn_read(bool& success)
   endc.setup(reader->get_encoding());
   m_lsb = reader->get_encoding() == ELFDATA2LSB;
   success = true;
-
+  auto mach = reader->get_machine();
   // compressed sections
   section 
    *zinfo = nullptr,
@@ -186,6 +186,15 @@ void ElfFile::cmn_read(bool& success)
       const char *merc_prefix = ".nv.merc"; // length 8
       if ( strncmp(name, merc_prefix, 8) ) continue;
       name += 8;
+    }
+    if ( mach == EM_CUDA ) {
+      if ( !g_opt_m && !strcmp(name, ".nv_debug_info_reg_sass") ) {
+        cuda_sass_regs.asgn(s);
+        continue;
+      } else if ( g_opt_m && !strcmp(name, ".nv_debug_info_reg_sass") ) { // prefix .nv.merc was removed above
+        cuda_sass_mregs.asgn(s);
+        continue;
+      }
     }
     if (!strcmp(name, ".debug_info")) {
       debug_info_.asgn(s);
