@@ -92,7 +92,7 @@ is_32bit_abs_reloc (Elf_Half machine, unsigned int reloc_type, Elf_Half &prev_wa
       if ( g_opt_m )
         return reloc_type == 3; // R_MERCURY_ABS32
       else
-        return reloc_type == 1 || reloc_type == 3 || reloc_type == 0x37;
+        return reloc_type == 1 || reloc_type == 3 || reloc_type == 0x37; // R_CUDA_G32 & R_CUDA_ABS32_32
     case EM_CYGNUS_FRV:
       return reloc_type == 1;
     case EM_CYGNUS_D10V:
@@ -1151,6 +1151,7 @@ void ElfFile::byte_put(const unsigned char *c, uint64_t value, unsigned int size
 
 bool ElfFile::try_apply_debug_relocs()
 {
+ auto machine = reader->get_machine();
  // fill map with loaded debug sections
  // .debug_abbrev & .debug_str should be ignored 
  // see last bool field in dwaft.c table debug_displays
@@ -1167,7 +1168,7 @@ bool ElfFile::try_apply_debug_relocs()
    rmaps[debug_ranges_.idx] = &debug_ranges_;
  if ( !debug_rnglists_.empty() )
    rmaps[debug_rnglists_.idx] = &debug_rnglists_;
- if ( !debug_loc_.empty() )
+ if ( !debug_loc_.empty() && machine != EM_CUDA )
    rmaps[debug_loc_.idx] = &debug_loc_;
  if ( !debug_line_.empty() )
    rmaps[debug_line_.idx] = &debug_line_;
@@ -1203,7 +1204,6 @@ bool ElfFile::try_apply_debug_relocs()
    return false;
  }
  had_relocs = true;
- auto machine = reader->get_machine();
  if ( machine == EM_MSP430 )
    uses_msp430x_relocs = (reader->get_flags() & EF_MSP430_MACH) == E_MSP430_MACH_MSP430X;
  // fill symbols
@@ -1222,7 +1222,6 @@ bool ElfFile::try_apply_debug_relocs()
         curr_sym.addr, curr_sym.size, curr_sym.bind, curr_sym.type, curr_sym.section, curr_sym.other);
     }
   }
- unsigned int prev_reloc = 0; 
  // apply all reloc sections from rs list
  for ( auto irs: rs )
  {
@@ -1230,6 +1229,7 @@ bool ElfFile::try_apply_debug_relocs()
    auto inf = cr->get_info();
    auto si = rmaps.find(inf);
    if ( si == rmaps.end() ) continue;
+   unsigned int prev_reloc = 0;
    apply_to = si->second;
    bool is_rela = cr->get_type() == SHT_RELA;
    if ( g_opt_m ) {
@@ -1370,9 +1370,9 @@ bool ElfFile::try_apply_debug_relocs()
 	  else
 	    byte_put (rloc, addend + m_symbols[sym_idx].addr, reloc_size);
    }
-   m_symbols.clear();
    apply_to = nullptr;
    reset_target_specific_reloc();
  }
+ m_symbols.clear();
  return true;
 }
