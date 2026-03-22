@@ -34,7 +34,7 @@ unsigned int
 ElfFile::get_reloc_type(unsigned int reloc_info)
 {
   if ( reader->get_class() == ELFCLASS32 ) return reloc_info;
-  switch( reader->get_machine() )
+  switch( machine )
   {
     case EM_SPARCV9:
     case EM_MIPS: return reloc_info & 0xff;
@@ -1149,80 +1149,9 @@ void ElfFile::byte_put(const unsigned char *c, uint64_t value, unsigned int size
   }
 }
 
-bool ElfFile::try_apply_debug_relocs()
-{
- auto machine = reader->get_machine();
- // fill map with loaded debug sections
- // .debug_abbrev & .debug_str should be ignored 
- // see last bool field in dwaft.c table debug_displays
- std::map<Elf_Half, dwarf_section *> rmaps;
- if ( !debug_info_.empty() )
-   rmaps[debug_info_.idx] = &debug_info_;
- if ( !debug_loclists_.empty() )
-   rmaps[debug_loclists_.idx] = &debug_loclists_;
- if ( !debug_addr_.empty() )
-   rmaps[debug_addr_.idx] = &debug_addr_;
- if ( !debug_frame_.empty() )
-   rmaps[debug_frame_.idx] = &debug_frame_;
- if ( !debug_ranges_.empty() )
-   rmaps[debug_ranges_.idx] = &debug_ranges_;
- if ( !debug_rnglists_.empty() )
-   rmaps[debug_rnglists_.idx] = &debug_rnglists_;
- if ( !debug_loc_.empty() && machine != EM_CUDA )
-   rmaps[debug_loc_.idx] = &debug_loc_;
- if ( !debug_line_.empty() )
-   rmaps[debug_line_.idx] = &debug_line_;
- if ( !debug_line_str_.empty() )
-   rmaps[debug_line_str_.idx] = &debug_line_str_;
- if ( rmaps.empty() ) return true;
- // ok, enum reloc sections
- std::list<Elf_Half> rs;
- Elf_Half n = reader->sections.size();
- section *sym_sec = nullptr;
- for ( Elf_Half i = 0; i < n; i++) {
-   section *s = reader->sections[i];
-   bool is_rel = false;
-   if ( g_opt_m ) { // cuda mercury has custom attributes in section type
-     if ( s->get_type() == 0x70000085 ) { sym_sec = s; continue; }
-     is_rel = s->get_type() == 0x70000082;
-   } else {
-     if ( s->get_type() == SHT_SYMTAB ) { sym_sec = s; continue; }
-     is_rel = ( s->get_type() == SHT_REL || s->get_type() == SHT_RELA );
-   }
-   if ( is_rel ) {
-     auto inf = s->get_info();
-     auto si = rmaps.find(inf);
-     if ( si == rmaps.end() ) continue;
-     if ( g_opt_v )
-       printf("section(%d) %s has relocs\n", inf, reader->sections[inf]->get_name().c_str());
-     rs.push_back(i);
-   }
- }
- if ( rs.empty() ) return true;
- if ( !sym_sec ) {
-   tree_builder->e_->error("try_apply_debug_relocs: Cannot find symtab\n");
-   return false;
- }
- had_relocs = true;
- if ( machine == EM_MSP430 )
-   uses_msp430x_relocs = (reader->get_flags() & EF_MSP430_MACH) == E_MSP430_MACH_MSP430X;
- // fill symbols
- symbol_section_accessor symbols( *reader, sym_sec );
- Elf_Xword sym_no = symbols.get_symbols_num();
- if ( !sym_no ) {
-   tree_builder->e_->error("try_apply_debug_relocs: no symbols\n");
-   return false;
- } else {
-    m_symbols.resize(sym_no);
-    for ( Elf_Xword i = 0; i < sym_no; ++i )
-    {
-      std::string name;
-      auto &curr_sym = m_symbols[i];
-      symbols.get_symbol( i, name,
-        curr_sym.addr, curr_sym.size, curr_sym.bind, curr_sym.type, curr_sym.section, curr_sym.other);
-    }
-  }
- // apply all reloc sections from rs list
+// apply all reloc sections for rmaps
+bool ElfFile::apply_debug_relocs(RelS &rmaps, std::list<Elf_Half> &rs) {
+ bool res = false;
  for ( auto irs: rs )
  {
    section *cr = reader->sections[irs];
@@ -1242,6 +1171,7 @@ bool ElfFile::try_apply_debug_relocs()
      printf("reloc section %d %s has %d entries, dest %d (%s)\n", irs, cr->get_name().c_str(),
        num, inf, reader->sections[inf]->get_name().c_str());
    Elf_Half prev_warn = 0;
+   res = true;
    for ( int i = 0; i < num; ++i )
    {
      Elf64_Addr offset = 0;
@@ -1373,6 +1303,83 @@ bool ElfFile::try_apply_debug_relocs()
    apply_to = nullptr;
    reset_target_specific_reloc();
  }
+ return res;
+}
+
+bool ElfFile::try_apply_debug_relocs()
+{
+ // fill map with loaded debug sections
+ // .debug_abbrev & .debug_str should be ignored
+ // see last bool field in dwaft.c table debug_displays
+ RelS rmaps;
+ if ( !debug_info_.empty() )
+   rmaps[debug_info_.idx] = &debug_info_;
+ if ( !debug_loclists_.empty() )
+   rmaps[debug_loclists_.idx] = &debug_loclists_;
+ if ( !debug_addr_.empty() )
+   rmaps[debug_addr_.idx] = &debug_addr_;
+ if ( !debug_frame_.empty() )
+   rmaps[debug_frame_.idx] = &debug_frame_;
+ if ( !debug_ranges_.empty() )
+   rmaps[debug_ranges_.idx] = &debug_ranges_;
+ if ( !debug_rnglists_.empty() )
+   rmaps[debug_rnglists_.idx] = &debug_rnglists_;
+ if ( !debug_loc_.empty() && machine != EM_CUDA )
+   rmaps[debug_loc_.idx] = &debug_loc_;
+ if ( !debug_line_.empty() )
+   rmaps[debug_line_.idx] = &debug_line_;
+ if ( !debug_line_str_.empty() )
+   rmaps[debug_line_str_.idx] = &debug_line_str_;
+ if ( rmaps.empty() ) return true;
+ // ok, enum reloc sections
+ std::list<Elf_Half> rs;
+ Elf_Half n = reader->sections.size();
+ section *sym_sec = nullptr;
+ for ( Elf_Half i = 0; i < n; i++) {
+   section *s = reader->sections[i];
+   bool is_rel = false;
+   if ( g_opt_m ) { // cuda mercury has custom attributes in section type
+     if ( s->get_type() == 0x70000085 ) { sym_sec = s; continue; }
+     is_rel = s->get_type() == 0x70000082;
+   } else {
+     if ( s->get_type() == SHT_SYMTAB ) { sym_sec = s; continue; }
+     is_rel = ( s->get_type() == SHT_REL || s->get_type() == SHT_RELA );
+   }
+   if ( is_rel ) {
+     auto inf = s->get_info();
+     auto si = rmaps.find(inf);
+     if ( si == rmaps.end() ) continue;
+     if ( g_opt_v )
+       printf("section(%d) %s has relocs\n", inf, reader->sections[inf]->get_name().c_str());
+     rs.push_back(i);
+   }
+ }
+ if ( rs.empty() ) return true;
+ if ( !sym_sec ) {
+   tree_builder->e_->error("try_apply_debug_relocs: Cannot find symtab\n");
+   return false;
+ }
+ had_relocs = true;
+ if ( machine == EM_MSP430 )
+   uses_msp430x_relocs = (reader->get_flags() & EF_MSP430_MACH) == E_MSP430_MACH_MSP430X;
+ // fill symbols
+ symbol_section_accessor symbols( *reader, sym_sec );
+ sym_no = symbols.get_symbols_num();
+ if ( !sym_no ) {
+   tree_builder->e_->error("try_apply_debug_relocs: no symbols\n");
+   return false;
+ } else {
+    m_symbols.resize(sym_no);
+    for ( Elf_Xword i = 0; i < sym_no; ++i )
+    {
+      std::string name;
+      auto &curr_sym = m_symbols[i];
+      symbols.get_symbol( i, name,
+        curr_sym.addr, curr_sym.size, curr_sym.bind, curr_sym.type, curr_sym.section, curr_sym.other);
+    }
+  }
+ // apply all reloc sections from rs list
+ auto res = apply_debug_relocs(rmaps, rs);
  m_symbols.clear();
- return true;
+ return res;
 }

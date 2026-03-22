@@ -261,6 +261,8 @@ private:
   // relocs
   dwarf_section *apply_to = nullptr;
   std::vector<elf_symbol> m_symbols;
+  Elf_Xword sym_no = 0;
+  Elf_Half machine = 0;
   bool uses_msp430x_relocs = false;
   bool had_relocs = false;
   elf_symbol * saved_sym = nullptr;
@@ -278,6 +280,8 @@ private:
   unsigned int get_reloc_type(unsigned int);
   bool target_specific_reloc_handling(Elf_Half machine, Elf64_Addr, Elf_Word, unsigned, Elf_Sxword add);
   bool try_apply_debug_relocs();
+  typedef std::map<Elf_Half, dwarf_section *> RelS;
+  bool apply_debug_relocs(RelS &, std::list<Elf_Half> &);
 };
 
 class ElfReaderOwner: public ElfFile

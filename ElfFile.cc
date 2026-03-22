@@ -161,7 +161,7 @@ void ElfFile::cmn_read(bool& success)
   endc.setup(reader->get_encoding());
   m_lsb = reader->get_encoding() == ELFDATA2LSB;
   success = true;
-  auto mach = reader->get_machine();
+  machine = reader->get_machine();
   // compressed sections
   section 
    *zinfo = nullptr,
@@ -187,7 +187,7 @@ void ElfFile::cmn_read(bool& success)
       if ( strncmp(name, merc_prefix, 8) ) continue;
       name += 8;
     }
-    if ( mach == EM_CUDA ) {
+    if ( machine == EM_CUDA ) {
       if ( !g_opt_m && !strcmp(name, ".nv_debug_info_reg_sass") ) {
         cuda_sass_regs.asgn(s);
         continue;
@@ -299,7 +299,7 @@ void ElfFile::cmn_read(bool& success)
   UNPACK_ZSECTION(zranges, debug_ranges_)
   UNPACK_ZSECTION(zframe, debug_frame_)
 
-  tree_builder->m_rnames = get_regnames(reader->get_machine(), reader->get_class() == ELFCLASS64);
+  tree_builder->m_rnames = get_regnames(machine, reader->get_class() == ELFCLASS64);
   tree_builder->has_rngx = (debug_rnglists_.s_ != nullptr);
   success = (debug_info_.s_ && debug_abbrev_.s_);
   if ( !success) return;
