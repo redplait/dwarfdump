@@ -508,7 +508,7 @@ bool TreeBuilder::is_go() const
 
 const char *get_addr_class(unsigned char c)
 {
-  // from https://docs.nvidia.com/cuda/ptx-writers-guide-to-interoperability/index.html
+  // from https://docs.nvidia.com/cuda/ptx-writers-guide-to-interoperability/index.html#cuda-specific-dwarf-definitions
  switch(c) {
   case 1: return "Code storage";
   case 2: return "Register storage";

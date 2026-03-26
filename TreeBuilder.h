@@ -190,13 +190,10 @@ struct param_loc
 
 struct LocListXItem
 {
-  uint64_t start;
-  uint64_t end;
+  uint64_t start = 0,
+   end = 0;
   param_loc loc;
-  LocListXItem()
-  {
-    start = end = 0;
-  }
+  LocListXItem() = default;
   LocListXItem(uint64_t s, uint64_t e)
   {
     start = s;
