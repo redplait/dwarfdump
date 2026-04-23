@@ -180,7 +180,8 @@ void ElfFile::cmn_read(bool& success)
   Elf_Half n = reader->sections.size();
   for ( Elf_Half i = 0; i < n; i++) {
     section *s = reader->sections[i];
-    const char* name = s->get_name().c_str();
+    auto sn = s->get_name();
+    const char* name = sn.c_str();
     // filter mercury
     if ( g_opt_m ) {
       const char *merc_prefix = ".nv.merc"; // length 8
