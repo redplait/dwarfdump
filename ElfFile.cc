@@ -191,6 +191,10 @@ void ElfFile::cmn_read(bool& success)
       if ( !g_opt_m && !strcmp(name, ".nv_debug_info_reg_sass") ) {
         cuda_sass_regs.asgn(s);
         continue;
+      } else if ( !g_opt_m && g_opt_F && !strcmp(name, ".nv_debug_line_sass")) {
+        debug_line_.asgn(s);
+        check_compressed_section(s, debug_line_);
+        continue;
       } else if ( g_opt_m && !strcmp(name, ".nv_debug_info_reg_sass") ) { // prefix .nv.merc was removed above
         cuda_sass_mregs.asgn(s);
         continue;
@@ -238,7 +242,7 @@ void ElfFile::cmn_read(bool& success)
     } else if (!strcmp(name, ".debug_loc")) {
       debug_loc_.asgn(s);
       check_compressed_section(s, debug_loc_);
-    } else if (g_opt_F && !strcmp(name, ".debug_line")) {
+    } else if (g_opt_F && debug_line_.empty() && !strcmp(name, ".debug_line")) {
       debug_line_.asgn(s);
       check_compressed_section(s, debug_line_);
     } else if (g_opt_F && !strcmp(name, ".debug_line_str")) {
@@ -912,7 +916,7 @@ bool ElfFile::read_debug_lines()
   auto ptr = m_curr_lines;
   size_t ba = debug_line_.size_ - (m_curr_lines - debug_line_.s_);
   size_t addr_size = 0;
-  // printf("read_debug_lines: %lX ba %lX\n", m_curr_lines - debug_line_, ba);
+  DBG_PRINTF("read_debug_lines: %lX ba %lX\n", m_curr_lines - debug_line_.s_, ba);
   reset_lines();
   if ( ba < 4 )
     return false;
@@ -2483,7 +2487,7 @@ bool ElfFile::LoadAbbrevTags(uint32_t abbrev_offset) {
   while (abbrev_bytes > 0 && abbrev[0]) {
     struct TagSection section;
     section.number = ElfFile::ULEB128(abbrev, abbrev_bytes);
-    DBG_PRINTF(".abbrev+%lx\t Tag Number %d\n", abbrev - debug_abbrev_, section.number);
+    DBG_PRINTF(".abbrev+%lx\t Tag Number %d\n", abbrev - debug_abbrev_.s_, section.number);
     section.type = static_cast<Dwarf32::Tag>(ElfFile::ULEB128(abbrev, abbrev_bytes));
     section.has_children = *abbrev;
     abbrev++;
@@ -3185,7 +3189,7 @@ bool ElfFile::GetAllClasses()
         info += 8;
         info_bytes -= 8;
       }
-      DBG_PRINTF("hdr5: %lx\n", info-debug_info_);
+      DBG_PRINTF("hdr5: %lx\n", info-debug_info_.s_);
     }
     // read debug lines
     if ( !read_debug_lines() )
