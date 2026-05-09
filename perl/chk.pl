@@ -102,7 +102,6 @@ sub read_cat
 sub cmp_dir
 {
   my($root, $dir) = @_;
-  my %visited;
   # check missed
   while ( my($name, $v) = each %$root ) {
     if ( ref $v ) {
@@ -111,7 +110,6 @@ sub cmp_dir
       if ( ! -d $newd ) {
         printf("no %s DIR\n", $newd);
       } else {
-        $visited{$name} = 2;
         cmp_dir($v, $newd);
       }
       next;
@@ -121,14 +119,14 @@ sub cmp_dir
     if ( ! -s $fname ) {
       printf("no file %s\n", $fname);
     } else {
-      $visited{$name} = 1;
+      printf("size changed %s\n", $fname) if ( $v != -s $fname );
     }
   }
   # check newly added
   opendir(DIR, $dir) or die("cannot open $dir, error $!");
   while ( my $str = readdir(DIR) ) {
     next if ( $str eq '.' || $str eq '..' );
-    next if exists($visited{$str});
+    next if exists($root->{$str});
     # yep
     my $what = $dir . '/' . $str;
     if ( -d $what ) {
