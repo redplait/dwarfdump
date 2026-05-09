@@ -72,9 +72,10 @@ sub read_cat
         die "Strange margin " . $margin . " old was " . $dsize;
       }
       push @dirlist, [ $root, $2 ];
+      $dsize = scalar @dirlist;
       next;
     }
-    if ( $str =~ /^(\s*)(.*) (\d+) ([a-f|0-9]{32})$/ )
+    if ( $str =~ /^(\s*)(.*) (\d+) ([a-f0-9]{32})$/ )
     {
       $name = $2;
       $size = int $3;
@@ -82,6 +83,7 @@ sub read_cat
       my $margin = length $1;
       if ( !$margin ) {
         @dirlist = ( );
+        $dsize = 0;
         $root = \%res;
         add_file($root, $name, $size);
         next;
@@ -92,6 +94,8 @@ sub read_cat
         $dsize = scalar @dirlist;
       }
       add_file($dirlist[$margin-1]->[0], $name, $size);
+    } else {
+      printf("unknown format %s\n", $str);
     }
   }
   close FILE;
