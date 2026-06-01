@@ -61,7 +61,7 @@ static T *magic_tied(SV *obj, int die, MGVTBL *tab)
 }
 
 template <typename T>
-static T *get_magic_ext(SV *obj, MGVTBL *tab)
+static T *get_magic_ext(SV *obj, int die, MGVTBL *tab)
 {
   SV *sv;
   MAGIC* magic;
