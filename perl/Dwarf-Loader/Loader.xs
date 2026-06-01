@@ -26,12 +26,14 @@ public:
      va_list argp;
      va_start(argp, fmt);
      vcroak(fmt, &argp);
+     va_end(argp);
    }
    virtual void warning(const char *fmt, ...)
    {
      va_list argp;
      va_start(argp, fmt);
      vwarn(fmt, &argp);
+     va_end(argp);
    }
 } pg_log;
 

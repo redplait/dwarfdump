@@ -13,6 +13,7 @@ void my_warn(const char * pat, ...) {
  va_list args;
  va_start(args, pat);
  vwarn(pat, &args);
+ va_end(args);
 }
 
 static const char *s_regpad = "Disasm::Mips::Regpad";
