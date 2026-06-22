@@ -520,8 +520,8 @@ int CAttrs::read(int idx)
             unsigned short off = *(unsigned short *)kp;
             kp += 2;
             uint32_t tmp = *(uint32_t *)kp;
-            unsigned space = (tmp >> 0x8) & 0xf;
-            int is_cbank = ((tmp >> 0x10) & 2) == 0;
+            // unsigned space = (tmp >> 0x8) & 0xf;
+            int is_cbank = ((tmp >> 17) & 1) == 0;
             uint32_t csize = (((tmp >> 0x10) & 0xffff) >> 2);
             if ( is_cbank ) add_cparam(ord, off, csize);
           }
