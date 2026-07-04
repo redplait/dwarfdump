@@ -41,6 +41,8 @@ typedef enum {
   FATBIN_KIND_PTX      = 0x0001,
   FATBIN_KIND_ELF      = 0x0002,
   FATBIN_KIND_OLDCUBIN = 0x0004,
+  FATBIN_KIND_IR       = 0x0008,
+  FATBIN_MERCURY       = 0x0010,
 } fatBinaryCodeKind;
 
 /* Flags */
@@ -59,7 +61,7 @@ typedef enum {
 
 struct  __attribute__((__packed__)) fat_text_header
 {
-    uint16_t kind;
+    uint16_t kind; // fatBinaryCodeKind
     uint16_t unknown1;
     uint32_t header_size;
     uint64_t size;
