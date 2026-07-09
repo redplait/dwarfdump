@@ -1678,6 +1678,15 @@ void sbyte(SV *arg, int s_idx, unsigned long off)
    }
    XSRETURN(1);
 
+SV *
+patch_word(SV *arg, unsigned long addr, unsigned short val)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+ CODE:
+   if ( e->needswap ) val = __builtin_bswap16(val);
+   RETVAL = write_data(e, addr, &val);
+ OUTPUT:
+   RETVAL
 
 void word(SV *arg, unsigned long addr)
  INIT:
@@ -1717,6 +1726,16 @@ void sword(SV *arg, int s_idx, unsigned long off)
      }
    }
    XSRETURN(1);
+
+SV *
+patch_dword(SV *arg, unsigned long addr, U32 val)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+ CODE:
+   if ( e->needswap ) val = __builtin_bswap32(val);
+   RETVAL = write_data(e, addr, &val);
+ OUTPUT:
+   RETVAL
 
 void dword(SV *arg, unsigned long addr)
  INIT:
