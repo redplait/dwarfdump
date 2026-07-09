@@ -530,6 +530,60 @@ AV *bm_asciiz(SV *pattern, const unsigned char *start, const unsigned char *end,
   return av;
 }
 
+template <typename T>
+static int write_data(FILE *fp, unsigned long off, const T *what)
+{
+  fseek(fp, off, SEEK_SET);
+  if ( 1 != fwrite(what, sizeof(T), 1, fp) ) return 0;
+  return 1;
+}
+
+template <typename T>
+static int write_data(FILE *fp, unsigned long off, const std::vector<T> &what)
+{
+  fseek(fp, off, SEEK_SET);
+  size_t elems = what.size();
+  if ( elems != fwrite(what.data(), sizeof(T), elems, fp) ) return 0;
+  return 1;
+}
+
+template <typename T>
+static SV *write_data(struct IElf *e, unsigned long addr, const T *what)
+{
+  auto s = find_section(e, addr);
+  if ( !s ) return &PL_sv_undef;
+  unsigned long off = addr - s->get_address();
+  if ( off + sizeof(T) > s->get_size() ) return &PL_sv_undef;
+  off += s->get_offset();
+  FILE *fp = fopen(e->fname.c_str(), "r+b");
+  if ( !fp ) {
+    my_warn("write_data: cannot open ELF file %s\n", e->fname.c_str());
+    return &PL_sv_undef;
+  }
+  auto res = write_data(fp, off, what);
+  fclose(fp);
+  return res ? &PL_sv_yes : &PL_sv_no;
+}
+
+template <typename T>
+static SV *write_data(struct IElf *e, unsigned long addr, const std::vector<T> &what)
+{
+  auto s = find_section(e, addr);
+  if ( !s ) return &PL_sv_undef;
+  unsigned long off = addr - s->get_address();
+  size_t wsize = sizeof(T) * what.size();
+  if ( off + wsize > s->get_size() ) return &PL_sv_undef;
+  off += s->get_offset();
+  FILE *fp = fopen(e->fname.c_str(), "r+b");
+  if ( !fp ) {
+    my_warn("write_data: cannot open ELF file %s\n", e->fname.c_str());
+    return &PL_sv_undef;
+  }
+  auto res = write_data(fp, off, what);
+  fclose(fp);
+  return res ? &PL_sv_yes : &PL_sv_no;
+}
+
 template <typename T, typename F>
 static int patch_s(FILE *fp, unsigned long off, F &&func)
 {
@@ -1553,6 +1607,43 @@ void asciiz(SV *arg, unsigned long addr)
      ST(0)= sv_2mortal( newSVpv(res.c_str(), res.size()) );
    }
    XSRETURN(1);
+
+SV *
+patch_byte(SV *arg, unsigned long addr, unsigned char c)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+ CODE:
+   RETVAL = write_data(e, addr, &c);
+ OUTPUT:
+   RETVAL
+
+SV *
+patch_bytes(SV *arg, unsigned long addr, AV *av)
+ INIT:
+   struct IElf *e= Elf_get_magic<IElf>(arg, 1, &Elf_magic_vt);
+   std::vector<unsigned char> what;
+   I32 max_index = av_len(av);
+ CODE:
+   // fill what from av
+   for (I32 i = 0; i <= max_index; i++) {
+     SV** elem_ptr = av_fetch(av, i, 0);
+     if (elem_ptr != NULL && *elem_ptr != NULL) {
+       SV* sv = *elem_ptr;
+       if ( !SvIOK(sv)) {
+         croak("patch_bytes: bad elem %d type %d", i, SvTYPE(sv));
+         RETVAL = &PL_sv_undef;
+         goto end;
+       }
+       what.push_back((unsigned char)SvIV(sv));
+     }
+   }
+   if ( what.empty() )
+     RETVAL = &PL_sv_undef;
+   else
+     RETVAL = write_data(e, addr, what);
+end:
+ OUTPUT:
+   RETVAL
 
 void byte(SV *arg, unsigned long addr)
  INIT:
