@@ -41,6 +41,7 @@ static SV *new_enum_dualvar(pTHX_ IV ival, SV *name) {
 // to keep things consistent it also binded as Perl method
 static int is_addr_list(char attr) {
   switch(attr) {
+    case 0x27: // EIATTR_ATOM_SYS_INSTR_OFFSETS
     case 0x28: // EIATTR_COOP_GROUP_INSTR_OFFSETS
     case 0x1c: // EIATTR_EXIT_INSTR_OFFSETS
     case 0x1d: // EIATTR_S2RCTAID_INSTR_OFFSETS
@@ -48,6 +49,7 @@ static int is_addr_list(char attr) {
     case 0x31: // EIATTR_INT_WARP_WIDE_INSTR_OFFSETS
     case 0x39: // EIATTR_MBARRIER_INSTR_OFFSETS
     case 0x47: // EIATTR_SW_WAR_MEMBAR_SYS_INSTR_OFFSETS
+    case 0x65: // EIATTR_IGNOREOOB_CP_ASYNC_BULK_INSTR_OFFSETS
       return 1;
     default: return 0;
   }
