@@ -55,6 +55,15 @@ sub read_rela
   cmn_rel($ca, $elf, $rel_idx, $out_res);
 }
 
+# args: Elf::Reader
+sub attr_sects
+{
+  my $e = shift;
+  my $s = $e->secs();
+  my @sec = grep { $_->[2] == 0x70000000; } @$s;
+  return scalar(@sec) ? \@sec : undef;
+}
+
 sub collect
 {
   my $ca = shift;
@@ -130,6 +139,7 @@ sub stv_name($)
 
 
 our @EXPORT = qw(
+ attr_sects
  collect
  read_rel
  read_rela

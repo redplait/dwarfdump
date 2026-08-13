@@ -77,6 +77,8 @@ struct CAttrs {
   std::vector<cb_param> params;
   unsigned short cb_size = 0;
   unsigned short cb_offset = 0;
+  // stat
+  std::unordered_map<char, size_t> attr_stat;
   // indirect branches
   std::unordered_map<uint32_t, ib_item> indirect_branches;
   // write file handle
@@ -443,6 +445,7 @@ int CAttrs::read(int idx)
     }
     char format = data[0];
     char attr = data[1];
+    attr_stat[attr]++;
     unsigned short a_len;
     const char *kp = nullptr;
     bool skip = false;
@@ -937,6 +940,19 @@ read(SV *self, int idx)
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
   RETVAL = d->read(idx);
+ OUTPUT:
+  RETVAL
+
+SV *
+stat(SV *self)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  HV *res = newHV();
+ CODE:
+  for ( auto ai: d->attr_stat ) {
+    hv_store_ent(res, newSVuv(ai.first), newSVuv(ai.second), 0);
+  }
+  RETVAL = newRV_noinc((SV*)res);
  OUTPUT:
   RETVAL
 
