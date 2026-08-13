@@ -88,6 +88,7 @@ struct CAttrs {
     m_extrs.clear();
     m_attrs.clear();
     params.clear();
+    attr_stat.clear();
     indirect_branches.clear();
     cb_size = cb_offset = 0;
   }
