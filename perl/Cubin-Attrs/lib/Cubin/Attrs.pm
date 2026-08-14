@@ -102,6 +102,18 @@ sub collect
       $aoffs{$_} = $id->{'attr'} foreach ( @$value );
     }
   }
+  # get COROUTINE_RESUME_ID_OFFSETS
+  @grepped = $ca->grep(0x3a);
+  if ( scalar @grepped ) {
+    foreach my $id ( @grepped ) {
+      my $value = $ca->value($id->{'id'});
+      next unless defined($value);
+      # value is array [ Id, offset ]
+      foreach my $pair ( @$value ) {
+        $aoffs{$pair->[1]} = 0x3a;
+      }
+    }
+  }
   return wantarray ? @res : \@res;
 }
 
