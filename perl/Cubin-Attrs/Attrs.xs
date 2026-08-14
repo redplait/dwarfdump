@@ -103,6 +103,7 @@ struct CAttrs {
     return newRV_noinc((SV*)av);
   }
   SV *get_value(int idx);
+  SV *fetch_cors(const CAttr &a);
   SV *addr_list(const CAttr &a);
   SV *ibt_hash();
   SV *try_attr(int t_idx);
@@ -305,6 +306,23 @@ SV *CAttrs::fetch(int idx) {
   return fetch_attr(m_attrs[idx], idx);
 }
 
+SV *CAttrs::fetch_cors(const CAttr &a)
+{
+  if ( !a.len ) return &PL_sv_undef;
+  auto sec = m_e->rdr->sections[s_idx];
+  const char *data = sec->get_data() + 4 + a.offset;
+  AV *av = newAV();
+  for ( const char *bcurr = data; data + a.len - bcurr >= 0x8; bcurr += 0x8 )
+  {
+    uint32_t *addr = (uint32_t *)(bcurr);
+    AV *pair = newAV();
+    av_push(pair, newSVuv(addr[0])); // id
+    av_push(pair, newSVuv(addr[1])); // offset
+    av_push(av, newRV_noinc((SV*)pair));
+  }
+  return newRV_noinc((SV*)av);
+}
+
 SV *CAttrs::addr_list(const CAttr &a)
 {
   if ( !a.len ) return &PL_sv_undef;
@@ -393,6 +411,8 @@ SV *CAttrs::get_value(int idx) {
     return ibt_hash();
   if ( attr.attr == 0xf ) // EIATTR_EXTERNS
     return fetch_extrs();
+  if ( attr.attr == 0x3a ) // EIATTR_COROUTINE_RESUME_ID_OFFSETS
+    return fetch_cors(attr);
   if ( is_addr_list(attr.attr) ) return addr_list(attr);
   if ( 1 == attr.len )
     return newSViv( read<unsigned char>(attr) );
