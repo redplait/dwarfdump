@@ -56,6 +56,22 @@ static int is_addr_list(char attr) {
   }
 }
 
+static bool is_pair(char attr, bool &sec_sign) {
+  sec_sign = false;
+  switch(attr) {
+    case 2:    // EIATTR_IMAGE_SLOT
+    case 0x11: // EIATTR_FRAME_SIZE
+    case 0x26: // EIATTR_LOAD_CACHE_REQUEST
+    case 0x2f: // EIATTR_REGCOUNT
+    case 0x44: // EIATTR_UNUSED_LOAD_BYTE_OFFSET
+      return 1;
+    case 0x12: // EIATTR_MIN_STACK_SIZE
+      sec_sign = true;
+      return 1;
+  }
+  return 0;
+}
+
 static std::unordered_map<int, const char *> s_ei = {
 #include "eiattrs.inc"
 };
@@ -101,6 +117,20 @@ struct CAttrs {
     if ( m_extrs.empty() ) return &PL_sv_undef;
     AV *av = newAV();
     std::for_each(m_extrs.cbegin(), m_extrs.cend(), [av](uint32_t v) { av_push(av, newSVuv(v)); });
+    return newRV_noinc((SV*)av);
+  }
+  // for pair of 32bit words like IMAGE_SLOT/FRAME_SIZE/LOAD_CACHE_REQUEST/UNUSED_BYTES
+  SV *fetch_pair(const CAttr &a, bool sec_sign = false) {
+    if ( 8 != a.len ) return &PL_sv_undef;
+    auto sec = m_e->rdr->sections[s_idx];
+    const char *data = sec->get_data() + 4 + a.offset;
+    uint32_t *a32 = (uint32_t *)(data);
+    AV *av = newAV();
+    av_push(av, newSVuv(a32[0]));
+    if ( sec_sign )
+      av_push(av, newSViv((int32_t)a32[1]));
+    else
+      av_push(av, newSVuv(a32[1]));
     return newRV_noinc((SV*)av);
   }
   SV *get_value(int idx);
@@ -414,6 +444,9 @@ SV *CAttrs::get_value(int idx) {
     return fetch_extrs();
   if ( attr.attr == 0x3a ) // EIATTR_COROUTINE_RESUME_ID_OFFSETS
     return fetch_cors(attr);
+   bool sec_sign = false;
+  if ( attr.len == 8 && is_pair(attr.attr, sec_sign) )
+    return fetch_pair(attr, sec_sign);
   if ( is_addr_list(attr.attr) ) return addr_list(attr);
   if ( 1 == attr.len )
     return newSViv( read<unsigned char>(attr) );
@@ -554,7 +587,7 @@ int CAttrs::read(int idx)
           }
         }
         if ( !skip )
-          m_attrs.push_back( { data - start, a_len, attr, format } );
+            m_attrs.push_back( { data - start, a_len, attr, format } );
         data += 4 + a_len;
        break;
      default:
