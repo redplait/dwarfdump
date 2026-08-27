@@ -650,8 +650,8 @@ int CAttrs::read(int idx)
               // fill mbar_item
               mi.regNo = *(uint32_t *)(curr + 0x4);
               mi.mem_off = *(uint32_t *)(curr + 0x8);
-              mi.mask = *(uint16_t *)(curr + 0xa);
-              mi.ureg = *(curr + 0xb);
+              mi.mask = *(uint16_t *)(curr + 0xc);
+              mi.ureg = *(curr + 0xe);
               m_bars[addr] = std::move(mi);
             }
           }
