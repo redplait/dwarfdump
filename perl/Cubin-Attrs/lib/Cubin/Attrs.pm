@@ -94,7 +94,7 @@ sub collect
     $res[1] = \%second if ( $added );
   }
   # then collect remainings offset attrs
-  my @grepped = $ca->grep_list( [0x27, 0x28, 0x1c, 0x1d, 0x25, 0x31, 0x39, 0x46, 0x47, 0x65] );
+  my @grepped = $ca->grep_list( [0x27, 0x28, 0x1c, 0x1d, 0x25, 0x31, 0x46, 0x47, 0x65] );
   if ( scalar @grepped ) {
     foreach my $id ( @grepped ) {
       my $value = $ca->value($id->{'id'});
@@ -112,6 +112,16 @@ sub collect
       foreach my $pair ( @$value ) {
         $aoffs{$pair->[1]} = 0x3a;
       }
+    }
+  }
+  # apply 0x39 - EIATTR_MBARRIER_INSTR_OFFSETS last
+  @grepped = $ca->grep(0x39);
+  if ( scalar @grepped ) {
+    # it is always the only
+    my $id = $grepped[0];
+    my $value = $ca->value($id->{'id'});
+    if ( defined $value ) {
+      $aoffs{$_} = 0x39 foreach ( @$value );
     }
   }
   return wantarray ? @res : \@res;

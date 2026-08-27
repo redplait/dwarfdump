@@ -10,7 +10,7 @@ use warnings;
 use Elf::Reader;
 use Data::Dumper;
 
-use Test::More tests => 16;
+use Test::More tests => 17;
 BEGIN { use_ok('Cubin::Attrs') };
 
 my $fname = '/home/redp/disc/src/cuda-ptx/src/denvdis/test/cv/libcvcuda.so.0.15.13.sm_70.cubin';
@@ -43,6 +43,7 @@ my %rels;
 # this cubin don't have relocs so both read_rel & read_rela should return 0
 ok( !$fb->read_rel($e, $link, \%rels), 'read_rel');
 ok( !$fb->read_rela($e, $link, \%rels), 'read_rela');
+ok( !defined($fb->mbars()), 'mbars');
 
 #########################
 

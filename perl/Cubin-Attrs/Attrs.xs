@@ -30,6 +30,27 @@ struct ib_item {
   std::list<uint32_t> labels;
 };
 
+// EIATTR_MBARRIER_INSTR_OFFSETS entries has complex structure, excerpt from cublas for sm90:
+//  /*0724*/  .word   0x00000450
+//  /*0728*/  .word   0x000000ff
+//  /*072c*/  .word   0x00000008
+//  /*0730*/  .short  0x0100
+//  /*0732*/  .byte   0x0d
+//	    .zero           1
+// total size of entry is 0x10
+// first word is obviously instruction offset
+// second is unknown - maybe regNo - here 0xff stands for RZ
+// third is memory offset, like 8 for SYNCS.EXCH.64 URZ, [UR13+0x8], UR8
+// next 16bit is highly likely mask
+// and last byte is reg in [] - here 0xd for UR13
+
+// So keep them in unordered map where key is offset and value is struct like
+struct mbar_item {
+  uint32_t regNo, mem_off;
+  uint16_t mask;
+  unsigned char ureg;
+};
+
 static SV *new_enum_dualvar(pTHX_ IV ival, SV *name) {
         SvUPGRADE(name, SVt_PVNV);
         SvIV_set(name, ival);
@@ -47,7 +68,6 @@ static int is_addr_list(char attr) {
     case 0x1d: // EIATTR_S2RCTAID_INSTR_OFFSETS
     case 0x25: // EIATTR_LD_CACHEMOD_INSTR_OFFSETS
     case 0x31: // EIATTR_INT_WARP_WIDE_INSTR_OFFSETS
-    case 0x39: // EIATTR_MBARRIER_INSTR_OFFSETS
     case 0x46: // EIATTR_SYSCALL_OFFSETS
     case 0x47: // EIATTR_SW_WAR_MEMBAR_SYS_INSTR_OFFSETS
     case 0x65: // EIATTR_IGNOREOOB_CP_ASYNC_BULK_INSTR_OFFSETS
@@ -123,6 +143,8 @@ struct CAttrs {
   unsigned short cb_offset = 0;
   // stat
   std::unordered_map<char, size_t> attr_stat;
+  // mbarrier instructions
+  std::unordered_map<uint32_t, mbar_item> m_bars;
   // indirect branches
   std::unordered_map<uint32_t, ib_item> indirect_branches;
   // write file handle
@@ -133,6 +155,7 @@ struct CAttrs {
     m_attrs.clear();
     params.clear();
     attr_stat.clear();
+    m_bars.clear();
     indirect_branches.clear();
     cb_size = cb_offset = 0;
   }
@@ -175,6 +198,8 @@ struct CAttrs {
   SV *get_value(int idx);
   SV *fetch_cors(const CAttr &a);
   SV *addr_list(const CAttr &a);
+  SV *mbar_list();
+  SV *mbar_hash();
   SV *ibt_hash();
   SV *try_attr(int t_idx);
   SV *try_rels(int t_idx, ELFIO::Elf_Word);
@@ -289,6 +314,24 @@ SV *CAttrs::fetch_attr(const CAttr &a, int idx)
   return newRV_noinc((SV*)hv);
 }
 
+SV *CAttrs::mbar_hash() {
+ if ( m_bars.empty() ) return &PL_sv_undef;
+ HV *hv = newHV();
+ for ( auto &mi: m_bars ) {
+   AV *av = newAV();
+   // fill all fields
+   // 0 - regNo, 1 - mem_off
+   av_push(av, newSVuv(mi.second.regNo));
+   av_push(av, newSVuv(mi.second.mem_off));
+   // 2 - mask
+   av_push(av, newSVuv(mi.second.mask));
+   // 3 - ureg
+   av_push(av, newSVuv(mi.second.ureg));
+   hv_store_ent(hv, newSVuv(mi.first), newRV_noinc((SV*)av), 0);
+ }
+ return newRV_noinc((SV*)hv);
+}
+
 SV *CAttrs::ibt_hash() {
   if ( indirect_branches.empty() ) return &PL_sv_undef;
   HV *hv = newHV();
@@ -393,6 +436,15 @@ SV *CAttrs::fetch_cors(const CAttr &a)
   return newRV_noinc((SV*)av);
 }
 
+// emulate addr_list for EIATTR_MBARRIER_INSTR_OFFSETS
+SV *CAttrs::mbar_list() {
+  if ( m_bars.empty() ) return &PL_sv_undef;
+  AV *av = newAV();
+  for ( auto mi: m_bars )
+    av_push(av, newSVuv(mi.first));
+  return newRV_noinc((SV*)av);
+}
+
 SV *CAttrs::addr_list(const CAttr &a)
 {
   if ( !a.len ) return &PL_sv_undef;
@@ -481,6 +533,8 @@ SV *CAttrs::get_value(int idx) {
     return ibt_hash();
   if ( attr.attr == 0xf ) // EIATTR_EXTERNS
     return fetch_extrs();
+  if ( attr.attr == 0x39 ) // EIATTR_MBARRIER_INSTR_OFFSETS
+    return mbar_list();
   if ( attr.attr == 0x3a ) // EIATTR_COROUTINE_RESUME_ID_OFFSETS
     return fetch_cors(attr);
    bool sec_sign = false;
@@ -584,6 +638,22 @@ int CAttrs::read(int idx)
           for ( auto curr = kp; curr < end; ) {
             m_extrs.push_back(*(uint32_t *)curr);
             curr += 4;
+          }
+        } else if ( attr == 0x39 ) // EIATTR_MBARRIER_INSTR_OFFSETS
+        {
+          if ( a_len < 0xc ) my_warn("invalid MBARRIER_INSTR_OFFSETS size %X\n", a_len);
+          else {
+            auto end = kp + a_len;
+            for ( auto curr = kp; curr < end && end - curr >= 0x10; curr += 0x10 ) {
+              mbar_item mi;
+              uint32_t addr = *(uint32_t *)(curr);
+              // fill mbar_item
+              mi.regNo = *(uint32_t *)(curr + 0x4);
+              mi.mem_off = *(uint32_t *)(curr + 0x8);
+              mi.mask = *(uint16_t *)(curr + 0xa);
+              mi.ureg = *(curr + 0xb);
+              m_bars[addr] = std::move(mi);
+            }
           }
         } else if ( attr == 0x34 ) // EIATTR_INDIRECT_BRANCH_TARGETS
         {
@@ -1121,6 +1191,15 @@ value(SV *self, int idx)
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
   RETVAL = d->get_value(idx);
+ OUTPUT:
+  RETVAL
+
+SV *
+mbars(SV *self)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->mbar_hash();
  OUTPUT:
   RETVAL
 
