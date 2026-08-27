@@ -56,11 +56,20 @@ static int is_addr_list(char attr) {
   }
 }
 
-static bool is_3word(char attr) {
+// 3 16bit half-words
+static bool is_3half(char attr) {
   switch(attr) {
     case 5:    // EIATTR_MAX_THREADS
+      return true;
+  }
+  return false;
+}
+
+// 3 32bit words
+static bool is_3word(char attr) {
+  switch(attr) {
     case 0x10: // EIATTR_REQNTID
-      return 1;
+      return true;
   }
   return false;
 }
@@ -69,14 +78,21 @@ static bool is_pair(char attr, bool &sec_sign) {
   sec_sign = false;
   switch(attr) {
     case 2:    // EIATTR_IMAGE_SLOT
+    case 8:    // EIATTR_TEXTURE_NORMALIZED
     case 0x11: // EIATTR_FRAME_SIZE
     case 0x26: // EIATTR_LOAD_CACHE_REQUEST
     case 0x2f: // EIATTR_REGCOUNT
     case 0x32: // EIATTR_SHARED_SCRATCH
+    case 0x3D: // EIATTR_CTA_PER_CLUSTER
+    case 0x3F: // EIATTR_MAX_CLUSTER_RANK
+    case 0x42: // EIATTR_RESERVED_SMEM_0_SIZE
     case 0x44: // EIATTR_UNUSED_LOAD_BYTE_OFFSET
+    case 0x49: // EIATTR_SHADER_TYPE
     case 0x58: // EIATTR_STUB_FUNCTION_KIND
       return 1;
     case 0x12: // EIATTR_MIN_STACK_SIZE
+    case 0x23: // EIATTR_MAX_STACK_SIZE
+    case 0x3B: // EIATTR_SAM_REGION_STACK_SIZE
       sec_sign = true;
       return 1;
   }
@@ -144,11 +160,12 @@ struct CAttrs {
       av_push(av, newSVuv(a32[1]));
     return newRV_noinc((SV*)av);
   }
-  SV *fetch_3word(const CAttr &a) {
-    if ( 6 < a.len ) return &PL_sv_undef;
+  template <typename T>
+  SV *fetch3(const CAttr &a) {
+    if ( a.len < 3 * sizeof(T)  ) return &PL_sv_undef;
     auto sec = m_e->rdr->sections[s_idx];
     const char *data = sec->get_data() + 4 + a.offset;
-    uint16_t *a16 = (uint16_t *)(data);
+    T *a16 = (T *)(data);
     AV *av = newAV();
     av_push(av, newSVuv(a16[0]));
     av_push(av, newSVuv(a16[1]));
@@ -469,7 +486,8 @@ SV *CAttrs::get_value(int idx) {
    bool sec_sign = false;
   if ( attr.len == 8 && is_pair(attr.attr, sec_sign) )
     return fetch_pair(attr, sec_sign);
-  if ( is_3word(attr.attr) ) return fetch_3word(attr);
+  if ( is_3word(attr.attr) ) return fetch3<uint32_t>(attr);
+  if ( is_3half(attr.attr) ) return fetch3<uint16_t>(attr);
   if ( is_addr_list(attr.attr) ) return addr_list(attr);
   if ( 1 == attr.len )
     return newSViv( read<unsigned char>(attr) );
