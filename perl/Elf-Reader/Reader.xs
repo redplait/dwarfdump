@@ -2144,8 +2144,9 @@ FETCH(self, key)
       // 4 - type
       // 5 - section
       // 6 - other
+      // 7 - sym idx - copy of key
       if ( gimme == G_ARRAY) {
-        EXTEND(SP, 7);
+        EXTEND(SP, 8);
         mPUSHp(name.c_str(), name.size());
         mPUSHu(value);
         mPUSHi(size);
@@ -2153,6 +2154,7 @@ FETCH(self, key)
         mPUSHi(type);
         mPUSHi(section);
         mPUSHi(other);
+        mPUSHi(key);
       } else {
         // return ref to array
         AV *av = newAV();
@@ -2164,6 +2166,7 @@ FETCH(self, key)
         av_push(av, newSViv(type));
         av_push(av, newSViv(section));
         av_push(av, newSViv(other));
+        av_push(av, newSViv(key));
         XSRETURN(1);
       }
     }
