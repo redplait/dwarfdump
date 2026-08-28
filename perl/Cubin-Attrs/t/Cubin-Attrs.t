@@ -10,7 +10,7 @@ use warnings;
 use Elf::Reader;
 use Data::Dumper;
 
-use Test::More tests => 17;
+use Test::More tests => 23;
 BEGIN { use_ok('Cubin::Attrs') };
 
 my $fname = '/home/redp/disc/src/cuda-ptx/src/denvdis/test/cv/libcvcuda.so.0.15.13.sm_70.cubin';
@@ -19,6 +19,17 @@ ok( defined($e), 'elf load');
 
 my $fb = Cubin::Attrs->new($e);
 ok( defined($fb), 'Cubin::Attrs');
+# sym attrs
+my $nv = Cubin::Attrs::nv_info($e);
+ok( defined($nv), 'nv_info');
+my $ah = $fb->get_sym_attrs($nv);
+ok( defined($ah), 'get_sym_attrs' );
+ok( 'HASH' eq ref $ah, 'get_sym_attrs returned hash');
+ok( exists($ah->{0x206}), 'get_sym_attrs has sym 206');
+my $a206 = $ah->{0x206};
+ok( 'ARRAY' eq ref $a206, 'get_sym_attrs is array ref');
+ok( 0x1f == $a206->[0], 'regcount for sym 206');
+
 ok( $fb->read(6), 'read attrs');
 ok( 3 == $fb->params_cnt(), 'params count');
 ok( 10 == $fb->count(), 'count' );

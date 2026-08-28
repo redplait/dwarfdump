@@ -70,7 +70,12 @@ static int is_addr_list(char attr) {
     case 0x31: // EIATTR_INT_WARP_WIDE_INSTR_OFFSETS
     case 0x46: // EIATTR_SYSCALL_OFFSETS
     case 0x47: // EIATTR_SW_WAR_MEMBAR_SYS_INSTR_OFFSETS
+    case 0x4f: // EIATTR_AT_ENTRY_FRAGMENTS
+    case 0x57: // EIATTR_STACK_CANARY_TRAP_OFFSETS
+    case 0x59: // EIATTR_LOCAL_CTA_ASYNC_STORE_OFFSETS
     case 0x65: // EIATTR_IGNOREOOB_CP_ASYNC_BULK_INSTR_OFFSETS
+    case 0x69: // EIATTR_STACK_OFFSET
+    case 0x6c: // EIATTR_INSTR_OFFSETS
       return 1;
     default: return 0;
   }
@@ -89,6 +94,7 @@ static bool is_3half(char attr) {
 static bool is_3word(char attr) {
   switch(attr) {
     case 0x10: // EIATTR_REQNTID
+    case 0x3d: // EIATTR_CTA_PER_CLUSTER
       return true;
   }
   return false;

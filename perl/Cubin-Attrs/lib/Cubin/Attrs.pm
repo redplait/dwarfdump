@@ -55,13 +55,70 @@ sub read_rela
   cmn_rel($ca, $elf, $rel_idx, $out_res);
 }
 
-# args: Elf::Reader
+# arg: Elf::Reader
+# return list of sections with attributes
 sub attr_sects
 {
   my $e = shift;
   my $s = $e->secs();
   my @sec = grep { $_->[2] == 0x70000000; } @$s;
   return scalar(@sec) ? \@sec : undef;
+}
+
+# args: list of section with attributes
+# return file-wide section with name .nv.info
+sub is_nv_info
+{
+  my $l = shift;
+  return undef unless( defined $l );
+  foreach my $s ( @$l ) {
+    return $s if ( $s->[1] eq '.nv.info' );
+  }
+  undef;
+}
+
+# arg: Elf::Reader
+# return file-wide section with name .nv.info
+sub nv_info
+{
+  return is_nv_info( attr_sects(@_) );
+}
+
+# args: Cubin::Attrs, section from (is_)nv_info
+# build hash where key is symbol index and key is array with indices
+# 0 - regcount
+# 1 - frame_size
+# 2 - min stack_size
+# 3 - max stack_size
+sub get_sym_attrs
+{
+  my($ca, $s) = @_;
+  return undef unless( defined $s );
+  return undef if ( !$ca->read($s->[0]) );
+  my %idx = (
+    0x2f => 0,
+    0x11 => 1, # frame size
+    0x12 => 2, # min stack size
+    0x23 => 3, # max stack size
+  );
+  my @ikeys = keys(%idx);
+  my @grepped = $ca->grep_list( \@ikeys );
+  return undef unless( scalar @grepped );
+  my %res;
+  foreach my $id ( @grepped ) {
+    my $value = $ca->value($id->{'id'});
+    next unless defined($value);
+    my $sym = $value->[0];
+    my $attr_idx = $idx{ $id->{'attr'} };
+    if ( exists $res{$sym} ) {
+      $res{$sym}->[ $attr_idx ] = $value->[1];
+    } else {
+      my @ar = (0) x 4;
+      $ar[ $attr_idx ] = $value->[1];
+      $res{$sym} = \@ar;
+    }
+  }
+  \%res;
 }
 
 sub collect
@@ -163,6 +220,9 @@ sub stv_name($)
 our @EXPORT = qw(
  attr_sects
  collect
+ get_sym_attrs
+ is_nv_info
+ nv_info
  read_rel
  read_rela
  sto_name
