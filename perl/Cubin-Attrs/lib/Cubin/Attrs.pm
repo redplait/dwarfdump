@@ -299,7 +299,7 @@ Each attribute can be in 4 forms:
 
 =back
 
-So after calling 'read' method you have list of attributes - size can be obtained with method 'count' and Cubin::Attrs is tiead array
+So after calling 'read' method you have list of attributes - size can be obtained with method 'count' and Cubin::Attrs is tied array
 of them - so you can extract attribute by index with just $fb->[index], result is ref to hash
 
 =over
@@ -322,7 +322,10 @@ To filter specific tags you can use method $fb->grep(tag) - results is ref to ar
 
 To filter many tags use method $fb->grep_list([ tag1, tag2, ...])
 
-Some attributes (XXX_INSTR_OFFSETS) are lists of offsets - in this case result is ref to array with offsets
+To find attribute with pair [ symbol_idx, value ] use method sym_pair(tag, symbol_index)
+
+Some attributes (XXX_INSTR_OFFSETS) are lists of offsets - in this case result is ref to array with offsets. Attributes with couple
+of values result is ref to array [ v1, v2 ]
 
 Also there is special processing of CB params - you can extract size of params with method 'params_cnt" and param itself with
 method $fn->param(param_index), result is ref to hash
@@ -358,16 +361,18 @@ Also you can patch only limited set of attribures with methods:
 
 =over
 
-=item patch(index, value) to patch byte/word/dword values
+=item * patch(index, value) to patch byte/word/dword values
 
-=item patch_addr(index, offset_index, offset_value) to replace offset with index offset_index to new offset_value
+=item * patch_addr(index, offset_index, offset_value) to replace offset with index offset_index to new offset_value
 
-=item patch_alist(index, \@offset_array) to fully replace array of offsets
+=item * patch_alist(index, \@offset_array) to fully replace array of offsets
 
-=item patch_ibt($address, $sv) to patch indirect target from offset $address, new list passed as ref to array in $sv.
+=item * patch_ibt($address, $sv) to patch indirect target from offset $address, new list passed as ref to array in $sv.
 Sizes of new and old lists must be the same, in case if there was single offset - you can pass it's value in $sv as scalar
 
-=item patch_ib_addr($old_addr, $new_addr) to patch address of indirect target. Make sure that old_addr really exists
+=item * patch_ib_addr($old_addr, $new_addr) to patch address of indirect target. Make sure that old_addr really exists
+
+=item * patch_sym_pair(index, value) to patch second value of attribute with pair [ symbol_idx, value ] - for attrs like EIATTR_REGCOUNT
 
 =back
 

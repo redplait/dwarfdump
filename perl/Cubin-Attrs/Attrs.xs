@@ -122,7 +122,23 @@ static bool is_pair(char attr, bool &sec_sign) {
       sec_sign = true;
       return 1;
   }
-  return 0;
+  return false;
+}
+
+// types set of pair ATTRs where first dword is symbol index
+static bool pair_with_sym(char attr) {
+  switch(attr) {
+    case 2:    // EIATTR_IMAGE_SLOT
+    case 8:    // EIATTR_TEXTURE_NORMALIZED
+    case 0x11: // EIATTR_FRAME_SIZE
+    case 0x26: // EIATTR_LOAD_CACHE_REQUEST
+    case 0x2f: // EIATTR_REGCOUNT
+    case 0x12: // EIATTR_MIN_STACK_SIZE
+    case 0x23: // EIATTR_MAX_STACK_SIZE
+    case 0x3B: // EIATTR_SAM_REGION_STACK_SIZE
+     return 1;
+  }
+  return false;
 }
 
 static std::unordered_map<int, const char *> s_ei = {
@@ -175,8 +191,18 @@ struct CAttrs {
     std::for_each(m_extrs.cbegin(), m_extrs.cend(), [av](uint32_t v) { av_push(av, newSVuv(v)); });
     return newRV_noinc((SV*)av);
   }
+  SV *grep_by_sym(char attr, int sym);
+  // for filtering by symbol
+  bool fetch_sym(const CAttr &a, uint32_t &res) {
+    if ( 8 != a.len ) return false;
+    auto sec = m_e->rdr->sections[s_idx];
+    const char *data = sec->get_data() + 4 + a.offset;
+    uint32_t *a32 = (uint32_t *)(data);
+    res = a32[0];
+    return true;
+  }
   // for pair of 32bit words like IMAGE_SLOT/FRAME_SIZE/LOAD_CACHE_REQUEST/UNUSED_BYTES
-  SV *fetch_pair(const CAttr &a, bool sec_sign = false) {
+  SV *fetch_pair(const CAttr &a, bool sec_sign = false) const {
     if ( 8 != a.len ) return &PL_sv_undef;
     auto sec = m_e->rdr->sections[s_idx];
     const char *data = sec->get_data() + 4 + a.offset;
@@ -190,7 +216,7 @@ struct CAttrs {
     return newRV_noinc((SV*)av);
   }
   template <typename T>
-  SV *fetch3(const CAttr &a) {
+  SV *fetch3(const CAttr &a) const {
     if ( a.len < 3 * sizeof(T)  ) return &PL_sv_undef;
     auto sec = m_e->rdr->sections[s_idx];
     const char *data = sec->get_data() + 4 + a.offset;
@@ -250,6 +276,16 @@ struct CAttrs {
     return true;
   }
   template <typename T>
+  int patch_pair_second(const CAttr &a, T value) {
+    if ( !check_wf() ) return false;
+    auto sec = m_e->rdr->sections[s_idx];
+    auto off = sec->get_offset() + 2 + a.offset;
+    if ( 4 == a.form ) off += 2;
+    off += 4; // skip 32bit sym index
+    fseek(m_wf, off, SEEK_SET);
+    return 1 == fwrite(&value, sizeof(value), 1, m_wf);
+  }
+  template <typename T>
   bool write(const CAttr &a, T value) {
     if ( !check_wf() ) return false;
     auto sec = m_e->rdr->sections[s_idx];
@@ -276,6 +312,19 @@ struct CAttrs {
     fseek(m_wf, off + sec->get_offset(), SEEK_SET);
     return cnt == fread(value, sizeof(T), cnt, m_wf);
   }
+  SV *patch_sym_pair(int idx, int v) {
+    // check idx
+    if ( idx < 0 || idx >= m_attrs.size() ) {
+      my_warn("patch_sym_pair: invalid index %d\n", idx);
+      return &PL_sv_undef;
+    }
+    auto &attr = m_attrs[idx];
+    if ( !pair_with_sym(attr.attr) ) {
+      my_warn("patch_sym_pair: index %d is not pair_with_sym\n", idx);
+      return &PL_sv_undef;
+    }
+    return patch_pair_second(attr, v) ? &PL_sv_yes : &PL_sv_no;
+  }
   SV *patch(int idx, unsigned long v) {
     // check idx
     if ( idx < 0 || idx >= m_attrs.size() ) {
@@ -294,6 +343,17 @@ struct CAttrs {
   SV *patch_addr(int idx, int a_idx, U32 off);
   SV *patch_addr(int idx, AV *);
 };
+
+SV *CAttrs::grep_by_sym(char attr, int sym) {
+  for ( size_t idx = 0; idx < m_attrs.size(); ++idx ) {
+    if ( m_attrs[idx].attr != attr ) continue;
+    if ( !pair_with_sym(m_attrs[idx].attr) ) continue;
+    uint32_t res = 0;
+    if ( !fetch_sym(m_attrs[idx], res) ) continue;
+    if ( sym == res ) return fetch_attr(m_attrs[idx], idx);
+  }
+  return &PL_sv_undef;
+}
 
 SV *CAttrs::fetch_cb(int idx) {
   // check idx
@@ -1183,6 +1243,16 @@ FETCH(SV *self, int idx)
   RETVAL
 
 SV *
+sym_pair(SV *self, char attr, int sym)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  if ( !pair_with_sym(attr) ) RETVAL = &PL_sv_undef;
+  else RETVAL = d->grep_by_sym(attr, sym);
+ OUTPUT:
+  RETVAL
+
+SV *
 param(SV *self, int idx)
  INIT:
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
@@ -1215,6 +1285,15 @@ patch(SV *self, int idx, unsigned long v)
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
   RETVAL = d->patch(idx, v);
+ OUTPUT:
+  RETVAL
+
+SV *
+patch_sym_pair(SV *self, int idx, int v)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->patch_sym_pair(idx, v);
  OUTPUT:
   RETVAL
 
