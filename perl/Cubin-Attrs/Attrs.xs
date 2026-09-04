@@ -1051,13 +1051,14 @@ static U32 my_len(pTHX_ SV *sv, MAGIC* mg)
 }
 
 #define RET_RES   if ( res.empty() ) { \
-    if ( gimme == G_ARRAY) { XSRETURN(0); \
+    if ( gimme == G_ARRAY) { XSRETURN_EMPTY; \
     } else { mXPUSHs(&PL_sv_undef); XSRETURN(1); } \
   } else { \
     if ( gimme == G_ARRAY) { \
-      EXTEND(SP, res.size()); \
+      auto rsize = res.size(); EXTEND(SP, rsize); \
       for ( auto &p: res ) \
         mPUSHs( d->fetch_attr(*p.first, p.second) ); \
+      XSRETURN(rsize); \
     } else { \
       AV *av = newAV(); \
       for ( auto &p: res ) \

@@ -23,6 +23,11 @@ static unsigned char get_host_encoding(void)
  return ELFIO::ELFDATA2MSB;
 }
 
+// empty result for functions supported wantarray
+#define EMPTY_RES \
+ if ( gimme == G_ARRAY) { XSRETURN_EMPTY; \
+     } else { mXPUSHs(&PL_sv_undef); XSRETURN(1); }
+
 static unsigned char s_host_encoding = 0;
 
 template <typename T>
@@ -2018,8 +2023,7 @@ FETCH(self, key)
   auto *e = Elf_get_tmagic<IElf>(self, 1, &Elf_magic_sec);
  PPCODE:
   if ( key >= e->rdr->sections.size() ) {
-    ST(0) = &PL_sv_undef;
-    XSRETURN(1);
+    EMPTY_RES
   } else {
     auto s = e->rdr->sections[key];
     auto name = s->get_name();
@@ -2048,6 +2052,7 @@ FETCH(self, key)
       mPUSHu(s->get_address());
       mPUSHi(s->get_size());
       mPUSHu(s->get_offset());
+      XSRETURN(11);
     } else {
       AV *av = fill_section(s);
       mXPUSHs(newRV_noinc((SV*)av));
@@ -2068,8 +2073,7 @@ FETCH(self, key)
   auto *e = Elf_get_tmagic<IElf>(self, 1, &Elf_magic_seg);
  PPCODE:
   if ( key >= e->rdr->segments.size() ) {
-    ST(0) = &PL_sv_undef;
-    XSRETURN(1);
+    EMPTY_RES
   } else {
     auto s = e->rdr->segments[key];
     // we can return ref to array or array itself
@@ -2095,6 +2099,7 @@ FETCH(self, key)
       mPUSHu(s->get_file_size());
       mPUSHu(s->get_memory_size());
       mPUSHu(s->get_offset());
+      XSRETURN(9);
     } else {
       AV *av = newAV();
       mXPUSHs(newRV_noinc((SV*)av));
@@ -2122,9 +2127,9 @@ FETCH(self, key)
  INIT:
   auto *s = Elf_get_tmagic<IElfSyms>(self, 1, &Elf_magic_sym);
  PPCODE:
-  if ( key >= s->ssa.get_symbols_num() )
-    ST(0) = &PL_sv_undef;
-  else {
+  if ( key >= s->ssa.get_symbols_num() ) {
+    EMPTY_RES
+  } else {
     std::string name;
     ELFIO::Elf64_Addr    value   = 0;
     ELFIO::Elf_Xword     size    = 0;
@@ -2133,8 +2138,7 @@ FETCH(self, key)
     ELFIO::Elf_Half      section = 0;
     unsigned char other   = 0;
     if ( !s->ssa.get_symbol(key, name, value, size, bind, type, section, other) ) {
-      ST(0) = &PL_sv_undef;
-      XSRETURN(1);
+      EMPTY_RES
     } else {
       // format of array for symbols
       // 0 - name
@@ -2155,6 +2159,7 @@ FETCH(self, key)
         mPUSHi(section);
         mPUSHi(other);
         mPUSHi(key);
+        XSRETURN(8);
       } else {
         // return ref to array
         AV *av = newAV();
@@ -2184,15 +2189,14 @@ FETCH(self, key)
  INIT:
   auto *s = Elf_get_tmagic<IElfDyns>(self, 1, &Elf_magic_dyn);
  PPCODE:
-  if ( key >= s->dsa.get_entries_num() )
-    ST(0) = &PL_sv_undef;
-  else {
+  if ( key >= s->dsa.get_entries_num() ) {
+    EMPTY_RES
+  } else {
     std::string name;
     ELFIO::Elf_Xword tag = 0,
       value = 0;
     if ( !s->dsa.get_entry(key, tag, value, name) ) {
-      ST(0) = &PL_sv_undef;
-      XSRETURN(1);
+      EMPTY_RES
     } else {
       // format of array
       // 0 - name
@@ -2203,6 +2207,7 @@ FETCH(self, key)
         mPUSHp(name.c_str(), name.size());
         mPUSHi(tag);
         mPUSHi(value);
+        XSRETURN(3);
       } else {
         // return ref to array
         AV *av = newAV();
@@ -2227,8 +2232,7 @@ FETCH(self, key)
   auto *s = Elf_get_tmagic<IElfRels>(self, 1, &Elf_magic_rel);
  PPCODE:
   if ( key >= s->rsa.get_entries_num() ) {
-    ST(0) = &PL_sv_undef;
-    XSRETURN(1);
+    EMPTY_RES
   } else {
     // format of array for relocs
     // 0 - offset, 64bit
@@ -2248,6 +2252,7 @@ FETCH(self, key)
         mPUSHi(sym_idx);
         mPUSHu(rtype);
         mPUSHi(add);
+        XSRETURN(4);
       } else {
         // return ref to array
         AV *av = newAV();
@@ -2273,8 +2278,7 @@ FETCH(self, key)
   auto *s = Elf_get_tmagic<IElfNotes>(self, 1, &Elf_magic_notes);
  PPCODE:
   if ( key >= s->nsa.get_notes_num() ) {
-    ST(0) = &PL_sv_undef;
-    XSRETURN(1);
+    EMPTY_RES
   } else {
     // format of array for notes
     // 0 - name, string
@@ -2286,9 +2290,9 @@ FETCH(self, key)
       desclen = 0;
     std::string name;
     void*       desc = nullptr;
-    if ( !s->nsa.get_note( key, type, name, desc, desclen) )
-     ST(0) = &PL_sv_undef;
-    else {
+    if ( !s->nsa.get_note( key, type, name, desc, desclen) ) {
+      EMPTY_RES
+    } else {
       if ( gimme == G_ARRAY) {
         EXTEND(SP, 5);
         mPUSHp(name.c_str(), name.size());
@@ -2296,6 +2300,7 @@ FETCH(self, key)
         mPUSHi(desclen);
         mPUSHu((unsigned long)desc);
         mPUSHp((const char *)desc, desclen);
+        XSRETURN(5);
       } else {
         // return ref to array
         AV *av = newAV();
@@ -2321,9 +2326,9 @@ FETCH(self, key)
  INIT:
   auto *s = Elf_get_tmagic<IElfVersyms>(self, 1, &Elf_magic_versyms);
  PPCODE:
-  if ( key >= s->vsa.get_entries_num() )
-    ST(0) = &PL_sv_undef;
-  else {
+  if ( key >= s->vsa.get_entries_num() ) {
+    EMPTY_RES
+  } else {
     // format of array for versyms
     // 0 - version
     // 1 - filename, string
@@ -2337,8 +2342,7 @@ FETCH(self, key)
      other = 0;
     std::string name, dep_name;
     if ( !s->vsa.get_entry( key, version, name, hash, flags, other, dep_name ) ) {
-     ST(0) = &PL_sv_undef;
-     XSRETURN(1);
+      EMPTY_RES
     } else {
       if ( gimme == G_ARRAY) {
         EXTEND(SP, 6);
@@ -2348,6 +2352,7 @@ FETCH(self, key)
         mPUSHu(flags);
         mPUSHu(other);
         mPUSHp(dep_name.c_str(), dep_name.size());
+        XSRETURN(6);
       } else {
         // return ref to array
         AV *av = newAV();
@@ -2374,18 +2379,18 @@ FETCH(self, key)
  INIT:
   auto *s = Elf_get_tmagic<IElfModinfo>(self, 1, &Elf_magic_modinfo);
  PPCODE:
-  if ( key >= s->msa.get_attribute_num() )
-    ST(0) = &PL_sv_undef;
-  else {
+  if ( key >= s->msa.get_attribute_num() ) {
+    EMPTY_RES
+  } else {
     std::string name, value;
     if ( !s->msa.get_attribute(key, name, value) ) {
-      ST(0) = &PL_sv_undef;
-      XSRETURN(1);
+      EMPTY_RES
     } else {
       if ( gimme == G_ARRAY) {
         EXTEND(SP, 2);
         mPUSHp(name.c_str(), name.size());
         mPUSHp(value.c_str(), value.size());
+        XSRETURN(2);
       } else {
         AV *av = newAV();
         mXPUSHs(newRV_noinc((SV*)av));
