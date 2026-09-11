@@ -191,6 +191,7 @@ struct CAttrs {
     std::for_each(m_extrs.cbegin(), m_extrs.cend(), [av](uint32_t v) { av_push(av, newSVuv(v)); });
     return newRV_noinc((SV*)av);
   }
+  SV *grep_for_sym(std::unordered_set<unsigned char> &keys, unsigned int sym);
   SV *grep_by_sym(char attr, int sym);
   // for filtering by symbol
   bool fetch_sym(const CAttr &a, uint32_t &res) {
@@ -199,6 +200,16 @@ struct CAttrs {
     const char *data = sec->get_data() + 4 + a.offset;
     uint32_t *a32 = (uint32_t *)(data);
     res = a32[0];
+    return true;
+  }
+  typedef std::pair<uint32_t, uint32_t> SPair;
+  bool fetch_sym(const CAttr &a, SPair &res) {
+    if ( 8 != a.len ) return false;
+    auto sec = m_e->rdr->sections[s_idx];
+    const char *data = sec->get_data() + 4 + a.offset;
+    uint32_t *a32 = (uint32_t *)(data);
+    res.first = a32[0];
+    res.second = a32[1];
     return true;
   }
   // for pair of 32bit words like IMAGE_SLOT/FRAME_SIZE/LOAD_CACHE_REQUEST/UNUSED_BYTES
@@ -353,6 +364,24 @@ SV *CAttrs::grep_by_sym(char attr, int sym) {
     if ( sym == res ) return fetch_attr(m_attrs[idx], idx);
   }
   return &PL_sv_undef;
+}
+
+SV *CAttrs::grep_for_sym(std::unordered_set<unsigned char> &keys, unsigned int sym) {
+  HV *hv = nullptr;
+  for ( size_t idx = 0; idx < m_attrs.size(); ++idx ) {
+    auto ki = keys.find(m_attrs[idx].attr);
+    if ( ki == keys.end() ) continue;
+    SPair p;
+    if ( !fetch_sym(m_attrs[idx], p) ) continue;
+    if ( p.first != sym ) continue;
+    if ( !hv )
+      hv = newHV();
+    AV *av = newAV();
+    av_push(av, newSViv(idx));
+    av_push(av, newSVuv(p.second));
+    hv_store_ent(hv, newSVuv(m_attrs[idx].attr), newRV_noinc((SV*)av), 0);
+  }
+  return hv ? newRV_noinc((SV*)hv) : &PL_sv_undef;
 }
 
 SV *CAttrs::fetch_cb(int idx) {
@@ -1252,6 +1281,39 @@ sym_pair(SV *self, char attr, int sym)
   else RETVAL = d->grep_by_sym(attr, sym);
  OUTPUT:
   RETVAL
+
+SV *
+grep_sym_pair(SV *self, UV sym, SV *ar)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  std::unordered_set<unsigned char> keys;
+  AV* array;
+ CODE:
+  // Check if it's a valid array reference
+  if (!SvROK(ar) || SvTYPE(SvRV(ar)) != SVt_PVAV) {
+    croak("grep_sym_pair: expected an ARRAY reference");
+  }
+  array = (AV*) SvRV(ar); // Dereference the SV to get the AV*
+  // fill keys
+  for (int i = 0; i <= av_len(array); i++) {
+    SV** elem = av_fetch(array, i, 0);
+    auto type = SvIV(*elem);
+#ifdef DEBUG
+ my_warn("grep_sym_pair: add key %x\n", type);
+#endif
+    unsigned char what = (unsigned char)(type & 0xff);
+    if ( !pair_with_sym(what) )
+      croak("grep_sym_pair: bad attr %X", what);
+    else
+      keys.insert(type);
+  }
+  if ( keys.empty() )
+    RETVAL = &PL_sv_undef;
+  else
+    RETVAL = d->grep_for_sym(keys, sym);
+ OUTPUT:
+  RETVAL
+
 
 SV *
 param(SV *self, int idx)

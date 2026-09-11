@@ -10,7 +10,7 @@ use warnings;
 use Elf::Reader;
 use Data::Dumper;
 
-use Test::More tests => 23;
+use Test::More tests => 26;
 BEGIN { use_ok('Cubin::Attrs') };
 
 my $fname = '/home/redp/disc/src/cuda-ptx/src/denvdis/test/cv/libcvcuda.so.0.15.13.sm_70.cubin';
@@ -28,11 +28,17 @@ ok( 'HASH' eq ref $ah, 'get_sym_attrs returned hash');
 ok( exists($ah->{0x206}), 'get_sym_attrs has sym 206');
 my $a206 = $ah->{0x206};
 ok( 'ARRAY' eq ref $a206, 'get_sym_attrs is array ref');
-ok( 0x1f == $a206->[0], 'regcount for sym 206');
+is( $a206->[0], 0x1f, 'regcount for sym 206');
+# test grep_sym_pair
+my @tags = ( Cubin::Attrs::MIN_STACK_SIZE, Cubin::Attrs::MAX_STACK_SIZE, Cubin::Attrs::REGCOUNT);
+my $sr = $fb->grep_sym_pair(530, \@tags);
+ok( defined($sr), 'grep_sym_pair');
+ok( exists($sr->{0x2f}), 'grep_sym_pair regcount exists');
+is( $sr->{0x2f}->[1], 4, 'grep_sym_pair regcount');
 
 ok( $fb->read(6), 'read attrs');
-ok( 3 == $fb->params_cnt(), 'params count');
-ok( 10 == $fb->count(), 'count' );
+is( $fb->params_cnt(), 3, 'params count');
+is( $fb->count(), 10, 'count' );
 
 my($wide) = $fb->grep(0x31);
 ok( defined $wide, 'grep on attr' );
@@ -49,7 +55,7 @@ my @cres = $fb->collect();
 ok( defined($cres[0]), 'first collect');
 ok( !defined($cres[1]), 'second collect');
 my $link = $fb->link();
-ok( 224 == $link, 'link test');
+is( $link, 224, 'link test');
 my %rels;
 # this cubin don't have relocs so both read_rel & read_rela should return 0
 ok( !$fb->read_rel($e, $link, \%rels), 'read_rel');
