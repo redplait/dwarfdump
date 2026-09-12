@@ -191,6 +191,9 @@ struct CAttrs {
     std::for_each(m_extrs.cbegin(), m_extrs.cend(), [av](uint32_t v) { av_push(av, newSVuv(v)); });
     return newRV_noinc((SV*)av);
   }
+  template <typename T>
+  SV *try_sym(unsigned int sym, T &);
+  SV *sym_pairs(unsigned int sym);
   SV *grep_for_sym(std::unordered_set<unsigned char> &keys, unsigned int sym);
   SV *grep_by_sym(char attr, int sym);
   // for filtering by symbol
@@ -366,11 +369,11 @@ SV *CAttrs::grep_by_sym(char attr, int sym) {
   return &PL_sv_undef;
 }
 
-SV *CAttrs::grep_for_sym(std::unordered_set<unsigned char> &keys, unsigned int sym) {
+template <typename T>
+SV *CAttrs::try_sym(unsigned int sym, T &cb) {
   HV *hv = nullptr;
   for ( size_t idx = 0; idx < m_attrs.size(); ++idx ) {
-    auto ki = keys.find(m_attrs[idx].attr);
-    if ( ki == keys.end() ) continue;
+    if ( !cb(m_attrs[idx]) ) continue;
     SPair p;
     if ( !fetch_sym(m_attrs[idx], p) ) continue;
     if ( p.first != sym ) continue;
@@ -382,6 +385,21 @@ SV *CAttrs::grep_for_sym(std::unordered_set<unsigned char> &keys, unsigned int s
     hv_store_ent(hv, newSVuv(m_attrs[idx].attr), newRV_noinc((SV*)av), 0);
   }
   return hv ? newRV_noinc((SV*)hv) : &PL_sv_undef;
+}
+
+SV *CAttrs::grep_for_sym(std::unordered_set<unsigned char> &keys, unsigned int sym) {
+  auto in_set = [&keys](const CAttr &ca) -> bool {
+    auto ki = keys.find(ca.attr);
+    return ki != keys.end();
+  };
+  return try_sym(sym, in_set);
+}
+
+SV *CAttrs::sym_pairs(unsigned int sym) {
+  auto is_pair = [](const CAttr &ca) -> bool {
+    return pair_with_sym(ca.attr);
+  };
+  return try_sym(sym, is_pair);
 }
 
 SV *CAttrs::fetch_cb(int idx) {
@@ -1279,6 +1297,15 @@ sym_pair(SV *self, char attr, int sym)
  CODE:
   if ( !pair_with_sym(attr) ) RETVAL = &PL_sv_undef;
   else RETVAL = d->grep_by_sym(attr, sym);
+ OUTPUT:
+  RETVAL
+
+SV *
+sym_pairs(SV *self, UV sym)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->sym_pairs(sym);
  OUTPUT:
   RETVAL
 
