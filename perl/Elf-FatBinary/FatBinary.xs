@@ -220,7 +220,7 @@ int CFatBin::open()
     if ( st == ELFIO::SHT_NOBITS || !sec->get_size() ) continue;
     auto sa = sec->get_address();
     if ( sa == (ELFIO::Elf64_Addr)fbc->data ||
-         ((sa < (ELFIO::Elf64_Addr)fbc->data) && (sa + sec->get_size() > (ELFIO::Elf64_Addr)fbc->data))
+         ((sa <= (ELFIO::Elf64_Addr)fbc->data) && (sa + sec->get_size() > (ELFIO::Elf64_Addr)fbc->data))
        )
     {
       m_fb = i;
@@ -497,6 +497,14 @@ static U32 my_len(pTHX_ SV *sv, MAGIC* mg)
   return (U32)d->count();
 }
 
+#define EXPORT_ENUM(x) newCONSTSUB(s_fatbin_pkg, #x, new_enum_dualvar(aTHX_ x, newSVpvs_share(#x)));
+static SV * new_enum_dualvar(pTHX_ IV ival, SV *name) {
+        SvUPGRADE(name, SVt_PVNV);
+        SvIV_set(name, ival);
+        SvIOK_on(name);
+        SvREADONLY_on(name);
+        return name;
+}
 
 MODULE = Elf::FatBinary		PACKAGE = Elf::FatBinary
 
@@ -588,3 +596,16 @@ BOOT:
  s_fatbin_pkg = gv_stashpv(s_fatbin, 0);
  if ( !s_fatbin_pkg )
     croak("Package %s does not exists", s_fatbin);
+ // exports FATBIN_FLAG_xxx
+ EXPORT_ENUM(FATBIN_FLAG_64BIT)
+ EXPORT_ENUM(FATBIN_FLAG_DEBUG)
+ EXPORT_ENUM(FATBIN_FLAG_CUDA)
+ EXPORT_ENUM(FATBIN_FLAG_OPENCL)
+ EXPORT_ENUM(FATBIN_FLAG_LINUX)
+ EXPORT_ENUM(FATBIN_FLAG_MAC)
+ EXPORT_ENUM(FATBIN_FLAG_WINDOWS)
+ EXPORT_ENUM(FATBIN_FLAG_HOST_MASK)
+ EXPORT_ENUM(FATBIN_FLAG_OPT_MASK)
+ EXPORT_ENUM(FATBIN_FLAG_COMPRESS)
+ EXPORT_ENUM(FATBIN_FLAG_COMPRESS2)
+ EXPORT_ENUM(FATBIN_FLAG_ZCOMPRESS)
