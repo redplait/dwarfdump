@@ -921,7 +921,7 @@ bool PlainRender::need_add_var(const Element &e) const
 {
   if ( ElementType::var_type != e.type_ )
     return false;
-  if ( e.addr_ && need_dump(e.fname_) )
+  if ( /* e.addr_ && */ need_dump(e.fname_) )
     return true;
   if ( need_dump(e.fname_) )
   {
@@ -936,7 +936,7 @@ bool PlainRender::add_var(Element &e)
 {
   if ( ElementType::var_type != e.type_ )
     return false;
-  if ( e.addr_ && need_dump(e.fname_) )
+  if ( /* e.addr_ && */ need_dump(e.fname_) )
   {
     m_vars.push_back(&e);
     return true;
