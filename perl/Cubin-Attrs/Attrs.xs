@@ -247,7 +247,8 @@ struct CAttrs {
   SV *mbar_list();
   SV *mbar_hash();
   SV *ibt_hash();
-  SV *try_attr(int t_idx);
+  SV *try_attr(int t_idx) const;
+  SV *try_compat() const;
   SV *try_rels(int t_idx, ELFIO::Elf_Word);
   SV *patch_ib_addr(UV addr, UV new_addr);
   SV *patch_ibt(std::unordered_map<uint32_t, ib_item>::iterator &, uint32_t v);
@@ -683,7 +684,7 @@ static int check_section(ELFIO::elfio *rdr, int idx) {
     my_warn("Cubin::Attrs: empty section index %d\n", idx);
     return 0;
   }
-  return (st == 0x70000000) || (st == 0x70000083);
+  return (st == 0x70000000) || (st == 0x70000083) || (st == 0x70000086);
 }
 
 int CAttrs::read(int idx)
@@ -824,7 +825,7 @@ int CAttrs::read(int idx)
 }
 
 // try to find attribs section linked with t_idx (info == t_idx)
-SV *CAttrs::try_attr(int t_idx)
+SV *CAttrs::try_attr(int t_idx) const
 {
   for ( int idx = 0; idx < m_e->rdr->sections.size(); idx++ )
   {
@@ -837,6 +838,22 @@ SV *CAttrs::try_attr(int t_idx)
   }
   return &PL_sv_undef;
 }
+
+// try to find compat section
+SV *CAttrs::try_compat() const
+{
+  for ( int idx = 0; idx < m_e->rdr->sections.size(); idx++ )
+  {
+    auto s = m_e->rdr->sections[idx];
+    auto st = s->get_type();
+    if ( st == ELFIO::SHT_NOBITS ) continue;
+    if ( st == 0x70000086  ) {
+      return newSViv(idx);
+    }
+  }
+  return &PL_sv_undef;
+}
+
 
 static void patch_info(ELFIO::Elf_Word *r, int reloc_type)
 {
@@ -1137,6 +1154,15 @@ new(obj_or_pkg, SV *elsv)
   // make new CAttrs
   auto res = new CAttrs(e);
   DWARF_TIE(ca_magic_vt, s_ca_pkg, res)
+
+SV *
+compat(SV *self)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->try_compat();
+ OUTPUT:
+  RETVAL
 
 SV *
 try(SV *self, int t_idx)
