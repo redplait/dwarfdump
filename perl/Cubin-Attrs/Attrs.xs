@@ -669,7 +669,7 @@ SV *CAttrs::get_value(int idx) {
 }
 
 // check if we have real section with attributes
-static int check_section(ELFIO::elfio *rdr, int idx) {
+static int check_section(ELFIO::elfio *rdr, int idx, bool &is_compat) {
   if ( idx < 0 || idx >= rdr->sections.size() ) {
     my_warn("Cubin::Attrs: invalid section index %d\n", idx);
     return 0;
@@ -684,6 +684,7 @@ static int check_section(ELFIO::elfio *rdr, int idx) {
     my_warn("Cubin::Attrs: empty section index %d\n", idx);
     return 0;
   }
+  is_compat = (st == 0x70000086);
   return (st == 0x70000000) || (st == 0x70000083) || (st == 0x70000086);
 }
 
@@ -692,7 +693,8 @@ int CAttrs::read(int idx)
   clear();
   s_idx = idx;
   if ( s_idx < 0 ) return 0;
-  if ( !check_section(m_e->rdr, idx) ) return 0;
+  bool is_compat = false;
+  if ( !check_section(m_e->rdr, idx, is_compat) ) return 0;
   auto sec = m_e->rdr->sections[s_idx];
   if ( sec->get_type() == ELFIO::SHT_NOBITS ) return 0;
   auto size = sec->get_size();
@@ -734,6 +736,7 @@ int CAttrs::read(int idx)
      case 4:
        a_len = *(unsigned short *)(data + 2);
        kp = data + 4;
+       if ( is_compat ) goto skip_compat;
        if ( attr == 0xa ) { // EIATTR_PARAM_CBANK
           skip = true;
           if ( a_len != 8 ) my_warn("invalid PARAM_CBANK size %X\n", a_len);
@@ -811,6 +814,7 @@ int CAttrs::read(int idx)
             if ( is_cbank ) add_cparam(ord, off, csize);
           }
         }
+skip_compat:
         if ( !skip )
             m_attrs.push_back( { data - start, a_len, attr, format } );
         data += 4 + a_len;
