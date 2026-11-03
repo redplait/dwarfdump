@@ -141,6 +141,21 @@ static bool pair_with_sym(char attr) {
   return false;
 }
 
+// nv tkinfo
+struct nv_tkinfo {
+  uint64_t flags;
+  uint32_t name_off, version_off, build_off, cmdline_off;
+};
+
+static bool is_tkinfo(ELFIO::section *s) {
+  auto st = s->get_type();
+  if ( st != ELFIO::SHT_NOTE ) return false;
+  auto sf = s->get_flags();
+  auto tf = sf & 0xFF00000;
+  if ( tf != 0x2000000 ) return false;
+  return s->get_size() > sizeof(nv_tkinfo);
+}
+
 static std::unordered_map<int, const char *> s_ei = {
 #include "eiattrs.inc"
 };
@@ -156,6 +171,7 @@ struct CAttrs {
   }
   IElf *m_e = nullptr;
   int s_idx = -1;
+  bool has_tkinfo = false;
   std::vector<CAttr> m_attrs;
   // externals
   std::vector<uint32_t> m_extrs;
@@ -163,6 +179,33 @@ struct CAttrs {
   std::vector<cb_param> params;
   unsigned short cb_size = 0;
   unsigned short cb_offset = 0;
+  // tkinfo
+  std::string tk_name, tk_version, tk_build, tk_cmd;
+  void reset_tkinfo() {
+    has_tkinfo = false;
+    tk_name.clear();
+    tk_version.clear();
+    tk_build.clear();
+    tk_cmd.clear();
+  }
+  SV *get_tk(int idx) {
+    if ( !has_tkinfo ) return &PL_sv_undef;
+    const std::string *tk = nullptr;
+    switch(idx) {
+      case 0: tk = &tk_name;
+        break;
+      case 1: tk = &tk_version;
+        break;
+      case 2: tk = &tk_build;
+        break;
+      case 3: tk = &tk_cmd;
+        break;
+      default:
+        croak("get_tk: unknown idx %d", idx);
+        return &PL_sv_undef;
+    }
+    return newSVpv( tk->c_str(), tk->size() );
+  }
   // stat
   std::unordered_map<char, size_t> attr_stat;
   // mbarrier instructions
@@ -172,6 +215,8 @@ struct CAttrs {
   // write file handle
   FILE *m_wf = nullptr;
   // methods
+  SV *tk_index() const;
+  int save_tk(const char *, size_t, uint32_t, std::string &);
   void clear() {
     m_extrs.clear();
     m_attrs.clear();
@@ -182,6 +227,7 @@ struct CAttrs {
     cb_size = cb_offset = 0;
   }
   int read(int idx);
+  int read_tk(int idx);
   SV *fetch_attr(const CAttr &a, int idx);
   SV *fetch(int idx);
   SV *fetch_cb(int idx);
@@ -688,11 +734,47 @@ static int check_section(ELFIO::elfio *rdr, int idx, bool &is_compat) {
   return (st == 0x70000000) || (st == 0x70000083) || (st == 0x70000086);
 }
 
+int CAttrs::save_tk(const char *base, size_t size, uint32_t off, std::string &res) {
+  if ( off >= size ) {
+    return 0;
+  }
+  for ( const char *ptr = base + off; *ptr && ptr < base + size; ++ptr ) res.push_back(*ptr);
+  return 1;
+}
+
+int CAttrs::read_tk(int idx)
+{
+  reset_tkinfo();
+  if ( idx < 0 || idx >= m_e->rdr->sections.size() ) return 0;
+  auto sec = m_e->rdr->sections[idx];
+  if ( sec->get_type() == ELFIO::SHT_NOBITS || !is_tkinfo(sec) ) return 0;
+  ELFIO::note_section_accessor nsa{*m_e->rdr, sec};
+  auto num = nsa.get_notes_num();
+  if ( 1 != num ) return 0;
+  // get first note
+  ELFIO::Elf_Word type, d_size = 0;
+  std::string name;
+  void* desc = nullptr;
+  if ( !nsa.get_note(0, type, name, desc, d_size) ) {
+    return 0;
+  }
+  if ( d_size <= sizeof(nv_tkinfo) ) return 0;
+  has_tkinfo = true;
+  const nv_tkinfo *tki = (const nv_tkinfo *)desc;
+  size_t rest_size = d_size - sizeof(nv_tkinfo);
+  const char *nstart = (const char *)desc + sizeof(nv_tkinfo);
+  save_tk(nstart, rest_size, tki->name_off, tk_name);
+  save_tk(nstart, rest_size, tki->version_off, tk_version);
+  save_tk(nstart, rest_size, tki->build_off, tk_build);
+  save_tk(nstart, rest_size, tki->cmdline_off, tk_cmd);
+  return 1;
+}
+
 int CAttrs::read(int idx)
 {
   clear();
   s_idx = idx;
-  if ( s_idx < 0 ) return 0;
+  if ( s_idx < 0 || s_idx >= m_e->rdr->sections.size() ) return 0;
   bool is_compat = false;
   if ( !check_section(m_e->rdr, idx, is_compat) ) return 0;
   auto sec = m_e->rdr->sections[s_idx];
@@ -838,6 +920,18 @@ SV *CAttrs::try_attr(int t_idx) const
     if ( st == ELFIO::SHT_NOBITS ) continue;
     if ( (st == 0x70000000) || (st == 0x70000083) ) {
       if ( s->get_info() == t_idx ) return newSViv(idx);
+    }
+  }
+  return &PL_sv_undef;
+}
+
+SV *CAttrs::tk_index() const
+{
+  for ( int idx = 0; idx < m_e->rdr->sections.size(); idx++ )
+  {
+    auto s = m_e->rdr->sections[idx];
+    if ( is_tkinfo(s) ) {
+      return newSViv(idx);
     }
   }
   return &PL_sv_undef;
@@ -1161,10 +1255,12 @@ new(obj_or_pkg, SV *elsv)
 
 SV *
 compat(SV *self)
+ ALIAS:
+  Cubin::Attrs::tk_info = 1
  INIT:
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
-  RETVAL = d->try_compat();
+  RETVAL = (1 == ix) ? d->tk_index() : d->try_compat();
  OUTPUT:
   RETVAL
 
@@ -1179,19 +1275,13 @@ try(SV *self, int t_idx)
 
 SV *
 try_rel(SV *self, int t_idx)
+ ALIAS:
+   Cubin::Attrs::try_rela = 1
  INIT:
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto what = (1 == ix) ? ELFIO::SHT_RELA : ELFIO::SHT_REL;
  CODE:
-  RETVAL = d->try_rels(t_idx, ELFIO::SHT_REL);
- OUTPUT:
-  RETVAL
-
-SV *
-try_rela(SV *self, int t_idx)
- INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
- CODE:
-  RETVAL = d->try_rels(t_idx, ELFIO::SHT_RELA);
+  RETVAL = d->try_rels(t_idx, what);
  OUTPUT:
   RETVAL
 
@@ -1246,10 +1336,12 @@ swap_rel(SV *self, int s_idx, int r1, int r2)
 
 int
 read(SV *self, int idx)
+ ALIAS:
+   Cubin::Attrs::read_tk = 1
  INIT:
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
-  RETVAL = d->read(idx);
+  RETVAL = (1 == ix) ? d->read_tk(idx) : d->read(idx);
  OUTPUT:
   RETVAL
 
@@ -1374,19 +1466,12 @@ grep_sym_pair(SV *self, UV sym, SV *ar)
 
 SV *
 param(SV *self, int idx)
+ ALIAS:
+   Cubin::Attrs::value = 1
  INIT:
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
-  RETVAL = d->fetch_cb(idx);
- OUTPUT:
-  RETVAL
-
-SV *
-value(SV *self, int idx)
- INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
- CODE:
-  RETVAL = d->get_value(idx);
+  RETVAL = 1 == ix ? d->get_value(idx) : d->fetch_cb(idx);
  OUTPUT:
   RETVAL
 
@@ -1507,19 +1592,25 @@ params_cnt(SV *self)
 
 unsigned short
 cb_size(SV *self)
+ ALIAS:
+   Cubin::Attrs::cb_off = 1
  INIT:
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
-  RETVAL = d->cb_size;
+  RETVAL = (1 == ix) ? d->cb_offset : d->cb_size;
  OUTPUT:
   RETVAL
 
-unsigned short
-cb_off(SV *self)
+SV *
+tk_name(SV *self)
+ ALIAS:
+   Cubin::Attrs::tk_version = 1
+   Cubin::Attrs::tk_build = 2
+   Cubin::Attrs::tk_cmd = 3
  INIT:
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
-  RETVAL = d->cb_offset;
+  RETVAL = d->get_tk(ix);
  OUTPUT:
   RETVAL
 
