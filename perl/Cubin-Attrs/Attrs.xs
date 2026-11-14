@@ -9,6 +9,7 @@
 #include <vector>
 #include <list>
 #include <unordered_set>
+#include <map>
 
 // const bank params
 struct cb_param {
@@ -170,7 +171,7 @@ struct CAttrs {
     if ( m_wf ) fclose(m_wf);
   }
   IElf *m_e = nullptr;
-  int s_idx = -1;
+  int s_idx = -1, m_ann = -1;
   bool has_tkinfo = false;
   std::vector<CAttr> m_attrs;
   // externals
@@ -225,7 +226,14 @@ struct CAttrs {
     m_bars.clear();
     indirect_branches.clear();
     cb_size = cb_offset = 0;
+    m_ann = -1;
   }
+  inline bool has_ann() const {
+    if ( m_ann < 0 ) return false;
+    const auto &ann = m_attrs.at(m_ann);
+    return ( ann.attr == 0x55 ) && ann.len;
+  }
+  SV *ann_stat();
   int read(int idx);
   int read_tk(int idx);
   SV *fetch_attr(const CAttr &a, int idx);
@@ -579,6 +587,46 @@ SV *CAttrs::fetch(int idx) {
   return fetch_attr(m_attrs[idx], idx);
 }
 
+static int align4(uint32_t what) {
+  switch(what & 3) {
+    case 1: return 3;
+    case 2: return 2;
+    case 3: return 1;
+    default: return 0;
+  }
+}
+
+SV *CAttrs::ann_stat() {
+  if ( !has_ann() ) return &PL_sv_undef;
+  std::map<int, size_t> tmp;
+  auto sec = m_e->rdr->sections[s_idx];
+  const auto &a = m_attrs.at(m_ann);
+  const char *data = sec->get_data() + 4 + a.offset;
+  // read content and fill tmp
+  // see formats at https://gh.evko.io/crucible-notes/ptxas/reference/eiattr.html#annotations-85
+  for ( size_t idx = 0; idx <= a.len - 4; ) {
+    const uint32_t *curr = (const uint32_t *)(data + idx);
+    idx += 4;
+    tmp[*curr]++;
+    switch(*curr) {
+      case 0: break;
+      case 1: idx += 4; break;
+      case 2: curr += 2; idx += 12 + align4(*curr); break;
+      case 3: curr += 1; idx += 8 + align4(*curr); break;
+      default:
+       croak("unknown annotation type %d", *curr);
+       goto out;
+    }
+  }
+out:
+  // convert result to HV
+  HV *hv = newHV();
+  for ( auto ann: tmp ) {
+    hv_store_ent(hv, newSVuv(ann.first), newSVuv(ann.second), 0);
+  }
+  return newRV_noinc((SV*)hv);
+}
+
 SV *CAttrs::fetch_cors(const CAttr &a)
 {
   if ( !a.len ) return &PL_sv_undef;
@@ -819,7 +867,9 @@ int CAttrs::read(int idx)
        a_len = *(unsigned short *)(data + 2);
        kp = data + 4;
        if ( is_compat ) goto skip_compat;
-       if ( attr == 0xa ) { // EIATTR_PARAM_CBANK
+       if ( attr == 0x55 ) { // EIATTR_ANNOTATIONS
+         m_ann = m_attrs.size();
+       } else if ( attr == 0xa ) { // EIATTR_PARAM_CBANK
           skip = true;
           if ( a_len != 8 ) my_warn("invalid PARAM_CBANK size %X\n", a_len);
           else {
@@ -1598,6 +1648,32 @@ cb_size(SV *self)
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
   RETVAL = (1 == ix) ? d->cb_offset : d->cb_size;
+ OUTPUT:
+  RETVAL
+
+SV *
+ann_stat(SV *self)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  if ( !d->has_ann() )
+    RETVAL = &PL_sv_undef;
+  else
+    RETVAL = d->ann_stat();
+ OUTPUT:
+  RETVAL
+
+SV *
+has_ann(SV *self)
+ ALIAS:
+   Cubin::Attrs::_ann = 1
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  if ( ix )
+   RETVAL = newSViv(d->m_ann);
+  else
+   RETVAL = d->has_ann() ? &PL_sv_yes : &PL_sv_no;
  OUTPUT:
   RETVAL
 

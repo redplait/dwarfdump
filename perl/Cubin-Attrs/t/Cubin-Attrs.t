@@ -10,7 +10,7 @@ use warnings;
 use Elf::Reader;
 use Data::Dumper;
 
-use Test::More tests => 26;
+use Test::More tests => 27;
 BEGIN { use_ok('Cubin::Attrs') };
 
 my $fname = '/home/redp/disc/src/cuda-ptx/src/denvdis/test/cv/libcvcuda.so.0.15.13.sm_70.cubin';
@@ -39,6 +39,7 @@ is( $sr->{0x2f}->[1], 4, 'grep_sym_pair regcount');
 ok( $fb->read(6), 'read attrs');
 is( $fb->params_cnt(), 3, 'params count');
 is( $fb->count(), 10, 'count' );
+ok( !$fb->has_ann(), 'no annotations' );
 
 my($wide) = $fb->grep(0x31);
 ok( defined $wide, 'grep on attr' );
