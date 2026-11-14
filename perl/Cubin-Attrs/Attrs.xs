@@ -233,6 +233,7 @@ struct CAttrs {
     const auto &ann = m_attrs.at(m_ann);
     return ( ann.attr == 0x55 ) && ann.len;
   }
+  SV *get_ann();
   SV *ann_stat();
   int read(int idx);
   int read_tk(int idx);
@@ -587,13 +588,40 @@ SV *CAttrs::fetch(int idx) {
   return fetch_attr(m_attrs[idx], idx);
 }
 
-static int align4(uint32_t what) {
+static int add_align4(uint32_t what) {
   switch(what & 3) {
-    case 1: return 3;
-    case 2: return 2;
-    case 3: return 1;
-    default: return 0;
+    case 1: return what + 3;
+    case 2: return what + 2;
+    case 3: return what + 1;
+    default: return what;
   }
+}
+
+// key - value from type 1
+SV *CAttrs::get_ann() {
+  if ( !has_ann() ) return &PL_sv_undef;
+  auto sec = m_e->rdr->sections[s_idx];
+  const auto &a = m_attrs.at(m_ann);
+  const char *data = sec->get_data() + 4 + a.offset;
+  HV *hv = newHV();
+  for ( size_t idx = 0; idx <= a.len - 4; ) {
+    const uint32_t *curr = (const uint32_t *)(data + idx);
+    idx += 4;
+    switch(*curr) {
+      case 0: break;
+      case 1:
+        hv_store_ent(hv, newSVuv(curr[1]), newSVuv(curr[0]), 0);
+        idx += 4;
+       break;
+      case 2: curr += 2; idx += 12 + add_align4(*curr); break;
+      case 3: curr += 1; idx += 8 + add_align4(*curr); break;
+      default:
+       croak("unknown annotation type %d", *curr);
+       goto out;
+    }
+  }
+out:
+  return newRV_noinc((SV*)hv);
 }
 
 SV *CAttrs::ann_stat() {
@@ -611,8 +639,8 @@ SV *CAttrs::ann_stat() {
     switch(*curr) {
       case 0: break;
       case 1: idx += 4; break;
-      case 2: curr += 2; idx += 12 + align4(*curr); break;
-      case 3: curr += 1; idx += 8 + align4(*curr); break;
+      case 2: curr += 2; idx += 12 + add_align4(*curr); break;
+      case 3: curr += 1; idx += 8 + add_align4(*curr); break;
       default:
        croak("unknown annotation type %d", *curr);
        goto out;
@@ -1667,11 +1695,14 @@ SV *
 has_ann(SV *self)
  ALIAS:
    Cubin::Attrs::_ann = 1
+   Cubin::Attrs::ann = 2
  INIT:
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
-  if ( ix )
+  if ( 1 == ix )
    RETVAL = newSViv(d->m_ann);
+  else if ( 2 == ix )
+   RETVAL = d->get_ann();
   else
    RETVAL = d->has_ann() ? &PL_sv_yes : &PL_sv_no;
  OUTPUT:
