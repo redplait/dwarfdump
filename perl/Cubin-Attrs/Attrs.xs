@@ -1351,6 +1351,13 @@ try(SV *self, int t_idx)
  OUTPUT:
   RETVAL
 
+void
+clear(SV *self)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  d->clear();
+
 SV *
 try_rel(SV *self, int t_idx)
  ALIAS:
