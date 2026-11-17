@@ -621,7 +621,7 @@ SV *CAttrs::ann_patch(uint32_t from_v, uint32_t to_v) {
       case 2: curr += 2; idx += 12 + add_align4(*curr); break;
       case 3: curr += 1; idx += 8 + add_align4(*curr); break;
       default:
-       croak("unknown annotation type %d", *curr);
+       croak("ann_patch: unknown annotation type %d", *curr);
        goto out;
     }
   }
@@ -648,7 +648,7 @@ SV *CAttrs::get_ann() {
       case 2: curr += 2; idx += 12 + add_align4(*curr); break;
       case 3: curr += 1; idx += 8 + add_align4(*curr); break;
       default:
-       croak("unknown annotation type %d", *curr);
+       croak("get_ann: unknown annotation type %d", *curr);
        goto out;
     }
   }
@@ -674,7 +674,7 @@ SV *CAttrs::ann_stat() {
       case 2: curr += 2; idx += 12 + add_align4(*curr); break;
       case 3: curr += 1; idx += 8 + add_align4(*curr); break;
       default:
-       croak("unknown annotation type %d", *curr);
+       croak("ann_stat: unknown annotation type %d", *curr);
        goto out;
     }
   }
