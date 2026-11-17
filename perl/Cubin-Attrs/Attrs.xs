@@ -13,7 +13,7 @@
 
 // const bank params
 struct cb_param {
-  int ordinal;
+  unsigned int ordinal;
   unsigned short offset;
   size_t size;
 };
@@ -233,6 +233,7 @@ struct CAttrs {
     const auto &ann = m_attrs.at(m_ann);
     return ( ann.attr == 0x55 ) && ann.len;
   }
+  SV *ann_patch(uint32_t from_v, uint32_t to_v);
   SV *get_ann();
   SV *ann_stat();
   int read(int idx);
@@ -595,6 +596,37 @@ static int add_align4(uint32_t what) {
     case 3: return what + 1;
     default: return what;
   }
+}
+
+SV *CAttrs::ann_patch(uint32_t from_v, uint32_t to_v) {
+  if ( !has_ann() ) return &PL_sv_undef;
+  auto sec = m_e->rdr->sections[s_idx];
+  const auto &a = m_attrs.at(m_ann);
+  const char *data = sec->get_data() + 4 + a.offset;
+  for ( size_t idx = 0; idx <= a.len - 4; ) {
+    const uint32_t *curr = (const uint32_t *)(data + idx);
+    idx += 4;
+    switch(*curr) {
+      case 0: break;
+      case 1:
+        if ( curr[1] == from_v ) {
+          if ( !check_wf() ) return &PL_sv_no;
+          size_t off = (const char *)(curr + 1) - data;
+          off += sec->get_offset() + 4 + a.offset;
+          fseek(m_wf, off, SEEK_SET);
+          return 1 == fwrite(&to_v, sizeof(to_v), 1, m_wf) ? &PL_sv_yes : &PL_sv_no;
+        }
+        idx += 4;
+       break;
+      case 2: curr += 2; idx += 12 + add_align4(*curr); break;
+      case 3: curr += 1; idx += 8 + add_align4(*curr); break;
+      default:
+       croak("unknown annotation type %d", *curr);
+       goto out;
+    }
+  }
+out:
+  return &PL_sv_no;
 }
 
 // key - value from type 1
@@ -1695,6 +1727,18 @@ ann_stat(SV *self)
     RETVAL = &PL_sv_undef;
   else
     RETVAL = d->ann_stat();
+ OUTPUT:
+  RETVAL
+
+SV *
+patch_ann(SV *self, unsigned int from_v, unsigned int to_v)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  if ( !d->has_ann() )
+    RETVAL = &PL_sv_undef;
+  else
+    RETVAL = d->ann_patch(from_v, to_v);
  OUTPUT:
   RETVAL
 
