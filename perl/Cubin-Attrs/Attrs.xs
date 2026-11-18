@@ -113,7 +113,6 @@ static bool is_pair(char attr, bool &sec_sign) {
     case 0x3D: // EIATTR_CTA_PER_CLUSTER
     case 0x3F: // EIATTR_MAX_CLUSTER_RANK
     case 0x42: // EIATTR_RESERVED_SMEM_0_SIZE
-    case 0x44: // EIATTR_UNUSED_LOAD_BYTE_OFFSET
     case 0x49: // EIATTR_SHADER_TYPE
     case 0x58: // EIATTR_STUB_FUNCTION_KIND
       return 1;
@@ -299,6 +298,7 @@ struct CAttrs {
   }
   SV *get_value(int idx);
   SV *fetch_cors(const CAttr &a);
+  SV *fetch_ulb(const CAttr &a); // for EIATTR_UNUSED_LOAD_BYTE_OFFSET
   SV *addr_list(const CAttr &a);
   SV *mbar_list();
   SV *mbar_hash();
@@ -413,6 +413,7 @@ struct CAttrs {
   }
   SV *patch_addr(int idx, int a_idx, U32 off);
   SV *patch_addr(int idx, AV *);
+  SV *patch_ulb(int idx, U32 old_v, U32 new_v);
 };
 
 SV *CAttrs::grep_by_sym(char attr, int sym) {
@@ -687,6 +688,43 @@ out:
   return newRV_noinc((SV*)hv);
 }
 
+SV *CAttrs::patch_ulb(int idx, U32 old_v, U32 new_v)
+{
+  if ( idx < 0 || idx >= m_attrs.size() ) {
+    my_warn("patch_ulb: invalid index %d\n", idx);
+    return &PL_sv_undef;
+  }
+  auto &attr = m_attrs[idx];
+  if ( attr.attr != 0x44 ) return &PL_sv_undef;
+  auto sec = m_e->rdr->sections[s_idx];
+  const char *data = sec->get_data() + 4 + attr.offset;
+  for ( const char *bcurr = data; data + attr.len - bcurr >= 0x8; bcurr += 0x8 )
+  {
+    uint32_t *addr = (uint32_t *)(bcurr);
+    if ( addr[0] != old_v ) continue;
+    if ( !check_wf() ) return &PL_sv_no;
+    size_t off = (const char *)(addr) - data;
+    off += sec->get_offset() + 4 + attr.offset;
+    fseek(m_wf, off, SEEK_SET);
+    return 1 == fwrite(&new_v, sizeof(new_v), 1, m_wf) ? &PL_sv_yes : &PL_sv_no;
+  }
+  return &PL_sv_no;
+}
+
+SV *CAttrs::fetch_ulb(const CAttr &a)
+{
+  if ( !a.len ) return &PL_sv_undef;
+  auto sec = m_e->rdr->sections[s_idx];
+  const char *data = sec->get_data() + 4 + a.offset;
+  HV *hv = newHV();
+  for ( const char *bcurr = data; data + a.len - bcurr >= 0x8; bcurr += 0x8 )
+  {
+    uint32_t *addr = (uint32_t *)(bcurr);
+    hv_store_ent(hv, newSVuv(addr[0]), newSVuv(addr[1]), 0);
+  }
+  return newRV_noinc((SV*)hv);
+}
+
 SV *CAttrs::fetch_cors(const CAttr &a)
 {
   if ( !a.len ) return &PL_sv_undef;
@@ -805,7 +843,9 @@ SV *CAttrs::get_value(int idx) {
     return mbar_list();
   if ( attr.attr == 0x3a ) // EIATTR_COROUTINE_RESUME_ID_OFFSETS
     return fetch_cors(attr);
-   bool sec_sign = false;
+  if ( attr.attr == 0x44 ) // EIATTR_UNUSED_LOAD_BYTE_OFFSET
+    return fetch_ulb(attr);
+  bool sec_sign = false;
   if ( attr.len == 8 && is_pair(attr.attr, sec_sign) )
     return fetch_pair(attr, sec_sign);
   if ( is_3word(attr.attr) ) return fetch3<uint32_t>(attr);
@@ -1490,8 +1530,6 @@ link(SV *self)
 
 IV
 is_addr_list(SV *self, int v)
- INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
   RETVAL = ::is_addr_list(v);
  OUTPUT:
@@ -1580,7 +1618,6 @@ grep_sym_pair(SV *self, UV sym, SV *ar)
  OUTPUT:
   RETVAL
 
-
 SV *
 param(SV *self, int idx)
  ALIAS:
@@ -1625,6 +1662,15 @@ patch_addr(SV *self, int idx, int a_idx, U32 v)
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
   RETVAL = d->patch_addr(idx, a_idx, v);
+ OUTPUT:
+  RETVAL
+
+SV *
+patch_ulb(SV *self, int idx, U32 old_v, U32 new_v)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->patch_ulb(idx, old_v, new_v);
  OUTPUT:
   RETVAL
 
