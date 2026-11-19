@@ -121,6 +121,21 @@ sub get_sym_attrs
   \%res;
 }
 
+sub get_ulb
+{
+  my $ca = shift;
+  my @res = ( undef, undef );
+  my $id = $ca->grep(0x44);
+  unless( defined $id ) {
+    return wantarray ? @res : \@res;
+  }
+  # ULB always only 1 items
+  my $idx = $id->[0]->{'id'};
+  $res[0] = $idx;
+  $res[1] = $ca->value($idx);
+  return wantarray ? @res : \@res;
+}
+
 sub collect
 {
   my $ca = shift;
@@ -221,6 +236,7 @@ our @EXPORT = qw(
  attr_sects
  collect
  get_sym_attrs
+ get_ulb
  is_nv_info
  nv_info
  read_rel
@@ -352,6 +368,26 @@ Indirect branches returned as hash where key is offset of branch and value can b
 
 =back
 
+Presence of annotations can be checked via method has_ann. To extract whole hash (where keys are offsets) use method ann. To gather types
+statistic use method ann_stat - seems that type always 1
+
+=head4 tk.info notes
+
+Seems that CUBIN files has special NOTE in section .note.nv.tkinfo containing identification of compiler. You can extract
+
+=over
+
+=item tk_name
+
+=item tk_version
+
+=item tk_build
+
+=item tk_cmd
+
+=back
+
+Index of this section can be extracted with method tk_index
 
 =head3 Patching attributes
 
@@ -373,6 +409,8 @@ Sizes of new and old lists must be the same, in case if there was single offset 
 =item * patch_ib_addr($old_addr, $new_addr) to patch address of indirect target. Make sure that old_addr really exists
 
 =item * patch_sym_pair(index, value) to patch second value of attribute with pair [ symbol_idx, value ] - for attrs like EIATTR_REGCOUNT
+
+=item * patch_ann(old_offset, new_offset) to patch offset of instruction in annotations
 
 =back
 
@@ -419,6 +457,8 @@ args:
 
 =back
 
+nv_info - returns section object for file-wide section with EIATTRs
+
 =head1 SEE ALSO
 
 Mention other useful documentation such as the documentation of
@@ -432,7 +472,7 @@ If you have a web site set up for your module, mention it here.
 
 =head1 AUTHOR
 
-redp, E<lt>redp@E<gt>
+redp, E<lt>redp@nail.ruE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
