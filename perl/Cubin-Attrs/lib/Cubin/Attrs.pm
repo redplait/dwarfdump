@@ -56,12 +56,12 @@ sub read_rela
 }
 
 # arg: Elf::Reader
-# return list of sections with attributes
+# return list of non-empty sections with attributes
 sub attr_sects
 {
   my $e = shift;
   my $s = $e->secs();
-  my @sec = grep { $_->[2] == 0x70000000; } @$s;
+  my @sec = grep { $_->[2] == 0x70000000 && $_->[9]; } @$s;
   return scalar(@sec) ? \@sec : undef;
 }
 
@@ -412,6 +412,10 @@ Sizes of new and old lists must be the same, in case if there was single offset 
 
 =item * patch_ann(old_offset, new_offset) to patch offset of instruction in annotations
 
+=item * patch_ulb(attr_index, old_offset, new_offset) to patch offset of instruction in EIATTR_UNUSED_LOAD_BYTE_OFFSET. index can be obtained with method get_ulb
+
+=item * swap_ulb(attr_index, old_offset, old_value, new_offset, new_value) - swap values of instructions in EIATTR_UNUSED_LOAD_BYTE_OFFSET
+
 =back
 
 =head3 Patching relocs
@@ -436,6 +440,12 @@ returns couple of hashes where key is offset [
  - hash_of_indirects where values are list of reffered to this offset indirect branches (bcs the same offset can be
    target from many indirect branches)
 ]
+
+supports wantarray
+
+=head3 get_ulb
+
+returns pair of (attribute index, hash offset->value) for EIATTR_UNUSED_LOAD_BYTE_OFFSET
 
 supports wantarray
 
