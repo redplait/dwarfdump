@@ -414,6 +414,7 @@ struct CAttrs {
   SV *patch_addr(int idx, int a_idx, U32 off);
   SV *patch_addr(int idx, AV *);
   SV *patch_ulb(int idx, U32 old_v, U32 new_v);
+  SV *swap_ulb(int idx, U32 old_off, U32 old_v, U32 new_off, U32 new_v);
 };
 
 SV *CAttrs::grep_by_sym(char attr, int sym) {
@@ -686,6 +687,45 @@ out:
     hv_store_ent(hv, newSVuv(ann.first), newSVuv(ann.second), 0);
   }
   return newRV_noinc((SV*)hv);
+}
+
+SV *CAttrs::swap_ulb(int idx, U32 old_off, U32 old_v, U32 new_off, U32 new_v)
+{
+  if ( idx < 0 || idx >= m_attrs.size() ) {
+    my_warn("swap_ulb: invalid index %d\n", idx);
+    return &PL_sv_undef;
+  }
+  auto &attr = m_attrs[idx];
+  if ( attr.attr != 0x44 ) return &PL_sv_undef;
+  auto sec = m_e->rdr->sections[s_idx];
+  const char *data = sec->get_data() + 4 + attr.offset;
+  int state = 0; // 1 - if we found and patched old_off, 2 - if we patched both old & new
+  auto sec_off = sec->get_offset() + 4 + attr.offset;
+  for ( const char *bcurr = data; data + attr.len - bcurr >= 0x8; bcurr += 0x8 )
+  {
+    uint32_t *addr = (uint32_t *)(bcurr);
+    size_t off = bcurr - data;
+    off += sec_off;
+    if ( addr[0] == old_off ) {
+      if ( !check_wf() ) return &PL_sv_no;
+      fseek(m_wf, off + 4, SEEK_SET);
+      if ( 1 != fwrite(&old_v, sizeof(old_v), 1, m_wf) ) {
+        my_warn("swap_ulb: cannot write old_v %X for %X, error %d\n", old_v, old_off, errno);
+        return &PL_sv_no;
+      }
+      state++;
+    } else if ( addr[0] == new_off ) {
+      if ( !check_wf() ) return &PL_sv_no;
+      fseek(m_wf, off + 4, SEEK_SET);
+      if ( 1 != fwrite(&new_v, sizeof(new_v), 1, m_wf) ) {
+        my_warn("swap_ulb: cannot write new_v %X for %X, error %d\n", new_v, new_off, errno);
+        return &PL_sv_no;
+      }
+      state++;
+    }
+    if ( 2 == state ) return &PL_sv_yes;
+  }
+  return &PL_sv_no;
 }
 
 SV *CAttrs::patch_ulb(int idx, U32 old_v, U32 new_v)
@@ -1671,6 +1711,15 @@ patch_ulb(SV *self, int idx, U32 old_v, U32 new_v)
   auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
  CODE:
   RETVAL = d->patch_ulb(idx, old_v, new_v);
+ OUTPUT:
+  RETVAL
+
+SV *
+swap_ulb(SV *self, int idx, U32 first_off, U32 first_v, U32 second_off, U32 second_v)
+ INIT:
+  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+ CODE:
+  RETVAL = d->swap_ulb(idx, first_off, first_v, second_off, second_v);
  OUTPUT:
   RETVAL
 
