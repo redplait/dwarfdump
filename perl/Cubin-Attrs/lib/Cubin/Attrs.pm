@@ -332,7 +332,8 @@ of them - so you can extract attribute by index with just $fb->[index], result i
 
 =back
 
-To extract value of specific attribute use methos $fb->value(index).
+To extract value of specific attribute use methos $fb->value(index). Warning - returned result depends from attribute, like array of words for EIATTR_STATISTICS,
+array of offsets for most of INSTR_OFFSETS and so on
 
 To filter specific tags you can use method $fb->grep(tag) - results is ref to array with the same hashes as obtainded with indexing attributes
 
@@ -370,6 +371,22 @@ Indirect branches returned as hash where key is offset of branch and value can b
 
 Presence of annotations can be checked via method has_ann. To extract whole hash (where keys are offsets) use method ann. To gather types
 statistic use method ann_stat - seems that type always 1
+
+for EIATTR_MBARRIER_INSTR_OFFSETS use method mbars - it returns ref to hash where key is instruction offset and value is array
+
+=over
+
+=item 0 - reg number
+
+=item 1 - memory offset
+
+=item 2 - mask
+
+=item 3 - uniform reg number
+
+=back
+
+for EIATTR_UNUSED_LOAD_BYTE_OFFSET method value returns ref to hash where key is instruction offset and value is unknown - just word contained in each ULB item
 
 =head4 tk.info notes
 
