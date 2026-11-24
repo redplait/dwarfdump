@@ -300,6 +300,7 @@ struct CAttrs {
   SV *fetch_cors(const CAttr &a);
   SV *fetch_ulb(const CAttr &a); // for EIATTR_UNUSED_LOAD_BYTE_OFFSET
   SV *addr_list(const CAttr &a);
+  SV *stat_arr(const CAttr &a); // for EIATTR_STATISTICS
   SV *mbar_list();
   SV *mbar_hash();
   SV *ibt_hash();
@@ -765,6 +766,18 @@ SV *CAttrs::fetch_ulb(const CAttr &a)
   return newRV_noinc((SV*)hv);
 }
 
+SV *CAttrs::stat_arr(const CAttr &a)
+{
+  if ( !a.len ) return &PL_sv_undef;
+  auto sec = m_e->rdr->sections[s_idx];
+  const char *data = sec->get_data() + 4 + a.offset;
+  AV *av = newAV();
+  uint32_t *addr = (uint32_t *)(data);
+  for ( size_t idx = 0; idx < a.len / sizeof(uint32_t); ++idx )
+    av_push(av, newSVuv(addr[idx]));
+  return newRV_noinc((SV*)av);
+}
+
 SV *CAttrs::fetch_cors(const CAttr &a)
 {
   if ( !a.len ) return &PL_sv_undef;
@@ -875,6 +888,8 @@ SV *CAttrs::get_value(int idx) {
    my_warn("get_value idx %d attr %X len %d\n", idx, attr.attr, attr.len);
 #endif
   if ( !attr.len ) return &PL_sv_yes;
+  if ( attr.attr == 0x33 ) // EIATTR_STATISTICS
+    return stat_arr(attr);
   if ( attr.attr == 0x34 ) // EIATTR_INDIRECT_BRANCH_TARGETS
     return ibt_hash();
   if ( attr.attr == 0xf ) // EIATTR_EXTERNS
