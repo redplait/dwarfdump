@@ -1417,6 +1417,10 @@ static U32 my_len(pTHX_ SV *sv, MAGIC* mg)
   return (U32)d->m_attrs.size()-1;
 }
 
+static CAttrs* get_ca(SV *self) {
+  return magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+}
+
 #define RET_RES   if ( res.empty() ) { \
     if ( gimme == G_ARRAY) { XSRETURN_EMPTY; \
     } else { mXPUSHs(&PL_sv_undef); XSRETURN(1); } \
@@ -1463,7 +1467,7 @@ compat(SV *self)
  ALIAS:
   Cubin::Attrs::tk_info = 1
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = (1 == ix) ? d->tk_index() : d->try_compat();
  OUTPUT:
@@ -1472,7 +1476,7 @@ compat(SV *self)
 SV *
 try(SV *self, int t_idx)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = d->try_attr(t_idx);
  OUTPUT:
@@ -1481,7 +1485,7 @@ try(SV *self, int t_idx)
 void
 clear(SV *self)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   d->clear();
 
@@ -1490,7 +1494,7 @@ try_rel(SV *self, int t_idx)
  ALIAS:
    Cubin::Attrs::try_rela = 1
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
   auto what = (1 == ix) ? ELFIO::SHT_RELA : ELFIO::SHT_REL;
  CODE:
   RETVAL = d->try_rels(t_idx, what);
@@ -1500,7 +1504,7 @@ try_rel(SV *self, int t_idx)
 SV *
 patch_ft(SV *self, int s_idx, int r_idx, int reloc_type)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = d->patch_rels(s_idx, r_idx, reloc_type) ? &PL_sv_yes : &PL_sv_no;
  OUTPUT:
@@ -1509,7 +1513,7 @@ patch_ft(SV *self, int s_idx, int r_idx, int reloc_type)
 SV *
 patch_ftif(SV *self, int s_idx, int r_idx, int reloc_type, int old_reloc)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = d->patch_relsif(s_idx, r_idx, reloc_type, old_reloc) ? &PL_sv_yes : &PL_sv_no;
  OUTPUT:
@@ -1518,7 +1522,7 @@ patch_ftif(SV *self, int s_idx, int r_idx, int reloc_type, int old_reloc)
 SV *
 patch_foff(SV *self, int s_idx, int r_idx, UV new_offset)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = d->patch_rel_off(s_idx, r_idx, new_offset) ? &PL_sv_yes : &PL_sv_no;
  OUTPUT:
@@ -1527,7 +1531,7 @@ patch_foff(SV *self, int s_idx, int r_idx, UV new_offset)
 SV *
 patch_foffa(SV *self, int s_idx, int r_idx, UV new_offset, IV add_delta = 0)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = d->patch_rela_off(s_idx, r_idx, new_offset, add_delta) ? &PL_sv_yes : &PL_sv_no;
  OUTPUT:
@@ -1536,7 +1540,7 @@ patch_foffa(SV *self, int s_idx, int r_idx, UV new_offset, IV add_delta = 0)
 SV *
 swap_rel(SV *self, int s_idx, int r1, int r2)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   if ( r1 > r2 ) std::swap(r1, r2);
   if ( r1 == r2 ) // wtf? nothing to patch
@@ -1551,7 +1555,7 @@ read(SV *self, int idx)
  ALIAS:
    Cubin::Attrs::read_tk = 1
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = (1 == ix) ? d->read_tk(idx) : d->read(idx);
  OUTPUT:
@@ -1560,7 +1564,7 @@ read(SV *self, int idx)
 SV *
 stat(SV *self)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
   HV *res = newHV();
  CODE:
   for ( auto ai: d->attr_stat ) {
@@ -1573,7 +1577,7 @@ stat(SV *self)
 SV *
 link(SV *self)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   if ( -1 == d->s_idx || !d->m_e ) RETVAL = &PL_sv_undef;
   else {
@@ -1593,7 +1597,7 @@ is_addr_list(SV *self, int v)
 SV *
 attr_name(SV *self, int v)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
   std::unordered_map<int, const char *>::const_iterator nv;
  CODE:
   nv = s_ei.find(v);
@@ -1607,7 +1611,7 @@ attr_name(SV *self, int v)
 UV
 count(SV *self)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = d->m_attrs.size();
  OUTPUT:
@@ -1616,7 +1620,7 @@ count(SV *self)
 SV *
 FETCH(SV *self, int idx)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = d->fetch(idx);
  OUTPUT:
@@ -1625,7 +1629,7 @@ FETCH(SV *self, int idx)
 SV *
 sym_pair(SV *self, char attr, int sym)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   if ( !pair_with_sym(attr) ) RETVAL = &PL_sv_undef;
   else RETVAL = d->grep_by_sym(attr, sym);
@@ -1635,7 +1639,7 @@ sym_pair(SV *self, char attr, int sym)
 SV *
 sym_pairs(SV *self, UV sym)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = d->sym_pairs(sym);
  OUTPUT:
@@ -1644,7 +1648,7 @@ sym_pairs(SV *self, UV sym)
 SV *
 grep_sym_pair(SV *self, UV sym, SV *ar)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
   std::unordered_set<unsigned char> keys;
   AV* array;
  CODE:
@@ -1678,7 +1682,7 @@ param(SV *self, int idx)
  ALIAS:
    Cubin::Attrs::value = 1
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = 1 == ix ? d->get_value(idx) : d->fetch_cb(idx);
  OUTPUT:
@@ -1687,7 +1691,7 @@ param(SV *self, int idx)
 SV *
 mbars(SV *self)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = d->mbar_hash();
  OUTPUT:
@@ -1696,7 +1700,7 @@ mbars(SV *self)
 SV *
 patch(SV *self, int idx, unsigned long v)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = d->patch(idx, v);
  OUTPUT:
@@ -1705,7 +1709,7 @@ patch(SV *self, int idx, unsigned long v)
 SV *
 patch_sym_pair(SV *self, int idx, int v)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = d->patch_sym_pair(idx, v);
  OUTPUT:
@@ -1714,7 +1718,7 @@ patch_sym_pair(SV *self, int idx, int v)
 SV *
 patch_addr(SV *self, int idx, int a_idx, U32 v)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = d->patch_addr(idx, a_idx, v);
  OUTPUT:
@@ -1723,7 +1727,7 @@ patch_addr(SV *self, int idx, int a_idx, U32 v)
 SV *
 patch_ulb(SV *self, int idx, U32 old_v, U32 new_v)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = d->patch_ulb(idx, old_v, new_v);
  OUTPUT:
@@ -1732,7 +1736,7 @@ patch_ulb(SV *self, int idx, U32 old_v, U32 new_v)
 SV *
 swap_ulb(SV *self, int idx, U32 first_off, U32 first_v, U32 second_off, U32 second_v)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = d->swap_ulb(idx, first_off, first_v, second_off, second_v);
  OUTPUT:
@@ -1741,7 +1745,7 @@ swap_ulb(SV *self, int idx, U32 first_off, U32 first_v, U32 second_off, U32 seco
 SV *
 patch_alist(SV *self, int idx, SV *ar)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
   AV* array;
  CODE:
   // Check if it's a valid array reference
@@ -1756,7 +1760,7 @@ patch_alist(SV *self, int idx, SV *ar)
 SV *
 patch_ib_addr(SV *self, UV addr, UV new_addr)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   // check if we have ibt
   if ( d->indirect_branches.empty() )
@@ -1771,7 +1775,7 @@ patch_ib_addr(SV *self, UV addr, UV new_addr)
 SV *
 patch_ibt(SV *self, UV addr, SV *what)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
   std::unordered_map<uint32_t, ib_item>::iterator ibt_iter;
  CODE:
   // check if we have ibt
@@ -1811,7 +1815,7 @@ patch_ibt(SV *self, UV addr, SV *what)
 UV
 params_cnt(SV *self)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = d->params.size();
  OUTPUT:
@@ -1822,7 +1826,7 @@ cb_size(SV *self)
  ALIAS:
    Cubin::Attrs::cb_off = 1
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = (1 == ix) ? d->cb_offset : d->cb_size;
  OUTPUT:
@@ -1831,7 +1835,7 @@ cb_size(SV *self)
 SV *
 ann_stat(SV *self)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   if ( !d->has_ann() )
     RETVAL = &PL_sv_undef;
@@ -1843,7 +1847,7 @@ ann_stat(SV *self)
 SV *
 patch_ann(SV *self, unsigned int from_v, unsigned int to_v)
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   if ( !d->has_ann() )
     RETVAL = &PL_sv_undef;
@@ -1858,7 +1862,7 @@ has_ann(SV *self)
    Cubin::Attrs::_ann = 1
    Cubin::Attrs::ann = 2
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   if ( 1 == ix )
    RETVAL = newSViv(d->m_ann);
@@ -1876,7 +1880,7 @@ tk_name(SV *self)
    Cubin::Attrs::tk_build = 2
    Cubin::Attrs::tk_cmd = 3
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  CODE:
   RETVAL = d->get_tk(ix);
  OUTPUT:
@@ -1886,7 +1890,7 @@ void
 grep_list(SV *self,SV *ar)
   U8 gimme = GIMME_V;
  INIT:
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
   AV* array;
   std::unordered_set<int> keys;
   std::vector<std::pair<const CAttr*, int> > res;
@@ -1924,7 +1928,7 @@ grep(SV *self, IV key)
   U8 gimme = GIMME_V;
  INIT:
   SV *str;
-  auto *d = magic_tied<CAttrs>(self, 1, &ca_magic_vt);
+  auto *d = get_ca(self);
  PPCODE:
   std::vector<std::pair<const CAttr*, int> > res;
   // filter
