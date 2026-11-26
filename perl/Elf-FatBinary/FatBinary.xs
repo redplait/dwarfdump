@@ -607,6 +607,10 @@ static SV * new_enum_dualvar(pTHX_ IV ival, SV *name) {
         return name;
 }
 
+static CFatBin *get_fb(SV *self) {
+  return magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+}
+
 MODULE = Elf::FatBinary		PACKAGE = Elf::FatBinary
 
 void
@@ -633,7 +637,7 @@ new(obj_or_pkg, SV *elsv, const char *fname)
 UV
 read(SV *self)
  INIT:
-  auto *d = magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = get_fb(self);
  CODE:
   RETVAL = d->open();
  OUTPUT:
@@ -642,7 +646,7 @@ read(SV *self)
 UV
 count(SV *self)
  INIT:
-  auto *d = magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = get_fb(self);
  CODE:
   RETVAL = d->count();
  OUTPUT:
@@ -651,7 +655,7 @@ count(SV *self)
 IV
 extract(SV *self, int idx, const char *out_fn)
  INIT:
-  auto *d = magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = get_fb(self);
  CODE:
   RETVAL = d->extract(idx, out_fn);
  OUTPUT:
@@ -660,7 +664,7 @@ extract(SV *self, int idx, const char *out_fn)
 IV
 replace(SV *self, int idx, const char *in_fn)
  INIT:
-  auto *d = magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = get_fb(self);
  CODE:
   RETVAL = d->try_replace(idx, in_fn);
  OUTPUT:
@@ -669,7 +673,7 @@ replace(SV *self, int idx, const char *in_fn)
 SV *
 FETCH(SV *self, int idx)
  INIT:
-  auto *d = magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = get_fb(self);
  CODE:
   RETVAL = d->fetch(idx);
  OUTPUT:
@@ -678,7 +682,7 @@ FETCH(SV *self, int idx)
 UV
 ctrl_idx(SV *self)
  INIT:
-  auto *d = magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = get_fb(self);
  CODE:
   RETVAL = d->ctrl_idx();
  OUTPUT:
@@ -687,7 +691,7 @@ ctrl_idx(SV *self)
 UV
 fb_idx(SV *self)
  INIT:
-  auto *d = magic_tied<CFatBin>(self, 1, &fb_magic_vt);
+  auto *d = get_fb(self);
  CODE:
   RETVAL = d->fb_idx();
  OUTPUT:
